@@ -126,20 +126,20 @@ export const lightTheme = {
     colorInfoBg: STATUS_COLORS.info.bg,
     colorInfoBorder: STATUS_COLORS.info.border,
 
-    // Typography
+    // Typography - Consistent sizing
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: 14,
     fontSizeSM: 12,
     fontSizeLG: 16,
-    fontSizeXL: 20,
-    fontSizeHeading1: 38,
-    fontSizeHeading2: 30,
-    fontSizeHeading3: 24,
-    fontSizeHeading4: 20,
-    fontSizeHeading5: 16,
-    lineHeight: 1.5715,
-    lineHeightLG: 1.5,
-    lineHeightSM: 1.6667,
+    fontSizeXL: 18,
+    fontSizeHeading1: 24,
+    fontSizeHeading2: 20,
+    fontSizeHeading3: 18,
+    fontSizeHeading4: 16,
+    fontSizeHeading5: 14,
+    lineHeight: 1.5,
+    lineHeightLG: 1.4,
+    lineHeightSM: 1.6,
 
     // Border Radius
     borderRadius: 6,
@@ -188,10 +188,13 @@ export const lightTheme = {
     // Button Component
     Button: {
       borderRadius: 6,
-      controlHeight: 36,
-      controlHeightLG: 40,
+      controlHeight: 32,
+      controlHeightLG: 36,
       controlHeightSM: 28,
       fontWeight: 500,
+      fontSize: 13,
+      fontSizeLG: 14,
+      fontSizeSM: 12,
       primaryShadow: '0 2px 0 rgba(0, 0, 0, 0.045)',
       defaultShadow: '0 2px 0 rgba(0, 0, 0, 0.015)',
       dangerShadow: '0 2px 0 rgba(0, 0, 0, 0.045)',
@@ -261,6 +264,9 @@ export const lightTheme = {
       colorFillContent: NEUTRALS.N100,
       colorFillTertiary: NEUTRALS.N50,
       colorFillQuaternary: NEUTRALS.N50,
+      fontSize: 13,
+      headerFontSize: 13,
+      cellFontSize: 13,
     },
 
     // Tabs Component
@@ -516,20 +522,20 @@ export const darkTheme = {
     colorInfoBg: 'hsl(217, 91%, 8%)',
     colorInfoBorder: 'hsl(217, 91%, 15%)',
 
-    // Typography
+    // Typography - Consistent sizing
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: 14,
     fontSizeSM: 12,
     fontSizeLG: 16,
-    fontSizeXL: 20,
-    fontSizeHeading1: 38,
-    fontSizeHeading2: 30,
-    fontSizeHeading3: 24,
-    fontSizeHeading4: 20,
-    fontSizeHeading5: 16,
-    lineHeight: 1.5715,
-    lineHeightLG: 1.5,
-    lineHeightSM: 1.6667,
+    fontSizeXL: 18,
+    fontSizeHeading1: 24,
+    fontSizeHeading2: 20,
+    fontSizeHeading3: 18,
+    fontSizeHeading4: 16,
+    fontSizeHeading5: 14,
+    lineHeight: 1.5,
+    lineHeightLG: 1.4,
+    lineHeightSM: 1.6,
 
     // Border Radius
     borderRadius: 6,
@@ -578,10 +584,13 @@ export const darkTheme = {
     // Button Component
     Button: {
       borderRadius: 6,
-      controlHeight: 36,
-      controlHeightLG: 40,
+      controlHeight: 32,
+      controlHeightLG: 36,
       controlHeightSM: 28,
       fontWeight: 500,
+      fontSize: 13,
+      fontSizeLG: 14,
+      fontSizeSM: 12,
       primaryShadow: '0 2px 0 rgba(0, 0, 0, 0.045)',
       defaultShadow: '0 2px 0 rgba(0, 0, 0, 0.015)',
       dangerShadow: '0 2px 0 rgba(0, 0, 0, 0.045)',
@@ -651,6 +660,9 @@ export const darkTheme = {
       colorFillContent: NEUTRALS.N800,
       colorFillTertiary: NEUTRALS.N800,
       colorFillQuaternary: NEUTRALS.N800,
+      fontSize: 13,
+      headerFontSize: 13,
+      cellFontSize: 13,
     },
 
     // Tabs Component

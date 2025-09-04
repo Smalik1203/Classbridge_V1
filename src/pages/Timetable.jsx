@@ -29,6 +29,8 @@ export default function Timetable() {
   const [daySlots, setDaySlots] = useState([]);
   // chapter index: Map<syllabus_item_id, { unit_no, title, status, subject_id }>
   const [chaptersById, setChaptersById] = useState(new Map());
+  // syllabus content map: Map<content_key, { type, chapterId, topicId, chapterNo, topicNo, title }>
+  const [syllabusContentMap, setSyllabusContentMap] = useState(new Map());
 
   // bootstrap
   useEffect(() => {
@@ -187,7 +189,8 @@ export default function Timetable() {
   async function fetchDaySlots() {
     if (!classId || !dateStr) return setDaySlots([]);
     try {
-      const { data, error } = await supabase
+      // First try with new columns, fallback to basic columns if they don't exist
+      let { data, error } = await supabase
         .from('timetable_slots')
         .select(`
           id, class_instance_id, class_date, period_number,
@@ -198,6 +201,37 @@ export default function Timetable() {
         .eq('class_date', dateStr)
         .order('start_time', { ascending: true })
         .order('period_number', { ascending: true });
+
+      // If the basic query works, try to get the new columns separately
+      if (!error && data) {
+        try {
+          const { data: extendedData, error: extendedError } = await supabase
+            .from('timetable_slots')
+            .select(`id, syllabus_chapter_id, syllabus_topic_id`)
+            .eq('class_instance_id', classId)
+            .eq('class_date', dateStr);
+          
+          if (!extendedError && extendedData) {
+            // Merge the extended data
+            // console.log('Extended data from DB:', extendedData);
+            data = data.map(slot => {
+              const extended = extendedData.find(e => e.id === slot.id);
+              const merged = {
+                ...slot,
+                syllabus_chapter_id: extended?.syllabus_chapter_id || null,
+                syllabus_topic_id: extended?.syllabus_topic_id || null,
+              };
+              // if (extended?.syllabus_chapter_id) {
+              //   console.log(`Merged slot ${slot.id}:`, merged);
+              // }
+              return merged;
+            });
+          }
+        } catch (extendedErr) {
+          // New columns don't exist yet, continue with basic data
+          // console.log('New syllabus columns not available yet:', extendedErr.message);
+        }
+      }
       if (error) { 
         console.error('timetable_slots table error:', error);
         msg.error('Timetable slots table not available');
@@ -251,11 +285,73 @@ export default function Timetable() {
     }
   }
 
+  // build syllabus content map for new structure (chapters and topics)
+  async function fetchSyllabusContentMap() {
+    if (!classId) return setSyllabusContentMap(new Map());
+    try {
+      const { data: syllabi, error: sylErr } = await supabase
+        .from('syllabi').select('id, subject_id').eq('class_instance_id', classId);
+      if (sylErr) { 
+        console.error('syllabi table error:', sylErr);
+        setSyllabusContentMap(new Map());
+        return; 
+      }
+      const ids = (syllabi ?? []).map(s => s.id);
+      if (!ids.length) return setSyllabusContentMap(new Map());
+
+      // Get chapters with their topics
+      const { data: chapters, error: chErr } = await supabase
+        .from('syllabus_chapters')
+        .select(`
+          id, chapter_no, title, description,
+          syllabus_topics(id, topic_no, title, description)
+        `)
+        .in('syllabus_id', ids)
+        .order('chapter_no');
+      
+      if (chErr) { 
+        console.error('syllabus_chapters table error:', chErr);
+        setSyllabusContentMap(new Map());
+        return; 
+      }
+
+      const contentMap = new Map();
+      (chapters || []).forEach(chapter => {
+        // Add chapter to map
+        contentMap.set(`chapter_${chapter.id}`, {
+          type: 'chapter',
+          chapterId: chapter.id,
+          chapterNo: chapter.chapter_no,
+          title: chapter.title
+        });
+        
+        // Add topics to map
+        (chapter.syllabus_topics || []).forEach(topic => {
+          contentMap.set(`topic_${topic.id}`, {
+            type: 'topic',
+            chapterId: chapter.id,
+            topicId: topic.id,
+            chapterNo: chapter.chapter_no,
+            topicNo: topic.topic_no,
+            title: topic.title,
+            chapterTitle: chapter.title
+          });
+        });
+      });
+      
+      setSyllabusContentMap(contentMap);
+    } catch (e) {
+      console.error('fetchSyllabusContentMap error:', e);
+      setSyllabusContentMap(new Map());
+    }
+  }
+
   // refresh on class/date change
   useEffect(() => {
     if (!classId || !dateStr) return;
     fetchDaySlots();
     fetchChaptersIndex();
+    fetchSyllabusContentMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId, dateStr]);
 
@@ -304,6 +400,7 @@ export default function Timetable() {
             admins={admins}
             daySlots={daySlots}
             chaptersById={chaptersById}
+            syllabusContentMap={syllabusContentMap}
             refreshDay={fetchDaySlots}
           />
         ),
@@ -322,6 +419,7 @@ export default function Timetable() {
           admins={admins}
           daySlots={daySlots}
           chaptersById={chaptersById}
+          syllabusContentMap={syllabusContentMap}
           onSyllabusStatusChange={(itemId, newStatus) => {
             // Update the chaptersById map when status changes
             const updatedChapter = chaptersById.get(itemId);
@@ -335,7 +433,7 @@ export default function Timetable() {
     });
     
     return baseTabs;
-  }, [me?.role, classId, date, subjects, admins, daySlots, chaptersById, fetchDaySlots]);
+  }, [me?.role, classId, date, subjects, admins, daySlots, chaptersById, syllabusContentMap, fetchDaySlots]);
 
   return (
     <Card

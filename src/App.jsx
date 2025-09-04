@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, ConfigProvider } from 'antd';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -36,16 +36,29 @@ const { Content } = Layout;
 // Global layout with sidebar
 function AppLayout({ children }) {
   const { theme: antdTheme } = useTheme();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Save sidebar state to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
+  }, [sidebarCollapsed]);
   
   return (
     <Layout style={{ 
       minHeight: '100vh',
       background: antdTheme.token.colorBgLayout
     }}>
-      <AppSidebar />
+      <AppSidebar 
+        collapsed={sidebarCollapsed} 
+        onCollapse={setSidebarCollapsed}
+      />
       <Layout style={{ 
-        marginLeft: 280,
-        background: 'transparent'
+        marginLeft: sidebarCollapsed ? 48 : 280,
+        background: 'transparent',
+        transition: 'margin-left 0.2s ease'
       }}>
         <Content style={{
           padding: '24px',

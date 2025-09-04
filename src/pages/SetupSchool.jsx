@@ -119,10 +119,12 @@ const SetupSchool = () => {
                   <Link to={step.link}>
                     <Button 
                       type="primary" 
-                      size="large"
+                      size="middle"
                       style={{ 
                         backgroundColor: step.color,
                         borderColor: step.color,
+                        fontSize: '13px',
+                        height: '32px',
                         width: '100%',
                         borderRadius: '8px',
                         fontWeight: 500

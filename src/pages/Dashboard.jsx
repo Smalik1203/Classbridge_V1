@@ -103,11 +103,14 @@ const Dashboard = () => {
             <Space>
               <Button 
                 type="primary" 
+                size="middle"
                 style={{ 
                   background: antdTheme.token.colorPrimary, 
                   borderColor: antdTheme.token.colorPrimary,
                   borderRadius: antdTheme.token.borderRadius,
-                  fontWeight: 500
+                  fontWeight: 500,
+                  fontSize: '13px',
+                  height: '32px'
                 }}
               >
                 {getRoleDisplay(role)}

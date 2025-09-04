@@ -14,6 +14,7 @@ export default function ViewTab({
   admins = [],
   daySlots = [],   // timetable_slots of that date
   chaptersById = new Map(),
+  syllabusContentMap = new Map(), // For resolving new syllabus structure names
   onSyllabusStatusChange,
 }) {
   const subjectName = (id) => subjects.find(s => s.id === id)?.subject_name || '—';
@@ -31,51 +32,117 @@ export default function ViewTab({
   const columns = [
     {
       title: 'Slot', key: 'slot', width: 180,
+      responsive: ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'],
       render: (_, r) => r.slot_type === 'break'
         ? <Tag color="gold">{r.name || 'Break'}</Tag>
         : <Text strong>Period #{r.period_number}</Text>
     },
     {
       title: 'Time', key: 'time', width: 140,
+      responsive: ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'],
       render: (_, r) => (<Space size={6}><ClockCircleOutlined /><span>{String(r.start_time).slice(0,5)}–{String(r.end_time).slice(0,5)}</span></Space>)
     },
     {
       title: 'Subject', key: 'subject', width: 220,
+      responsive: ['sm', 'md', 'lg', 'xl', 'xxl'],
       render: (_, r) => r.slot_type === 'period'
         ? (r.subject_id ? <Space size={6}><BookOutlined /><span>{subjectName(r.subject_id)}</span></Space> : <Tag>Unassigned</Tag>)
         : <Text type="secondary">—</Text>
     },
     {
-      title: 'Admin', key: 'admin', width: 220,
+      title: 'Teacher', key: 'teacher', width: 220,
+      responsive: ['md', 'lg', 'xl', 'xxl'],
       render: (_, r) => r.slot_type === 'period'
         ? (r.teacher_id ? <span>{adminName(r.teacher_id)}</span> : <Text type="secondary">—</Text>)
         : <Text type="secondary">—</Text>
     },
     {
-      title: 'Chapter & Progress', key: 'chapter', width: 400,
+      title: 'Chapter', key: 'chapter', width: 200,
+      responsive: ['md', 'lg', 'xl', 'xxl'],
       render: (_, r) => {
         if (r.slot_type === 'break') return <Text type="secondary">—</Text>;
+        
+        // Check for new syllabus structure first
+        if (r.syllabus_topic_id) {
+          const topicContent = syllabusContentMap.get(`topic_${r.syllabus_topic_id}`);
+          if (topicContent) {
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Tag color="green" style={{ fontSize: '9px', margin: 0, padding: '1px 6px', lineHeight: '16px' }}>Ch{topicContent.chapterNo}</Tag>
+                <Text style={{ fontSize: '11px', color: '#1890ff', fontWeight: 500 }}>
+                  {topicContent.chapterTitle}
+                </Text>
+              </div>
+            );
+          }
+          return <Tag color="orange">Content not loaded</Tag>;
+        } else if (r.syllabus_chapter_id) {
+          const chapterContent = syllabusContentMap.get(`chapter_${r.syllabus_chapter_id}`);
+          if (chapterContent) {
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Tag color="green" style={{ fontSize: '9px', margin: 0, padding: '1px 6px', lineHeight: '16px' }}>Ch{chapterContent.chapterNo}</Tag>
+                <Text style={{ fontSize: '11px', color: '#1890ff', fontWeight: 500 }}>
+                  {chapterContent.title}
+                </Text>
+              </div>
+            );
+          }
+          return <Tag color="orange">Chapter not loaded</Tag>;
+        }
+        
+        // Fallback to old structure
         const chId = r.syllabus_item_id;
-        if (!chId) return <Text type="secondary">—</Text>;
+        if (!chId) {
+          return (
+            <Tag color="red" style={{ fontSize: '11px' }}>
+              Not assigned
+            </Tag>
+          );
+        }
         const ch = chaptersById.get(chId);
-        if (!ch) return <Text type="secondary">Chapter selected</Text>;
+        if (!ch) return <Tag color="red">Chapter Missing</Tag>;
         
         return (
-          <SyllabusProgressIndicator
-            classInstanceId={classId}
-            subjectId={r.subject_id}
-            syllabusItemId={chId}
-            onStatusChange={onSyllabusStatusChange}
-            showProgress={false}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Tag color="green" style={{ fontSize: '9px', margin: 0, padding: '1px 6px', lineHeight: '16px' }}>Ch{ch.unit_no}</Tag>
+            <Text style={{ fontSize: '11px', color: '#1890ff', fontWeight: 500 }}>
+              {ch.title}
+            </Text>
+          </div>
         );
       }
     },
     {
-      title: 'Description', key: 'desc', width: 360,
-      render: (_, r) => r.slot_type === 'period'
-        ? (r.plan_text ? r.plan_text : <Text type="secondary">—</Text>)
-        : <Text type="secondary">—</Text>
+      title: 'Sub Topic', key: 'subtopic', width: 200,
+      responsive: ['lg', 'xl', 'xxl'],
+      render: (_, r) => {
+        if (r.slot_type === 'break') return <Text type="secondary">—</Text>;
+        
+        // Check for new syllabus structure first
+        if (r.syllabus_topic_id) {
+          const topicContent = syllabusContentMap.get(`topic_${r.syllabus_topic_id}`);
+          if (topicContent) {
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Tag color="blue" style={{ fontSize: '9px', margin: 0, padding: '1px 6px', lineHeight: '16px' }}>T{topicContent.topicNo}</Tag>
+                <Text style={{ fontSize: '11px', color: '#52c41a' }}>
+                  {topicContent.title}
+                </Text>
+              </div>
+            );
+          }
+          return <Tag color="orange">Content not loaded</Tag>;
+        } else if (r.syllabus_chapter_id) {
+          return <Text style={{ fontSize: '10px', color: '#999' }}>No specific topic</Text>;
+        }
+        
+        // Fallback to old structure
+        if (r.syllabus_item_id) {
+          return <Text style={{ fontSize: '10px', color: '#999' }}>No subtopics (old structure)</Text>;
+        }
+        return <Text style={{ fontSize: '10px', color: '#999' }}>No Topic</Text>;
+      }
     },
   ];
 
@@ -89,21 +156,31 @@ export default function ViewTab({
           pagination={false}
           bordered
           scroll={{ x: 1200 }}
-          rowClassName={(r) => r.slot_type === 'break' ? 'row-break' : ''}
-          size="middle"
+          rowClassName={(r, index) => {
+            if (r.slot_type === 'break') return 'row-break';
+            return index % 2 === 0 ? 'row-period-even' : 'row-period-odd';
+          }}
+          size="small"
+          responsive={true}
         />
       ) : (
         <Card style={{ textAlign: 'center', padding: '40px 20px' }}>
           <Empty 
             description={
               <div>
-                <Text type="secondary" style={{ fontSize: '16px' }}>
-                  No schedule available for this date
-                </Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: '14px' }}>
-                  Check back later or contact your administrator
-                </Text>
+                <div style={{ marginBottom: '16px' }}>
+                  <Text type="secondary" style={{ fontSize: '18px', fontWeight: 500 }}>
+                    📅 No timetable created yet
+                  </Text>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <Text type="secondary" style={{ fontSize: '14px' }}>
+                    Switch to the <strong>Manage</strong> tab to create your first timetable
+                  </Text>
+                </div>
+                <div style={{ fontSize: '12px', color: '#999' }}>
+                  You can add periods, breaks, and assign syllabus content
+                </div>
               </div>
             }
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -111,12 +188,43 @@ export default function ViewTab({
         </Card>
       )}
       <style>{`
+        /* Reduce row height */
+        .ant-table-tbody > tr > td {
+          padding: 8px 12px !important;
+          height: 40px !important;
+        }
+        .ant-table-thead > tr > th {
+          padding: 8px 12px !important;
+          height: 40px !important;
+          font-size: 13px !important;
+          font-weight: 500 !important;
+          color: #666 !important;
+        }
+        
+        /* Zebra striping */
+        .row-period-even td { 
+          background: #fafafa !important; 
+        }
+        .row-period-odd td { 
+          background: #ffffff !important; 
+        }
         .row-break td { 
-          background: #fffbe6 !important; 
+          background: #fff7e6 !important; 
           border-bottom: 2px solid #f0f0f0 !important;
         }
-        .ant-table-tbody > tr:hover > td {
-          background-color: #f5f5f5 !important;
+        
+        /* Hover effects */
+        .row-period-even:hover td {
+          background-color: #f0f9ff !important;
+          border-color: #91d5ff !important;
+        }
+        .row-period-odd:hover td {
+          background-color: #f0f9ff !important;
+          border-color: #91d5ff !important;
+        }
+        .row-break:hover td {
+          background-color: #fff7e6 !important;
+          border-color: #ffd591 !important;
         }
       `}</style>
     </div>

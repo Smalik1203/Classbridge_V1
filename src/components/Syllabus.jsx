@@ -884,10 +884,11 @@ export default function SyllabusPage() {
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
               <Button 
                 type="primary" 
-                size="large"
+                size="middle"
                 disabled={!subjectId || !classInstanceId}
                 onClick={loadSyllabusTree}
                 loading={busy}
+                style={{ fontSize: '13px', height: '32px' }}
               >
                 Load Syllabus
               </Button>
@@ -936,21 +937,24 @@ export default function SyllabusPage() {
                   type="primary" 
                   icon={<PlusOutlined />} 
                   onClick={() => openChapterModal()}
-                  size="large"
+                  size="middle"
+                  style={{ fontSize: '13px', height: '32px' }}
                 >
                   Add Chapter
                 </Button>
                 <Button 
                   icon={<CopyOutlined />}
                   onClick={openCopyModal}
-                  size="large"
+                  size="middle"
+                  style={{ fontSize: '13px', height: '32px' }}
                 >
                   Copy from Existing Class
                 </Button>
                 <Button 
                   icon={<DownloadOutlined />} 
                   onClick={exportSyllabus}
-                  size="large"
+                  size="middle"
+                  style={{ fontSize: '13px', height: '32px' }}
                 >
                   Export
                 </Button>
@@ -961,7 +965,8 @@ export default function SyllabusPage() {
                 >
                   <Button 
                     icon={<UploadOutlined />} 
-                    size="large"
+                    size="middle"
+                    style={{ fontSize: '13px', height: '32px' }}
                   >
                     Import
                   </Button>
@@ -970,7 +975,8 @@ export default function SyllabusPage() {
                   <Button 
                     icon={<FileExcelOutlined />} 
                     onClick={downloadTemplate}
-                    size="large"
+                    size="middle"
+                    style={{ fontSize: '13px', height: '32px' }}
                   >
                     Template
                   </Button>
@@ -991,7 +997,8 @@ export default function SyllabusPage() {
                   type="primary" 
                   icon={<PlusOutlined />} 
                   onClick={() => openChapterModal()}
-                  size="large"
+                  size="middle"
+                  style={{ fontSize: '13px', height: '32px' }}
                 >
                   Add First Chapter
                 </Button>

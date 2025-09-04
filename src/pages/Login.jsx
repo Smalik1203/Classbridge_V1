@@ -137,11 +137,12 @@ const Login = () => {
                 htmlType="submit"
                 loading={loading}
                 icon={<LoginOutlined />}
+                size="middle"
                 style={{
                   width: '100%',
-                  height: '48px',
+                  height: '36px',
                   borderRadius: '8px',
-                  fontSize: '16px',
+                  fontSize: '14px',
                   fontWeight: '500',
                   background: '#6366f1',
                   borderColor: '#6366f1',

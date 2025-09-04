@@ -150,13 +150,14 @@ export const AddSchools = () => {
                 htmlType="submit"
                 icon={<SaveOutlined />}
                 loading={loading}
-                size="large"
+                size="middle"
                 style={{
+                  fontSize: '13px',
+                  height: '32px',
                   background: '#6366f1',
                   borderColor: '#6366f1',
                   borderRadius: '8px',
                   fontWeight: 500,
-                  height: '48px',
                 }}
                 block
               >

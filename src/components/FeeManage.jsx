@@ -494,6 +494,8 @@ export default function FeeManage() {
             icon={<EditOutlined />}
             onClick={() => openEditor(record)}
             disabled={!canWrite}
+            size="middle"
+            style={{ fontSize: '13px', height: '32px' }}
           >
             Edit Plan
           </Button>
