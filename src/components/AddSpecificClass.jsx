@@ -11,7 +11,8 @@ import {
   Col,
   message,
   Table,
-  Tag
+  Tag,
+  Modal
 } from 'antd';
 import {
   CalendarOutlined,
@@ -36,6 +37,10 @@ const AddSpecificClass = () => {
   const [addingYear, setAddingYear] = useState(false);
   const [classInstances, setClassInstances] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [assignRecord, setAssignRecord] = useState(null);
+  const [assignForm] = Form.useForm();
 
   useEffect(() => {
     fetchAcademicYears();
@@ -68,6 +73,7 @@ const AddSpecificClass = () => {
         id,
         grade,
         section,
+        class_teacher_id,
         created_at,
         class:classes (grade, section),
         year:academic_years (year_start, year_end),
@@ -78,7 +84,7 @@ const AddSpecificClass = () => {
       .order('section');
 
     if (error) {
-      message.error('Error fetching class instances');
+      message.error('Error fetching classes');
     } else {
       setClassInstances(data || []);
     }
@@ -154,7 +160,7 @@ const AddSpecificClass = () => {
         .eq('academic_year_id', academicYearId)
         .eq('school_code', school_code);
       if (existingInstance && existingInstance.length > 0) {
-        message.error('Class instance already exists for this academic year');
+        message.error('Class already exists for this academic year');
         setLoading(false);
         return;
       }
@@ -174,7 +180,7 @@ const AddSpecificClass = () => {
       if (insertError) {
         message.error(insertError.message);
       } else {
-        message.success('Class instance created successfully');
+        message.success('Class created successfully');
         form.resetFields();
         setAddingYear(false);
         fetchClassInstances(); // Refresh after insert
@@ -204,10 +210,23 @@ const AddSpecificClass = () => {
       render: (year) => `${year?.year_start} - ${year?.year_end}`,
     },
     {
-      title: 'Class Teacher',
+      title: 'Class Admin',
       dataIndex: 'teacher',
       key: 'teacher',
       render: (teacher) => teacher?.full_name || '-',
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Button size="small" onClick={() => {
+          setAssignRecord(record);
+          assignForm.setFieldsValue({ class_teacher_id: record?.class_teacher_id || undefined });
+          setAssignOpen(true);
+        }}>
+          Assign Admin
+        </Button>
+      )
     },
     {
       title: 'Created At',
@@ -225,7 +244,7 @@ const AddSpecificClass = () => {
             <Space>
               <BookOutlined />
               <Title level={3} style={{ margin: 0, color: '#1e293b', fontWeight: 600 }}>
-                Add Specific Class Instance
+                Add Class
               </Title>
             </Space>
           }
@@ -310,11 +329,11 @@ const AddSpecificClass = () => {
               <Col xs={24} md={12}>
                 <Form.Item
                   name="class_teacher_id"
-                  label="Class Teacher"
-                  rules={[{ required: true, message: 'Please select class teacher' }]}
+                  label="Class Admin"
+                  rules={[{ required: true, message: 'Please select class admin' }]}
                 >
                   <Select
-                    placeholder="Select Class Teacher"
+                    placeholder="Select Class Admin"
                     showSearch
                     optionFilterProp="children"
                     suffixIcon={<UserOutlined />}
@@ -342,7 +361,7 @@ const AddSpecificClass = () => {
                   fontWeight: 500,
                 }}
               >
-                {loading ? 'Creating...' : 'Create Class Instance'}
+                {loading ? 'Creating...' : 'Create Class'}
               </Button>
               <Button
                 size="large"
@@ -357,9 +376,9 @@ const AddSpecificClass = () => {
             </Form.Item>
           </Form>
 
-          {/* Display Class Instances */}
+          {/* Display Classes */}
           <div style={{ marginTop: '40px' }}>
-            <Title level={4}>Existing Class Instances</Title>
+            <Title level={4}>Existing Classes</Title>
             <Table
               dataSource={classInstances}
               columns={columns}
@@ -370,6 +389,55 @@ const AddSpecificClass = () => {
           </div>
         </Card>
       </div>
+      {/* Assign/Change Admin Modal */}
+      <Modal
+        title="Assign Class Admin"
+        open={assignOpen}
+        onCancel={() => setAssignOpen(false)}
+        onOk={async () => {
+          try {
+            const v = await assignForm.validateFields();
+            if (!assignRecord?.id) return;
+            setAssignBusy(true);
+            const { error } = await supabase
+              .from('class_instances')
+              .update({ class_teacher_id: v.class_teacher_id })
+              .eq('id', assignRecord.id);
+            if (error) throw error;
+            message.success('Assigned admin to class');
+            setAssignOpen(false);
+            setAssignRecord(null);
+            assignForm.resetFields();
+            fetchClassInstances();
+          } catch (e) {
+            if (e?.errorFields) return;
+            message.error(e?.message || 'Failed to assign admin');
+          } finally { setAssignBusy(false); }
+        }}
+        confirmLoading={assignBusy}
+        okText="Save"
+      >
+        <Form form={assignForm} layout="vertical">
+          <Form.Item
+            name="class_teacher_id"
+            label="Class Admin"
+            rules={[{ required: true, message: 'Please select class admin' }]}
+          >
+            <Select
+              placeholder="Select Class Admin"
+              showSearch
+              optionFilterProp="children"
+              suffixIcon={<UserOutlined />}
+            >
+              {admins.map((admin) => (
+                <Option key={admin.id} value={admin.id}>
+                  {admin.full_name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

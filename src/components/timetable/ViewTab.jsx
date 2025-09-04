@@ -102,7 +102,7 @@ export default function ViewTab({
                 </Text>
                 <br />
                 <Text type="secondary" style={{ fontSize: '14px' }}>
-                  Check back later or contact your teacher
+                  Check back later or contact your administrator
                 </Text>
               </div>
             }

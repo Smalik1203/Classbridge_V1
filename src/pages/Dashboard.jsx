@@ -61,7 +61,6 @@ const Dashboard = () => {
       'cb_admin': 'CB Admin',
       'superadmin': 'Super Admin',
       'admin': 'Admin',
-      'teacher': 'Teacher',
       'student': 'Student',
       // 'parent': 'Parent' // Parent functionality not implemented yet
     };

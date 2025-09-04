@@ -1,12 +1,8 @@
 import React from 'react';
-import SyllabusItemManager from '../components/SyllabusItemManager';
+import SyllabusPage from '../components/Syllabus';
 
 const Syllabus = () => {
-  return (
-    <div style={{ padding: '24px' }}>
-      <SyllabusItemManager />
-    </div>
-  );
+  return <SyllabusPage />;
 };
 
 export default Syllabus;

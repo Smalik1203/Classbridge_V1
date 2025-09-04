@@ -47,7 +47,7 @@ const AppSidebar = () => {
         key: '/',
         icon: <HomeOutlined />,
         label: 'Home',
-        roles: ['cb_admin', 'superadmin', 'admin', 'teacher', 'student']
+        roles: ['cb_admin', 'superadmin', 'admin', 'student']
       },
       {
         key: '/add-schools',
@@ -71,7 +71,7 @@ const AppSidebar = () => {
         key: '/attendance',
         icon: <CalendarOutlined />,
         label: 'Attendance',
-        roles: ['superadmin', 'admin', 'teacher', 'student']
+        roles: ['superadmin', 'admin', 'student']
       },
       {
         key: '/analytics',
@@ -83,7 +83,7 @@ const AppSidebar = () => {
         key: '/results',
         icon: <TrophyOutlined />,
         label: 'Results',
-        roles: ['superadmin', 'admin', 'teacher', 'student']
+        roles: ['superadmin', 'admin', 'student']
       },
       {
         key: '/fees',

@@ -2,7 +2,7 @@
 import { supabase } from '../config/supabaseClient.js';
 
 /**
- * Get class instances for a school
+ * Get classes for a school
  */
 export const getClassInstances = async (schoolCode) => {
   try {
@@ -15,7 +15,7 @@ export const getClassInstances = async (schoolCode) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching class instances:', error);
+    console.error('Error fetching classes:', error);
     throw error;
   }
 };

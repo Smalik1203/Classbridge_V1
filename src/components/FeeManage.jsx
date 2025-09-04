@@ -93,7 +93,7 @@ export default function FeeManage() {
           .single();
         if (!ayErr && ay) setActiveYear(ay);
 
-        // All class instances for the school
+        // All classes for the school
         const { data: cls, error: cErr } = await supabase
           .from("class_instances")
           .select("id, grade, section")

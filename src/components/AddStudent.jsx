@@ -60,7 +60,7 @@ const AddStudent = () => {
         .eq('created_by', super_admin_code);
 
       if (error) {
-        message.error('Failed to load class instances: ' + error.message);
+        message.error('Failed to load classes: ' + error.message);
       } else {
         setClassInstances(data || []);
       }

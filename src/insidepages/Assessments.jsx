@@ -177,11 +177,11 @@ const Assessments = () => {
   ];
 
   const permissions = {
-    canCreateAssessment: ['superadmin', 'admin', 'teacher'].includes(currentUser.role),
-    canEditAssessment: ['superadmin', 'admin', 'teacher'].includes(currentUser.role),
+    canCreateAssessment: ['superadmin', 'admin'].includes(currentUser.role),
+    canEditAssessment: ['superadmin', 'admin'].includes(currentUser.role),
     canDeleteAssessment: ['superadmin', 'admin'].includes(currentUser.role),
     canViewAllClasses: currentUser.role === 'superadmin',
-    canGradeAssessment: ['superadmin', 'admin', 'teacher'].includes(currentUser.role),
+    canGradeAssessment: ['superadmin', 'admin'].includes(currentUser.role),
     availableTabs: currentUser.role === 'student' ? ['list', 'results'] : 
                   ['list', 'create', 'results', 'analytics']
   };

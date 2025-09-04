@@ -30,7 +30,7 @@ const SetupSchool = () => {
     },
     {
       title: 'Manage Class',
-      description: 'Connect classes with academic years and teachers',
+      description: 'Connect classes with academic years and admins',
       icon: <UnorderedListOutlined />,
       link: '/add-specific-class',
       color: '#fa8c16'

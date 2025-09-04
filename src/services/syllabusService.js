@@ -157,7 +157,7 @@ export const syllabusService = {
   // Create syllabus if it doesn't exist
   async ensureSyllabus(classInstanceId, subjectId, createdBy) {
     try {
-      // First get the academic year from the class instance
+      // First get the academic year from the class
       const { data: classInstance, error: classError } = await supabase
         .from('class_instances')
         .select('academic_year_id')
@@ -165,11 +165,11 @@ export const syllabusService = {
         .single();
 
       if (classError) {
-        throw new Error('Class instance not found');
+        throw new Error('Class not found');
       }
 
       if (!classInstance.academic_year_id) {
-        throw new Error('Class instance does not have an academic year assigned');
+        throw new Error('Class does not have an academic year assigned');
       }
 
       const { data, error } = await supabase

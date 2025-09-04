@@ -67,7 +67,7 @@ export const getStudent = async (studentId) => {
 };
 
 /**
- * Get students by class instance
+ * Get students by class
  */
 export const getStudentsByClass = async (classInstanceId) => {
   try {

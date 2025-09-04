@@ -37,7 +37,7 @@ const AdminAnalytics = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [students, setStudents] = useState([]);
 
-  // Fetch class instances
+  // Fetch classes
   useEffect(() => {
     const fetchClasses = async () => {
       if (!user) return;

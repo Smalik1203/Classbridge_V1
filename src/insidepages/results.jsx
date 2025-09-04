@@ -35,13 +35,13 @@ const Results = () => {
   const userRole = user?.app_metadata?.role || 'user';
   const userName = user?.user_metadata?.full_name || 'User';
 
-  // Role-based permissions
-                const permissions = {
-                canManageExams: ['superadmin', 'admin'].includes(userRole),
-                canEnterResults: ['superadmin', 'admin', 'teacher'].includes(userRole),
-                canViewAnalytics: ['superadmin', 'admin', 'teacher'].includes(userRole),
-                canViewResults: ['superadmin', 'admin', 'teacher', 'student'].includes(userRole)
-              };
+  // Role-based permissions (no teacher role in the app)
+  const permissions = {
+    canManageExams: ['superadmin', 'admin'].includes(userRole),
+    canEnterResults: ['superadmin', 'admin'].includes(userRole),
+    canViewAnalytics: ['superadmin', 'admin'].includes(userRole),
+    canViewResults: ['superadmin', 'admin', 'student'].includes(userRole)
+  };
 
   // Get available tabs based on user role
   const getAvailableTabs = () => {
@@ -105,10 +105,10 @@ const Results = () => {
             <Title level={2} style={{ margin: 0, color: antdTheme.token.colorText }}>
               Results Management
             </Title>
-                                    <Text type="secondary" style={{ fontSize: '16px', color: antdTheme.token.colorTextSecondary }}>
-                          {userRole === 'student' && 'View your exam results and academic performance'}
-                          {['admin', 'superadmin', 'teacher'].includes(userRole) && 'Manage exams, enter results, and analyze performance'}
-                        </Text>
+            <Text type="secondary" style={{ fontSize: '16px', color: antdTheme.token.colorTextSecondary }}>
+              {userRole === 'student' && 'View your exam results and academic performance'}
+              {['admin', 'superadmin'].includes(userRole) && 'Manage exams, enter results, and analyze performance'}
+            </Text>
           </Col>
           <Col>
             <Badge 

@@ -37,9 +37,23 @@ export default function Timetable() {
         const { data: auth } = await supabase.auth.getUser();
         if (!auth?.user) throw new Error('Not signed in');
         
-        const { data: meRow, error: meErr } = await supabase
-          .from('admin').select('id, role, school_code').eq('id', auth.user.id).single();
-        if (meErr) throw meErr;
+        // Try admin table first; fallback to users table for superadmins without admin row
+        let meRow = null;
+        const { data: adminRow, error: adminErr } = await supabase
+          .from('admin').select('id, role, school_code').eq('id', auth.user.id).maybeSingle();
+        if (adminRow) {
+          meRow = adminRow;
+        } else {
+          const { data: userRow, error: userErr } = await supabase
+            .from('users').select('role, school_code').eq('id', auth.user.id).maybeSingle();
+          if (userErr) throw userErr;
+          meRow = {
+            id: auth.user.id,
+            role: userRow?.role || auth.user.app_metadata?.role || null,
+            school_code: userRow?.school_code || auth.user.user_metadata?.school_code || null,
+          };
+        }
+        if (!meRow?.school_code) throw new Error('No school context found for your account');
         setMe(meRow);
         
 
@@ -137,8 +151,13 @@ export default function Timetable() {
           
           // Auto-select the student's class
           setClassId(studentData.class_instance_id);
+        } else if (meRow.role === 'admin') {
+          // Admins: only classes assigned to them (class_teacher_id = admin id)
+          const { data: ci, error: ciErr } = await classQuery.eq('class_teacher_id', meRow.id);
+          if (ciErr) throw ciErr;
+          setClasses(ci ?? []);
         } else {
-          // For superadmin and admin, show all classes
+          // Superadmin: all classes in their school
           const { data: ci, error: ciErr } = await classQuery;
           if (ciErr) throw ciErr;
           setClasses(ci ?? []);

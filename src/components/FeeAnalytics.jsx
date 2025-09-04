@@ -62,7 +62,7 @@ const FeeAnalytics = () => {
     fetchUser();
   }, []);
 
-  // Fetch class instances
+  // Fetch classes
   useEffect(() => {
     const fetchClasses = async () => {
       if (!me.school_code) return;
