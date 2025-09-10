@@ -15,9 +15,6 @@ import {
   BarChartOutlined,
   BulbOutlined,
   BulbFilled,
-  UserOutlined,
-  BookOutlined,
-  TeamOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined
 } from '@ant-design/icons';
@@ -110,17 +107,47 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         icon: <DollarOutlined />,
         label: 'Syllabus',
         roles: ['superadmin', 'admin']
-      }
+      },
     ];
+
+    const processItem = (item) => {
+      const baseItem = {
+        key: item.key,
+        icon: item.icon,
+        label: item.label
+      };
+
+      if (item.children) {
+        // Handle submenu items
+        const filteredChildren = item.children
+          .filter(child => child.roles.includes(userRole))
+          .map(child => ({
+            key: child.key,
+            icon: child.icon,
+            label: child.label,
+            onClick: () => navigate(child.key)
+          }));
+        
+        if (filteredChildren.length > 0) {
+          return {
+            ...baseItem,
+            children: filteredChildren
+          };
+        }
+        return null;
+      } else {
+        // Handle regular menu items
+        return {
+          ...baseItem,
+          onClick: () => navigate(item.key)
+        };
+      }
+    };
 
     return allItems
       .filter(item => item.roles.includes(userRole))
-      .map(item => ({
-        key: item.key,
-        icon: item.icon,
-        label: item.label,
-        onClick: () => navigate(item.key)
-      }));
+      .map(processItem)
+      .filter(Boolean);
   };
 
   const userMenuItems = [
@@ -249,7 +276,9 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
       <div style={{ 
         flex: 1, 
         background: antdTheme.token.colorBgContainer,
-        padding: '8px 0'
+        padding: '8px 0',
+        overflow: 'auto',
+        maxHeight: 'calc(100vh - 280px)' // Account for header, user profile, theme toggle, and logout sections
       }}>
         <Menu
           mode="inline"

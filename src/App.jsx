@@ -123,7 +123,6 @@ function AppContent() {
               <Route path="/assessments" element={<PrivateRoute allowedRoles={routeAccess.assessments}><Assessments /></PrivateRoute>} />
 
 
-
               {/* Error Routes */}
               <Route path="/unauthorized" element={<Unauthorized />} />
               

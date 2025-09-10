@@ -13,7 +13,6 @@ export type RouteKey =
   | 'addStudent'
   | 'addSpecificClass'
   | 'timetable'
-  | 'addTimetable'
   | 'addSubjects'
   | 'syllabus'
   | 'assessments'
@@ -46,7 +45,6 @@ export const routeAccess: RouteAccess = {
 
   // Timetable and syllabus operations within school
   timetable: ['superadmin', 'admin', 'student'],
-  addTimetable: ['superadmin', 'admin'],
   addSubjects: ['superadmin', 'admin'],
   syllabus: ['superadmin', 'admin', 'student'],
 
@@ -58,6 +56,7 @@ export const routeAccess: RouteAccess = {
   feeCollections: ['superadmin', 'admin'],
   results: ['superadmin', 'admin', 'student'],
   analytics: ['superadmin', 'admin'],
+  
 
   signup: ['cb_admin', 'superadmin', 'admin', 'student'],
   unauthorized: ['cb_admin', 'superadmin', 'admin', 'student'],

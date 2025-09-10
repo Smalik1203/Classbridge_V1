@@ -167,7 +167,7 @@ export default function SyllabusPage() {
           id, chapter_no, title, description, ref_code,
           syllabus_topics(id, topic_no, title, description, ref_code)
         `)
-        .eq('syllabus_id', syl?.id || (syl ? syl.id : null))
+        .eq('syllabus_id', syl?.id)
         .order('chapter_no', { ascending: true });
       
       if (chErr) throw chErr;
