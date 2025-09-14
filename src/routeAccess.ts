@@ -16,12 +16,14 @@ export type RouteKey =
   | 'addSubjects'
   | 'syllabus'
   | 'assessments'
+  | 'testManagement'
   | 'attendance'
   | 'fees'
   | 'feeManage'
   | 'feeCollections'
   | 'results'
   | 'analytics'
+  | 'learningResources'
   | 'signup'
   | 'unauthorized';
 
@@ -50,12 +52,14 @@ export const routeAccess: RouteAccess = {
 
   // Daily operations
   assessments: ['superadmin', 'admin', 'student'],
+  testManagement: ['superadmin', 'admin'],
   attendance: ['superadmin', 'admin', 'student'],
   fees: ['superadmin', 'admin', 'student'],
   feeManage: ['superadmin', 'admin'],
   feeCollections: ['superadmin', 'admin'],
   results: ['superadmin', 'admin', 'student'],
   analytics: ['superadmin', 'admin'],
+  learningResources: ['superadmin', 'admin', 'student'],
   
 
   signup: ['cb_admin', 'superadmin', 'admin', 'student'],

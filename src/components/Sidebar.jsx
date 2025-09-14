@@ -16,7 +16,10 @@ import {
   BulbOutlined,
   BulbFilled,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  BookOutlined,
+  FileTextOutlined,
+  QuestionCircleOutlined
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -107,6 +110,24 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         icon: <DollarOutlined />,
         label: 'Syllabus',
         roles: ['superadmin', 'admin']
+      },
+      {
+        key: '/learning-resources',
+        icon: <BookOutlined />,
+        label: 'Learning Resources',
+        roles: ['superadmin', 'admin', 'student']
+      },
+      {
+        key: '/test-management',
+        icon: <FileTextOutlined />,
+        label: 'Test Management',
+        roles: ['superadmin', 'admin']
+      },
+      {
+        key: '/take-tests',
+        icon: <QuestionCircleOutlined />,
+        label: 'Take Tests',
+        roles: ['student']
       },
     ];
 

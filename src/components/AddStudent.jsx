@@ -9,7 +9,35 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const AddStudent = () => {
   const { user } = useAuth();
-  const { school_code, super_admin_code } = user.user_metadata || {};
+  
+  // Try both locations for school_code
+  const school_code = user?.school_code || user?.user_metadata?.school_code;
+  const super_admin_code = user?.super_admin_code || user?.user_metadata?.super_admin_code;
+  
+  console.log('=== ADD STUDENT COMPONENT DEBUG ===');
+  console.log('User:', user);
+  console.log('User role (direct):', user?.role);
+  console.log('User role (app_metadata):', user?.app_metadata?.role);
+  console.log('User role (user_metadata):', user?.user_metadata?.role);
+  console.log('User app_metadata:', user?.app_metadata);
+  console.log('User user_metadata:', user?.user_metadata);
+  console.log('School code (direct):', user?.school_code);
+  console.log('School code (metadata):', user?.user_metadata?.school_code);
+  console.log('Final school code:', school_code);
+  console.log('Super admin code:', super_admin_code);
+  
+  // Check what the JWT contains
+  console.log('JWT token:', user?.jwt);
+  if (user?.jwt) {
+    try {
+      const jwtPayload = JSON.parse(atob(user.jwt.split('.')[1]));
+      console.log('JWT payload:', jwtPayload);
+      console.log('JWT user_metadata:', jwtPayload.user_metadata);
+      console.log('JWT app_metadata:', jwtPayload.app_metadata);
+    } catch (e) {
+      console.log('Could not parse JWT:', e);
+    }
+  }
 
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -48,6 +76,10 @@ const AddStudent = () => {
 
   useEffect(() => {
     const fetchClassInstances = async () => {
+      console.log('=== FETCH CLASS INSTANCES DEBUG ===');
+      console.log('School code:', school_code);
+      console.log('Super admin code:', super_admin_code);
+      
       // BACKEND INTEGRATION: Replace with comprehensive query above
       const { data, error } = await supabase
         .from('class_instances')
@@ -56,12 +88,15 @@ const AddStudent = () => {
           class:classes (grade, section),
           academic_years:academic_years (year_start, year_end)
         `)
-        .eq('school_code', school_code)
-        .eq('created_by', super_admin_code);
+        .eq('school_code', school_code);
+
+      console.log('Class instances query result:', { data, error });
 
       if (error) {
+        console.error('Class instances error:', error);
         message.error('Failed to load classes: ' + error.message);
       } else {
+        console.log('Class instances loaded:', data?.length || 0);
         setClassInstances(data || []);
       }
     };
@@ -131,7 +166,95 @@ const AddStudent = () => {
   const handleEditSave = async () => {
     const values = await editForm.validateFields();
 
-    const { error } = await supabase
+    console.log('=== STUDENT UPDATE DEBUG ===');
+    console.log('Editing student ID:', editingStudent.id);
+    console.log('Update values:', values);
+    console.log('Class instance ID:', values.class_instance_id);
+
+    // First, let's check if the student exists and get current data
+    console.log('Fetching current student data...');
+    const { data: currentStudent, error: fetchError } = await supabase
+      .from('student')
+      .select('*')
+      .eq('id', editingStudent.id)
+      .single();
+
+    console.log('Current student data:', { currentStudent, fetchError });
+
+    // Also test if we can query any students at all
+    console.log('Testing general student query...');
+    const { data: testStudents, error: testQueryError } = await supabase
+      .from('student')
+      .select('id, full_name, school_code')
+      .limit(1);
+
+    console.log('General student query result:', { testStudents, testQueryError });
+
+    if (fetchError) {
+      console.error('Error fetching current student:', fetchError);
+      message.error('Failed to fetch student data: ' + fetchError.message);
+      return;
+    }
+
+    if (!currentStudent) {
+      message.error('Student not found');
+      return;
+    }
+
+    // Compare current data with new data
+    console.log('=== DATA COMPARISON ===');
+    console.log('Current class_instance_id:', currentStudent.class_instance_id);
+    console.log('New class_instance_id:', values.class_instance_id);
+    console.log('Current full_name:', currentStudent.full_name);
+    console.log('New full_name:', values.full_name);
+    console.log('Current phone:', currentStudent.phone);
+    console.log('New phone:', values.phone);
+    console.log('Current student_code:', currentStudent.student_code);
+    console.log('New student_code:', values.student_code);
+
+    // Check if data is actually different
+    const isDataDifferent = 
+      currentStudent.class_instance_id !== values.class_instance_id ||
+      currentStudent.full_name !== values.full_name ||
+      currentStudent.phone !== values.phone ||
+      currentStudent.student_code !== values.student_code;
+
+    console.log('Is data different?', isDataDifferent);
+
+    if (!isDataDifferent) {
+      message.info('No changes detected. The data is identical to the current values.');
+      return;
+    }
+
+    // Test if we can update at all (try a simple update first)
+    console.log('Testing simple update...');
+    const { data: testData, error: testError } = await supabase
+      .from('student')
+      .update({
+        full_name: currentStudent.full_name + ' (Test)'
+      })
+      .eq('id', editingStudent.id)
+      .select();
+
+    console.log('Test update result:', { testData, testError });
+
+    if (testError) {
+      console.error('Test update failed - RLS or permission issue:', testError);
+      message.error('Permission denied: ' + testError.message);
+      return;
+    }
+
+    if (!testData || testData.length === 0) {
+      console.error('Test update returned no rows - RLS blocking update');
+      message.error('Permission denied: You do not have permission to update this student.');
+      return;
+    }
+
+    console.log('Test update successful, proceeding with actual update...');
+
+    // Now try the actual update
+    console.log('Attempting actual update...');
+    const { data, error } = await supabase
       .from('student')
       .update({
         full_name: values.full_name,
@@ -139,15 +262,24 @@ const AddStudent = () => {
         student_code: values.student_code,
         class_instance_id: values.class_instance_id,
       })
-      .eq('id', editingStudent.id);
+      .eq('id', editingStudent.id)
+      .select();
+
+    console.log('Update result:', { data, error });
 
     if (error) {
-      message.error('Update failed');
+      console.error('Update error details:', error);
+      message.error('Update failed: ' + error.message);
     } else {
-      message.success('Student updated');
-      setEditModalVisible(false);
-      setEditingStudent(null);
-      fetchStudents();
+      console.log('Update successful, updated rows:', data?.length || 0);
+      if (data && data.length > 0) {
+        message.success('Student updated successfully');
+        setEditModalVisible(false);
+        setEditingStudent(null);
+        fetchStudents();
+      } else {
+        message.warning('No rows were updated. The data might be the same or you may not have permission.');
+      }
     }
   };
 

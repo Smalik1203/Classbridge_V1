@@ -18,6 +18,20 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
+/* Table zebra striping */
+.table-row-light {
+  background-color: transparent !important;
+}
+
+.table-row-dark {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.table-row-light:hover,
+.table-row-dark:hover {
+  background-color: rgba(24, 144, 255, 0.05) !important;
+}
+
 /* Ensure proper layout structure */
 #root {
   min-height: 100vh;

@@ -22,6 +22,9 @@ import AddSubjects from './components/AddSubjects';
 import Analytics from './pages/Analytics';
 import Timetable from './pages/Timetable';
 import SyllabusPage from './pages/Syllabus';
+import LearningResources from './pages/LearningResources';
+import UnifiedTestManagement from './pages/UnifiedTestManagement';
+import TestTaking from './pages/TestTaking';
 import Unauthorized from './pages/Unauthorized';
 import DailyTrendsAnalytics from './pages/superadmin/DailyTrendsAnalytics';
 import StudentPerformanceAnalytics from './pages/superadmin/StudentPerformanceAnalytics';
@@ -119,6 +122,9 @@ function AppContent() {
               <Route path="/analytics/status-distribution" element={<PrivateRoute allowedRoles={routeAccess.analytics}><StatusDistributionAnalytics /></PrivateRoute>} />
               <Route path="/timetable" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Timetable /></PrivateRoute>} />
               <Route path="/syllabus" element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
+              <Route path="/learning-resources" element={<PrivateRoute allowedRoles={routeAccess.learningResources}><LearningResources /></PrivateRoute>} />
+              <Route path="/test-management" element={<PrivateRoute allowedRoles={routeAccess.testManagement}><UnifiedTestManagement /></PrivateRoute>} />
+              <Route path="/take-tests" element={<PrivateRoute allowedRoles={['student']}><TestTaking /></PrivateRoute>} />
               <Route path="/results" element={<PrivateRoute allowedRoles={routeAccess.results}><Results /></PrivateRoute>} />
               <Route path="/assessments" element={<PrivateRoute allowedRoles={routeAccess.assessments}><Assessments /></PrivateRoute>} />
 
