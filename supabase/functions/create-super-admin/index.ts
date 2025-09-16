@@ -1,7 +1,10 @@
+// @ts-ignore - Deno URL imports
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+// @ts-ignore - Deno URL imports
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 // 🔧 Reusable CORS wrapper
-function withCors(res) {
+function withCors(res: Response): Response {
   const headers = new Headers(res.headers);
   headers.set("Access-Control-Allow-Origin", "http://localhost:5173"); // ✅ change for production
   headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -19,6 +22,7 @@ serve(async (req)=>{
     }));
   }
   const { email, password, full_name, phone, school_id, school_name, school_code, role, super_admin_code } = await req.json();
+  // @ts-ignore - Deno global
   const supabase = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
   const token = req.headers.get("Authorization")?.replace("Bearer ", "");
   const { data: { user: requester }, error: requesterError } = await supabase.auth.getUser(token);

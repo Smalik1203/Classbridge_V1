@@ -46,7 +46,7 @@ const AddAdmin = () => {
     setAdminLoading(true);
     const { data, error } = await supabase
       .from('admin')
-      .select('id, full_name, email, phone, role, admin_code, super_admin_code')
+      .select('id, full_name, email, phone, role, admin_code, school_code, school_name')
       .eq('school_code', school_code)
       .eq('role', 'admin');
 
@@ -176,7 +176,7 @@ const AddAdmin = () => {
       key: 'role',
       render: (role) => <Tag color="blue">{role}</Tag>,
     },
-    { title: 'Created By', dataIndex: 'super_admin_code', key: 'super_admin_code' },
+    { title: 'School', dataIndex: 'school_name', key: 'school_name' },
     {
       title: 'Actions',
       key: 'actions',
