@@ -41,6 +41,9 @@ const AddSpecificClass = () => {
   const [assignBusy, setAssignBusy] = useState(false);
   const [assignRecord, setAssignRecord] = useState(null);
   const [assignForm] = Form.useForm();
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingClass, setEditingClass] = useState(null);
+  const [editForm] = Form.useForm();
 
   useEffect(() => {
     fetchAcademicYears();
@@ -219,13 +222,21 @@ const AddSpecificClass = () => {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-        <Button size="small" onClick={() => {
-          setAssignRecord(record);
-          assignForm.setFieldsValue({ class_teacher_id: record?.class_teacher_id || undefined });
-          setAssignOpen(true);
-        }}>
-          Assign Admin
-        </Button>
+        <Space>
+          <Button size="small" onClick={() => {
+            setAssignRecord(record);
+            assignForm.setFieldsValue({ class_teacher_id: record?.class_teacher_id || undefined });
+            setAssignOpen(true);
+          }}>
+            Assign Admin
+          </Button>
+          <Button size="small" type="primary" onClick={() => handleEditClass(record)}>
+            Edit
+          </Button>
+          <Button size="small" danger onClick={() => handleDeleteClass(record.id)}>
+            Delete
+          </Button>
+        </Space>
       )
     },
     {
@@ -235,6 +246,55 @@ const AddSpecificClass = () => {
       render: (date) => new Date(date).toLocaleDateString(),
     },
   ];
+
+  const handleDeleteClass = async (classId) => {
+    try {
+      const { error } = await supabase
+        .from('class_instances')
+        .delete()
+        .eq('id', classId);
+      
+      if (error) throw error;
+      
+      message.success('Class deleted successfully');
+      fetchClassInstances();
+    } catch (error) {
+      message.error(error.message || 'Failed to delete class');
+    }
+  };
+
+  const handleEditClass = (classRecord) => {
+    setEditingClass(classRecord);
+    editForm.setFieldsValue({
+      grade: classRecord.grade,
+      section: classRecord.section,
+      class_teacher_id: classRecord.class_teacher_id
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleEditSubmit = async (values) => {
+    try {
+      const { error } = await supabase
+        .from('class_instances')
+        .update({
+          grade: values.grade,
+          section: values.section,
+          class_teacher_id: values.class_teacher_id
+        })
+        .eq('id', editingClass.id);
+      
+      if (error) throw error;
+      
+      message.success('Class updated successfully');
+      setEditModalVisible(false);
+      setEditingClass(null);
+      editForm.resetFields();
+      fetchClassInstances();
+    } catch (error) {
+      message.error(error.message || 'Failed to update class');
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', padding: '24px', background: '#f8fafc' }}>
@@ -418,6 +478,54 @@ const AddSpecificClass = () => {
         okText="Save"
       >
         <Form form={assignForm} layout="vertical">
+          <Form.Item
+            name="class_teacher_id"
+            label="Class Admin"
+            rules={[{ required: true, message: 'Please select class admin' }]}
+          >
+            <Select
+              placeholder="Select Class Admin"
+              showSearch
+              optionFilterProp="children"
+              suffixIcon={<UserOutlined />}
+            >
+              {admins.map((admin) => (
+                <Option key={admin.id} value={admin.id}>
+                  {admin.full_name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit Class Modal */}
+      <Modal
+        title="Edit Class"
+        open={editModalVisible}
+        onCancel={() => {
+          setEditModalVisible(false);
+          setEditingClass(null);
+          editForm.resetFields();
+        }}
+        onOk={() => editForm.submit()}
+        okText="Update"
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEditSubmit}>
+          <Form.Item
+            name="grade"
+            label="Grade"
+            rules={[{ required: true, message: 'Please enter grade' }]}
+          >
+            <Input placeholder="Enter grade" />
+          </Form.Item>
+          <Form.Item
+            name="section"
+            label="Section"
+            rules={[{ required: true, message: 'Please enter section' }]}
+          >
+            <Input placeholder="Enter section" />
+          </Form.Item>
           <Form.Item
             name="class_teacher_id"
             label="Class Admin"

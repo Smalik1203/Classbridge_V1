@@ -72,7 +72,8 @@ export function isRoleAllowed(routeKey: RouteKey, role?: AppRole | null): boolea
 }
 
 export function getUserRole(user: any): AppRole | null {
-  const role = user?.app_metadata?.role as AppRole | undefined;
+  // Check app_metadata first (secure), fallback to user_metadata for backward compatibility
+  const role = user?.app_metadata?.role || user?.user_metadata?.role as AppRole | undefined;
   return role ?? null;
 }
 

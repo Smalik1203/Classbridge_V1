@@ -22,58 +22,52 @@ const SignUpUser = () => {
     setError(null);
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: full_name,
-            phone: phone_number, 
-            role: role,
-            cb_admin_code: cb_admin_code,
-          },
+      // Use the create-super-admin Edge Function for secure role assignment
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        setError('Not authenticated. Please log in first.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-super-admin', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email,
+          password,
+          full_name,
+          phone: phone_number,
+          school_id: null, // CB admin doesn't have a specific school
+          school_name: 'ClassBridge Platform',
+          school_code: 'CB',
+          role,
+          super_admin_code: cb_admin_code,
+        }),
       });
-      if (error) {
-        setError(error.message);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.error || `Failed to create user. Status: ${response.status}`);
         setLoading(false);
         return;
       } else {
-        setMessage('Signup successful! Please check your email to confirm your account.');
+        setMessage('User created successfully! Please check your email to confirm your account.');
         setEmail('');
         setPassword('');
         setFullName('');
         setPhonenumber('');
       }
     } catch (err) {
-      setError('An unexpected error occurred.');
+      setError('An unexpected error occurred: ' + err.message);
     } finally {
       setLoading(false);
-    }
-
-    // Note: This code runs after signup but before email confirmation
-    // The user might not be immediately available
-    try {
-      const {data: userData, error: userError} = await supabase.auth.getUser();
-      if (userData?.user) {
-        console.log('User data after signup:', userData);
-        
-        // insert this user into cb admin table
-        const {error: insertError} = await supabase.from('cb_admin').insert({
-          id: userData.user.id,
-          email: userData.user.email,
-          full_name: userData.user.user_metadata?.full_name,
-          phone: userData.user.user_metadata?.phone,
-          role: userData.user.user_metadata?.role,
-          cb_admin_code: userData.user.user_metadata?.cb_admin_code,
-        });
-        
-        if (insertError) {
-          console.error('Error inserting into cb_admin:', insertError);
-        }
-      }
-    } catch (err) {
-      console.error('Error getting user data after signup:', err);
     }
   };
 

@@ -19,7 +19,8 @@ function withCors(res: Response, origin?: string): Response {
     headers
   });
 }
-serve(async (req)=>{
+
+serve(async (req) => {
   const origin = req.headers.get("Origin");
   
   // ✅ Handle preflight
@@ -44,13 +45,13 @@ serve(async (req)=>{
       }), origin);
     }
 
-    const { email, password, full_name, phone, school_id, school_name, school_code, role, super_admin_code } = requestData;
+    const { full_name, email, password, phone, student_code, class_instance_id } = requestData;
 
     // Validate required fields
-    if (!email || !password || !full_name || !phone || !school_name || !school_code || !role || !super_admin_code) {
+    if (!full_name || !email || !password || !phone || !student_code || !class_instance_id) {
       return withCors(new Response(JSON.stringify({
         error: "Missing required fields",
-        details: "email, password, full_name, phone, school_name, school_code, role, and super_admin_code are required"
+        details: "full_name, email, password, phone, student_code, and class_instance_id are required"
       }), {
         status: 400,
         headers: { "Content-Type": "application/json" }
@@ -77,6 +78,7 @@ serve(async (req)=>{
         headers: { "Content-Type": "application/json" }
       }), origin);
     }
+  
     // @ts-ignore - Deno global
     const supabase = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
     
@@ -102,6 +104,7 @@ serve(async (req)=>{
     }
 
     const { data: { user: requester }, error: requesterError } = await supabase.auth.getUser(token);
+  
     if (requesterError) {
       console.error("Auth error:", requesterError);
       return withCors(new Response(JSON.stringify({
@@ -121,30 +124,59 @@ serve(async (req)=>{
         headers: { "Content-Type": "application/json" }
       }), origin);
     }
-  // Check role in both app_metadata and user_metadata for backward compatibility
+
+
+  // Check if user is admin or super admin (check both app_metadata and user_metadata for backward compatibility)
   const userRole = requester.app_metadata?.role || requester.user_metadata?.role;
-  const isCbAdmin = userRole === "cb_admin";
-  if (!isCbAdmin) {
-    return withCors(new Response("Forbidden", {
-      status: 403
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
+  
+  if (!isAdmin) {
+    return withCors(new Response(JSON.stringify({
+      error: "Forbidden - Not an admin or super admin"
+    }), {
+      status: 403,
+      headers: {
+        "Content-Type": "application/json"
+      }
     }), origin);
   }
+
+  // Get school information from requester (check both app_metadata and user_metadata for backward compatibility)
+  const schoolCode = requester.app_metadata?.school_code || requester.user_metadata?.school_code;
+  const schoolName = requester.app_metadata?.school_name || requester.user_metadata?.school_name;
+  const superAdminCode = requester.app_metadata?.super_admin_code || requester.user_metadata?.super_admin_code;
+
+    if (!schoolCode) {
+      return withCors(new Response(JSON.stringify({
+        error: "School information not found",
+        details: "User must have school_code in their profile"
+      }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }), origin);
+    }
+
+  // Create the student user
   const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
     app_metadata: {
-      role,
-      school_id,
-      school_name,
-      school_code,
-      super_admin_code
+      role: "student",
+      school_code: schoolCode,
+      school_name: schoolName,
+      super_admin_code: superAdminCode
     },
     user_metadata: {
       full_name,
-      phone
+      phone,
+      student_code,
+      class_instance_id
     },
     email_confirm: true
   });
+
     if (createError) {
       console.error("User creation error:", createError);
       return withCors(new Response(JSON.stringify({
@@ -168,22 +200,36 @@ serve(async (req)=>{
         }
       }), origin);
     }
+
   const id = newUser.user.id;
-  const { error: insertError } = await supabase.from("super_admin").insert({
+
+  // Insert student record into student table
+  const { error: insertError } = await supabase.from("student").insert({
     id,
     full_name,
     email,
     phone,
-    school_id,
-    school_name,
-    school_code,
-    super_admin_code,
-    role
+    student_code,
+    class_instance_id,
+    school_code: schoolCode,
+    school_name: schoolName,
+    role: "student",
+    created_by: requester.id
   });
+
     if (insertError) {
       console.error("Database insert error:", insertError);
+      
+      // Clean up: Delete the user from auth since we couldn't save to students table
+      try {
+        await supabase.auth.admin.deleteUser(id);
+        console.log("Cleaned up user from auth after database insert failure");
+      } catch (cleanupError) {
+        console.error("Failed to cleanup user from auth:", cleanupError);
+      }
+      
       return withCors(new Response(JSON.stringify({
-        error: "Failed to save super admin record",
+        error: "Failed to save student record",
         details: insertError.message
       }), {
         status: 500,
@@ -192,17 +238,18 @@ serve(async (req)=>{
         }
       }), origin);
     }
+
     return withCors(new Response(JSON.stringify({
-      message: "Super Admin created successfully",
+      message: "Student created successfully",
       data: {
         id,
         email,
         full_name,
         phone,
-        school_id,
-        role,
-        super_admin_code,
-        school_name
+        student_code,
+        class_instance_id,
+        school_code: schoolCode,
+        school_name: schoolName
       }
     }), {
       status: 200,
@@ -212,7 +259,7 @@ serve(async (req)=>{
     }), origin);
 
   } catch (error) {
-    console.error("Unexpected error in create-super-admin:", error);
+    console.error("Unexpected error in create-student:", error);
     return withCors(new Response(JSON.stringify({
       error: "Internal server error",
       details: error.message

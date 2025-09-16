@@ -74,6 +74,7 @@ const AddAdmin = () => {
         return;
       }
 
+
       const response = await fetch(
         'https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-admin',
         {
@@ -89,8 +90,6 @@ const AddAdmin = () => {
             phone: values.phone,
             role: 'admin',
             admin_code: values.admin_code,
-            school_code,
-            super_admin_code,
           }),
         }
       );
@@ -98,7 +97,7 @@ const AddAdmin = () => {
       const result = await response.json();
 
       if (!response.ok) {
-        message.error(result.error || `Failed to create admin. Status: ${response.status}`);
+        message.error(result.error || result.details || `Failed to create admin. Status: ${response.status}`);
       } else {
         message.success('Admin created successfully!');
         form.resetFields();
