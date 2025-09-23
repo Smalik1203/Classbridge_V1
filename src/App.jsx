@@ -401,7 +401,21 @@ const AddStudent = () => {
                     rules={[
                       { required: true, message: 'Please enter email' },
                       { type: 'email', message: 'Please enter a valid email' }
-        >
+                    ]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <div className="cb-input-group">
+                      <span className="cb-input-icon">📧</span>
+                      <Input
+                        className="cb-input cb-input-with-icon"
+                        placeholder="Enter email address"
+                      />
+                    </div>
+                  </Form.Item>
+                </div>
+              </div>
+            </div>
+          </Form>
 
           <Form
             form={form}
@@ -572,7 +586,8 @@ const AddStudent = () => {
               scroll={{ x: 1200 }}
             />
           </div>
-        </Card>
+        </div>
+      </div>
 
         {/* Edit Modal */}
         <Modal
@@ -624,7 +639,6 @@ const AddStudent = () => {
             </Form.Item>
           </Form>
         </Modal>
-      </div>
     </div>
   );
 };
