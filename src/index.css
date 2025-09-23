@@ -1,663 +1,632 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import './styles/modern-design-system.css';
-
-/* Reset and base styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: var(--font-family-primary);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--color-background);
-  color: var(--color-text-primary);
-  transition: background-color var(--transition-normal), color var(--transition-normal);
-}
-
-/* Modern page layout */
-#root {
-  min-height: 100vh;
-  background: var(--color-background);
-}
-
-/* Enhanced focus management */
-*:focus {
-  outline: none;
-}
-
-*:focus-visible {
-  outline: 2px solid var(--color-primary-500);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-
-/* Modern selection styles */
-::selection {
-  background: var(--color-primary-200);
-  color: var(--color-primary-800);
-}
-
-/* Smooth transitions for all interactive elements */
-* {
-  transition: background-color var(--transition-fast), 
-              color var(--transition-fast), 
-              border-color var(--transition-fast),
-              transform var(--transition-fast),
-              box-shadow var(--transition-fast);
-}
-
-/* Enhanced Ant Design component overrides */
-.ant-layout {
-  background: var(--color-background) !important;
-}
-
-.ant-layout-content {
-  background: var(--color-background) !important;
-  transition: background-color var(--transition-normal) !important;
-}
-
-.ant-layout-sider {
-  background: var(--color-surface) !important;
-  border-right: 1px solid var(--color-border-subtle) !important;
-}
-
-/* Modern card styling */
-.ant-card {
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-border-subtle) !important;
-  border-radius: var(--radius-2xl) !important;
-  box-shadow: var(--shadow-sm) !important;
-  transition: all var(--transition-normal) !important;
-}
-
-.ant-card:hover {
-  box-shadow: var(--shadow-md) !important;
-  transform: translateY(-2px) !important;
-  border-color: var(--color-primary-200) !important;
-}
-
-.ant-card-head {
-  background: var(--color-surface) !important;
-  border-bottom: 1px solid var(--color-border-subtle) !important;
-  padding: var(--space-6) !important;
-}
-
-.ant-card-head-title {
-  font-size: var(--text-lg) !important;
-  font-weight: var(--font-semibold) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.ant-card-body {
-  padding: var(--space-6) !important;
-  background: var(--color-surface) !important;
-}
-
-/* Modern button styling */
-.ant-btn {
-  border-radius: var(--radius-lg) !important;
-  font-weight: var(--font-medium) !important;
-  transition: all var(--transition-fast) !important;
-  box-shadow: var(--shadow-sm) !important;
-  height: auto !important;
-  padding: var(--space-3) var(--space-4) !important;
-  font-size: var(--text-sm) !important;
-}
-
-.ant-btn:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: var(--shadow-md) !important;
-}
-
-.ant-btn-primary {
-  background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600)) !important;
-  border-color: var(--color-primary-600) !important;
-  color: var(--color-white) !important;
-}
-
-.ant-btn-primary:hover {
-  background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-700)) !important;
-  border-color: var(--color-primary-700) !important;
-}
-
-.ant-btn-lg {
-  padding: var(--space-4) var(--space-6) !important;
-  font-size: var(--text-base) !important;
-  border-radius: var(--radius-xl) !important;
-}
-
-.ant-btn-sm {
-  padding: var(--space-2) var(--space-3) !important;
-  font-size: var(--text-xs) !important;
-  border-radius: var(--radius-md) !important;
-}
-
-/* Modern input styling */
-.ant-input {
-  border-radius: var(--radius-lg) !important;
-  border-color: var(--color-border) !important;
-  background: var(--color-surface) !important;
-  color: var(--color-text-primary) !important;
-  transition: all var(--transition-fast) !important;
-  padding: var(--space-3) var(--space-4) !important;
-  font-size: var(--text-base) !important;
-}
-
-.ant-input:focus {
-  border-color: var(--color-primary-500) !important;
-  box-shadow: 0 0 0 3px var(--color-primary-100) !important;
-}
-
-.ant-input::placeholder {
-  color: var(--color-text-quaternary) !important;
-}
-
-/* Modern select styling */
-.ant-select-selector {
-  border-radius: var(--radius-lg) !important;
-  border-color: var(--color-border) !important;
-  background: var(--color-surface) !important;
-  transition: all var(--transition-fast) !important;
-  padding: var(--space-1) var(--space-4) !important;
-}
-
-.ant-select:hover .ant-select-selector {
-  border-color: var(--color-primary-300) !important;
-}
-
-.ant-select-focused .ant-select-selector {
-  border-color: var(--color-primary-500) !important;
-  box-shadow: 0 0 0 3px var(--color-primary-100) !important;
-}
-
-/* Modern table styling */
-.ant-table {
-  background: var(--color-surface) !important;
-  border-radius: var(--radius-2xl) !important;
-  overflow: hidden !important;
-  border: 1px solid var(--color-border-subtle) !important;
-}
-
-.ant-table-thead > tr > th {
-  background: var(--color-gray-50) !important;
-  border-bottom: 1px solid var(--color-border-subtle) !important;
-  font-weight: var(--font-semibold) !important;
-  color: var(--color-text-secondary) !important;
-  padding: var(--space-4) var(--space-6) !important;
-}
-
-.ant-table-tbody > tr > td {
-  padding: var(--space-4) var(--space-6) !important;
-  border-bottom: 1px solid var(--color-border-subtle) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.ant-table-tbody > tr:hover > td {
-  background: var(--color-surface-hover) !important;
-}
-
-.ant-table-tbody > tr:last-child > td {
-  border-bottom: none !important;
-}
-
-/* Modern tag styling */
-.ant-tag {
-  border-radius: var(--radius-full) !important;
-  font-weight: var(--font-medium) !important;
-  border: none !important;
-  padding: var(--space-1) var(--space-3) !important;
-  font-size: var(--text-xs) !important;
-  line-height: 1.2 !important;
-}
-
-/* Modern modal styling */
-.ant-modal {
-  border-radius: var(--radius-2xl) !important;
-}
-
-.ant-modal-content {
-  border-radius: var(--radius-2xl) !important;
-  overflow: hidden !important;
-  background: var(--color-surface) !important;
-}
-
-.ant-modal-header {
-  background: var(--color-surface) !important;
-  border-bottom: 1px solid var(--color-border-subtle) !important;
-  padding: var(--space-6) !important;
-}
-
-.ant-modal-body {
-  background: var(--color-surface) !important;
-  padding: var(--space-6) !important;
-}
-
-.ant-modal-footer {
-  background: var(--color-gray-50) !important;
-  border-top: 1px solid var(--color-border-subtle) !important;
-  padding: var(--space-4) var(--space-6) !important;
-}
-
-/* Modern typography */
-.ant-typography {
-  color: var(--color-text-primary) !important;
-  font-family: var(--font-family-primary) !important;
-}
-
-.ant-typography h1 {
-  font-size: var(--text-4xl) !important;
-  font-weight: var(--font-bold) !important;
-  color: var(--color-text-primary) !important;
-  line-height: var(--leading-tight) !important;
-}
-
-.ant-typography h2 {
-  font-size: var(--text-3xl) !important;
-  font-weight: var(--font-semibold) !important;
-  color: var(--color-text-primary) !important;
-  line-height: var(--leading-tight) !important;
-}
-
-.ant-typography h3 {
-  font-size: var(--text-2xl) !important;
-  font-weight: var(--font-semibold) !important;
-  color: var(--color-text-primary) !important;
-  line-height: var(--leading-tight) !important;
-}
-
-.ant-typography h4 {
-  font-size: var(--text-xl) !important;
-  font-weight: var(--font-semibold) !important;
-  color: var(--color-text-primary) !important;
-  line-height: var(--leading-tight) !important;
-}
-
-.ant-typography h5 {
-  font-size: var(--text-lg) !important;
-  font-weight: var(--font-semibold) !important;
-  color: var(--color-text-primary) !important;
-}
-
-/* Modern menu styling */
-.ant-menu {
-  background: var(--color-surface) !important;
-  border: none !important;
-}
-
-.ant-menu-item {
-  border-radius: var(--radius-lg) !important;
-  margin: var(--space-1) var(--space-3) !important;
-  padding: var(--space-3) var(--space-4) !important;
-  color: var(--color-text-secondary) !important;
-  font-weight: var(--font-medium) !important;
-  transition: all var(--transition-fast) !important;
-}
-
-.ant-menu-item:hover {
-  background: var(--color-surface-hover) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.ant-menu-item-selected {
-  background: var(--color-primary-100) !important;
-  color: var(--color-primary-700) !important;
-  font-weight: var(--font-semibold) !important;
-}
-
-/* Modern tabs styling */
-.ant-tabs {
-  color: var(--color-text-primary) !important;
-}
-
-.ant-tabs-tab {
-  padding: var(--space-3) var(--space-4) !important;
-  border-radius: var(--radius-lg) !important;
-  font-weight: var(--font-medium) !important;
-  color: var(--color-text-secondary) !important;
-  transition: all var(--transition-fast) !important;
-}
-
-.ant-tabs-tab:hover {
-  color: var(--color-text-primary) !important;
-}
-
-.ant-tabs-tab-active {
-  color: var(--color-primary-600) !important;
-  font-weight: var(--font-semibold) !important;
-}
-
-.ant-tabs-ink-bar {
-  background: var(--color-primary-500) !important;
-  height: 3px !important;
-  border-radius: var(--radius-full) !important;
-}
-
-/* Modern form styling */
-.ant-form-item-label > label {
-  font-size: var(--text-sm) !important;
-  font-weight: var(--font-medium) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.ant-form-item-required::before {
-  color: var(--color-error-500) !important;
-}
-
-/* Modern alert styling */
-.ant-alert {
-  border-radius: var(--radius-xl) !important;
-  border: 1px solid !important;
-  padding: var(--space-4) !important;
-}
-
-.ant-alert-info {
-  background: var(--color-primary-50) !important;
-  border-color: var(--color-primary-200) !important;
-  color: var(--color-primary-800) !important;
-}
-
-.ant-alert-success {
-  background: var(--color-success-50) !important;
-  border-color: var(--color-success-200) !important;
-  color: var(--color-success-800) !important;
-}
-
-.ant-alert-warning {
-  background: var(--color-warning-50) !important;
-  border-color: var(--color-warning-200) !important;
-  color: var(--color-warning-800) !important;
-}
-
-.ant-alert-error {
-  background: var(--color-error-50) !important;
-  border-color: var(--color-error-200) !important;
-  color: var(--color-error-800) !important;
-}
-
-/* Modern statistic styling */
-.ant-statistic-title {
-  font-size: var(--text-sm) !important;
-  color: var(--color-text-secondary) !important;
-  font-weight: var(--font-medium) !important;
-}
-
-.ant-statistic-content {
-  font-size: var(--text-3xl) !important;
-  font-weight: var(--font-bold) !important;
-  color: var(--color-text-primary) !important;
-}
-
-/* Modern progress styling */
-.ant-progress-bg {
-  border-radius: var(--radius-full) !important;
-}
-
-.ant-progress-inner {
-  background: var(--color-gray-200) !important;
-  border-radius: var(--radius-full) !important;
-}
-
-/* Modern pagination styling */
-.ant-pagination-item {
-  border-radius: var(--radius-lg) !important;
-  border-color: var(--color-border) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.ant-pagination-item-active {
-  background: var(--color-primary-500) !important;
-  border-color: var(--color-primary-500) !important;
-  color: var(--color-white) !important;
-}
-
-/* Modern drawer styling */
-.ant-drawer-content {
-  background: var(--color-surface) !important;
-}
-
-.ant-drawer-header {
-  background: var(--color-surface) !important;
-  border-bottom: 1px solid var(--color-border-subtle) !important;
-  padding: var(--space-6) !important;
-}
-
-.ant-drawer-body {
-  background: var(--color-surface) !important;
-  padding: var(--space-6) !important;
-}
-
-/* Modern tooltip styling */
-.ant-tooltip-inner {
-  background: var(--color-gray-800) !important;
-  color: var(--color-white) !important;
-  border-radius: var(--radius-lg) !important;
-  font-size: var(--text-sm) !important;
-  padding: var(--space-2) var(--space-3) !important;
-}
-
-.ant-tooltip-arrow::before {
-  background: var(--color-gray-800) !important;
-}
-
-/* Modern dropdown styling */
-.ant-dropdown {
-  border-radius: var(--radius-xl) !important;
-  box-shadow: var(--shadow-lg) !important;
-  border: 1px solid var(--color-border-subtle) !important;
-}
-
-.ant-dropdown-menu {
-  background: var(--color-surface) !important;
-  border-radius: var(--radius-xl) !important;
-  padding: var(--space-2) !important;
-}
-
-.ant-dropdown-menu-item {
-  border-radius: var(--radius-lg) !important;
-  margin: var(--space-1) !important;
-  padding: var(--space-3) var(--space-4) !important;
-  color: var(--color-text-primary) !important;
-  transition: all var(--transition-fast) !important;
-}
-
-.ant-dropdown-menu-item:hover {
-  background: var(--color-surface-hover) !important;
-  color: var(--color-text-primary) !important;
-}
-
-/* Modern switch styling */
-.ant-switch {
-  background: var(--color-gray-300) !important;
-  border-radius: var(--radius-full) !important;
-}
-
-.ant-switch-checked {
-  background: var(--color-primary-500) !important;
-}
-
-/* Modern date picker styling */
-.ant-picker {
-  border-radius: var(--radius-lg) !important;
-  border-color: var(--color-border) !important;
-  background: var(--color-surface) !important;
-  padding: var(--space-3) var(--space-4) !important;
-}
-
-.ant-picker:hover {
-  border-color: var(--color-primary-300) !important;
-}
-
-.ant-picker-focused {
-  border-color: var(--color-primary-500) !important;
-  box-shadow: 0 0 0 3px var(--color-primary-100) !important;
-}
-
-/* Modern upload styling */
-.ant-upload-drag {
-  border-radius: var(--radius-2xl) !important;
-  border: 2px dashed var(--color-border) !important;
-  background: var(--color-surface) !important;
-  transition: all var(--transition-normal) !important;
-}
-
-.ant-upload-drag:hover {
-  border-color: var(--color-primary-400) !important;
-  background: var(--color-primary-50) !important;
-}
-
-.ant-upload-drag.ant-upload-drag-hover {
-  border-color: var(--color-primary-500) !important;
-  background: var(--color-primary-50) !important;
-}
-
-/* Modern spin styling */
-.ant-spin-dot {
-  color: var(--color-primary-500) !important;
-}
-
-/* Modern empty styling */
-.ant-empty {
-  color: var(--color-text-secondary) !important;
-}
-
-.ant-empty-description {
-  color: var(--color-text-tertiary) !important;
-  font-size: var(--text-base) !important;
-}
-
-/* Modern badge styling */
-.ant-badge-count {
-  background: var(--color-primary-500) !important;
-  color: var(--color-white) !important;
-  border-radius: var(--radius-full) !important;
-  font-weight: var(--font-semibold) !important;
-  font-size: var(--text-xs) !important;
-}
-
-/* Modern avatar styling */
-.ant-avatar {
-  border-radius: var(--radius-xl) !important;
-  font-weight: var(--font-semibold) !important;
-}
-
-/* Modern collapse styling */
-.ant-collapse {
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-border-subtle) !important;
-  border-radius: var(--radius-2xl) !important;
-}
-
-.ant-collapse-item {
-  border-bottom: 1px solid var(--color-border-subtle) !important;
-}
-
-.ant-collapse-header {
-  background: var(--color-surface) !important;
-  padding: var(--space-4) var(--space-6) !important;
-  font-weight: var(--font-medium) !important;
-  color: var(--color-text-primary) !important;
-  border-radius: var(--radius-xl) !important;
-}
-
-.ant-collapse-content-box {
-  padding: var(--space-6) !important;
-  background: var(--color-surface) !important;
-}
-
-/* Modern steps styling */
-.ant-steps-item-title {
-  font-size: var(--text-base) !important;
-  font-weight: var(--font-medium) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.ant-steps-item-description {
-  font-size: var(--text-sm) !important;
-  color: var(--color-text-secondary) !important;
-}
-
-/* Modern result styling */
-.ant-result-title {
-  font-size: var(--text-3xl) !important;
-  font-weight: var(--font-bold) !important;
-  color: var(--color-text-primary) !important;
-}
-
-.ant-result-subtitle {
-  font-size: var(--text-base) !important;
-  color: var(--color-text-secondary) !important;
-}
-
-/* Modern breadcrumb styling */
-.ant-breadcrumb {
-  font-size: var(--text-sm) !important;
-  color: var(--color-text-secondary) !important;
-}
-
-.ant-breadcrumb-link {
-  color: var(--color-text-secondary) !important;
-  transition: color var(--transition-fast) !important;
-}
-
-.ant-breadcrumb-link:hover {
-  color: var(--color-primary-600) !important;
-}
-
-/* Modern descriptions styling */
-.ant-descriptions {
-  background: var(--color-surface) !important;
-}
-
-.ant-descriptions-item-label {
-  font-weight: var(--font-medium) !important;
-  color: var(--color-text-secondary) !important;
-}
-
-.ant-descriptions-item-content {
-  color: var(--color-text-primary) !important;
-}
-
-/* Modern timeline styling */
-.ant-timeline-item-content {
-  font-size: var(--text-base) !important;
-  color: var(--color-text-primary) !important;
-}
-
-/* Modern rate styling */
-.ant-rate {
-  color: var(--color-warning-500) !important;
-}
-
-/* Modern slider styling */
-.ant-slider-rail {
-  background: var(--color-gray-200) !important;
-  border-radius: var(--radius-full) !important;
-}
-
-.ant-slider-track {
-  background: var(--color-primary-500) !important;
-  border-radius: var(--radius-full) !important;
-}
-
-.ant-slider-handle {
-  border: 2px solid var(--color-primary-500) !important;
-  background: var(--color-white) !important;
-}
-
-/* Modern notification styling */
-.ant-notification-notice {
-  border-radius: var(--radius-xl) !important;
-  box-shadow: var(--shadow-lg) !important;
-  border: 1px solid var(--color-border-subtle) !important;
-}
-
-/* Modern message styling */
-.ant-message-notice-content {
-  border-radius: var(--radius-xl) !important;
-  box-shadow: var(--shadow-lg) !important;
-  background: var(--color-surface) !important;
-  color: var(--color-text-primary) !important;
-}
+import React, { useState, useEffect } from 'react';
+import { Card, Form, Input, Button, Select, message, Typography, Space, Row, Col, Table, Tag, Modal, Popconfirm } from 'antd';
+import { UserAddOutlined, MailOutlined, LockOutlined, PhoneOutlined, UserOutlined, IdcardOutlined, BookOutlined } from '@ant-design/icons';
+import { Pencil, Trash2 } from 'lucide-react';
+import { useAuth } from '../AuthProvider';
+import { supabase } from '../config/supabaseClient';
+
+const { Title, Text } = Typography;
+const { Option } = Select;
+const AddStudent = () => {
+  const { user } = useAuth();
+  
+  // Try both locations for school_code
+  const school_code = user?.school_code || user?.user_metadata?.school_code;
+  const super_admin_code = user?.super_admin_code || user?.user_metadata?.super_admin_code;
+  
+  // Debug logging (only when needed)
+  // console.log('=== ADD STUDENT COMPONENT DEBUG ===');
+  // console.log('User role:', user?.app_metadata?.role || user?.user_metadata?.role);
+  // console.log('School code:', school_code);
+
+  const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
+  const [classInstances, setClassInstances] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [studentList, setStudentList] = useState([]);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  
+  // Filter states
+  const [selectedClass, setSelectedClass] = useState('');
+
+  const fetchStudents = async () => {
+    setStudentLoading(true);
+    const { data, error } = await supabase
+      .from('student')
+      .select(`
+        id, 
+        full_name, 
+        email, 
+        phone, 
+        student_code, 
+        class_instance_id,
+        class_instances!inner(grade, section)
+      `)
+      .eq('school_code', school_code);
+
+    if (error) {
+      message.error('Failed to load students');
+    } else {
+      setStudentList(data || []);
+    }
+    setStudentLoading(false);
+  };
+
+  useEffect(() => {
+    const fetchClassInstances = async () => {
+      // console.log('=== FETCH CLASS INSTANCES DEBUG ===');
+      
+      // BACKEND INTEGRATION: Replace with comprehensive query above
+      const { data, error } = await supabase
+        .from('class_instances')
+        .select(`
+          id,
+          class:classes (grade, section),
+          academic_years:academic_years (year_start, year_end)
+        `)
+        .eq('school_code', school_code);
+
+      if (error) {
+        console.error('Class instances error:', error);
+        message.error('Failed to load classes: ' + error.message);
+      } else {
+        setClassInstances(data || []);
+      }
+    };
+
+    if (school_code && super_admin_code) {
+      fetchClassInstances();
+      fetchStudents();
+    }
+  }, [school_code, super_admin_code]);
+
+  const handleSubmit = async (values) => {
+    setLoading(true);
+    try {
+      // AUTHENTICATION: Validate current user session
+      const sessionResult = await supabase.auth.getSession();
+      const token = sessionResult.data.session?.access_token;
+
+      if (!token) {
+        message.error('Not authenticated. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+  
+      const response = await fetch('https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-student', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: values.full_name,
+          email: values.email,
+          password: values.password,
+          phone: values.phone,
+          student_code: values.student_code,
+          class_instance_id: values.class_instance_id,
+        
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        // ERROR HANDLING: Display specific error messages
+        message.error(result.error || `Failed to create student. Status: ${response.status}`);
+      } else {
+        // SUCCESS HANDLING: User feedback and form reset
+        message.success('Student created successfully!');
+        form.resetFields();
+        fetchStudents();
+      }
+    } catch (err) {
+      // GENERAL ERROR HANDLING: Network and unexpected errors
+      message.error('Unexpected error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (record) => {
+    setEditingStudent(record);
+    editForm.setFieldsValue(record);
+    setEditModalVisible(true);
+  };
+
+  const handleEditSave = async () => {
+    const values = await editForm.validateFields();
+
+
+    // First, let's check if the student exists and get current data
+    const { data: currentStudent, error: fetchError } = await supabase
+      .from('student')
+      .select('*')
+      .eq('id', editingStudent.id)
+      .single();
+
+
+    // Also test if we can query any students at all
+    const { data: testStudents, error: testQueryError } = await supabase
+      .from('student')
+      .select('id, full_name, school_code')
+      .limit(1);
+
+    if (fetchError) {
+      console.error('Error fetching current student:', fetchError);
+      message.error('Failed to fetch student data: ' + fetchError.message);
+      return;
+    }
+
+    if (!currentStudent) {
+      message.error('Student not found');
+      return;
+    }
+
+    // Compare current data with new data
+
+    // Check if data is actually different
+    const isDataDifferent = 
+      currentStudent.class_instance_id !== values.class_instance_id ||
+      currentStudent.full_name !== values.full_name ||
+      currentStudent.phone !== values.phone ||
+      currentStudent.student_code !== values.student_code;
+
+
+    if (!isDataDifferent) {
+      message.info('No changes detected. The data is identical to the current values.');
+      return;
+    }
+
+    // Test if we can update at all (try a simple update first)
+    const { data: testData, error: testError } = await supabase
+      .from('student')
+      .update({
+        full_name: currentStudent.full_name + ' (Test)'
+      })
+      .eq('id', editingStudent.id)
+      .select();
+
+
+    if (testError) {
+      message.error('Permission denied: ' + testError.message);
+      return;
+    }
+
+    if (!testData || testData.length === 0) {
+      message.error('Permission denied: You do not have permission to update this student.');
+      return;
+    }
+
+
+    // Now try the actual update
+    const { data, error } = await supabase
+      .from('student')
+      .update({
+        full_name: values.full_name,
+        phone: values.phone,
+        student_code: values.student_code,
+        class_instance_id: values.class_instance_id,
+      })
+      .eq('id', editingStudent.id)
+      .select();
+
+
+    if (error) {
+      message.error('Update failed: ' + error.message);
+    } else {
+      if (data && data.length > 0) {
+        message.success('Student updated successfully');
+        setEditModalVisible(false);
+        setEditingStudent(null);
+        fetchStudents();
+      } else {
+        message.warning('No rows were updated. The data might be the same or you may not have permission.');
+      }
+    }
+  };
+
+  const handleDelete = async (user_id) => {
+    const sessionResult = await supabase.auth.getSession();
+    const token = sessionResult.data.session?.access_token;
+
+    if (!token) {
+      message.error('Not authenticated. Please log in.');
+      return;
+    }
+
+    const res = await fetch(
+      'https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/delete-student',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ student_id: user_id }),
+      }
+    );
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      message.error(result.error || 'Failed to delete student');
+    } else {
+      message.success('Student deleted successfully');
+      fetchStudents();
+    }
+  };
+
+  // Get unique classes for filters
+  const uniqueClasses = [...new Set(classInstances.map(ci => `${ci.class.grade}-${ci.class.section}`))].sort();
+
+  // Filter students based on class filter only (search is handled by table)
+  const filteredStudents = studentList.filter(student => {
+    const matchesClass = !selectedClass || 
+      `${student.class_instances?.grade}-${student.class_instances?.section}` === selectedClass;
+
+    return matchesClass;
+  });
+
+  const columns = [
+    { 
+      title: 'Full Name', 
+      dataIndex: 'full_name', 
+      key: 'full_name',
+      sorter: (a, b) => a.full_name.localeCompare(b.full_name),
+      filterable: true,
+      filterSearch: true,
+      onFilter: (value, record) => 
+        record.full_name?.toLowerCase().includes(value.toLowerCase()) ||
+        record.email?.toLowerCase().includes(value.toLowerCase()) ||
+        record.student_code?.toLowerCase().includes(value.toLowerCase()) ||
+        String(record.phone || '').includes(value)
+    },
+    { 
+      title: 'Email', 
+      dataIndex: 'email', 
+      key: 'email',
+      sorter: (a, b) => a.email.localeCompare(b.email)
+    },
+    { 
+      title: 'Phone', 
+      dataIndex: 'phone', 
+      key: 'phone'
+    },
+    { 
+      title: 'Student Code', 
+      dataIndex: 'student_code', 
+      key: 'student_code',
+      sorter: (a, b) => a.student_code.localeCompare(b.student_code)
+    },
+    { 
+      title: 'Class', 
+      key: 'class',
+      render: (_, record) => (
+        <span>
+          Grade {record.class_instances?.grade} - {record.class_instances?.section}
+        </span>
+      ),
+      sorter: (a, b) => {
+        const aClass = `${a.class_instances?.grade}-${a.class_instances?.section}`;
+        const bClass = `${b.class_instances?.grade}-${b.class_instances?.section}`;
+        return aClass.localeCompare(bClass);
+      }
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role) => <Tag color="green">{role || 'student'}</Tag>,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Button icon={<Pencil size={16} />} onClick={() => handleEdit(record)} type="link" />
+          <Popconfirm
+            title="Are you sure to delete this student?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button icon={<Trash2 size={16} />} type="link" danger />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
+      {/* Modern Header */}
+      <div className="cb-dashboard-header">
+        <div className="cb-text-center">
+          <h1 className="cb-heading-2 cb-mb-2">
+            👨‍🎓 Add New Student
+          </h1>
+          <p className="cb-text-caption">
+            Enroll students into your classes and manage their information
+          </p>
+        </div>
+      </div>
+
+      {/* Modern Form Card */}
+      <div className="cb-card cb-mb-8">
+        <div className="cb-card-header">
+          <h3 className="cb-heading-4">Student Information</h3>
+          <p className="cb-text-caption">Enter the student's details below</p>
+        </div>
+        <div className="cb-card-body">
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            className="cb-form"
+            size="large"
+            initialValues={{
+              student_code: 'S'
+            }}
+          >
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Personal Information</h4>
+              
+              <div className="cb-form-row">
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Full Name</label>
+                  <Form.Item
+                    name="full_name"
+                    rules={[{ required: true, message: 'Please enter full name' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <div className="cb-input-group">
+                      <span className="cb-input-icon">👤</span>
+                      <Input
+                        className="cb-input cb-input-with-icon"
+                        placeholder="Enter student's full name"
+                      />
+                    </div>
+                  </Form.Item>
+                </div>
+                
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Email Address</label>
+                  <Form.Item
+                    name="email"
+                    rules={[
+                      { required: true, message: 'Please enter email' },
+                      { type: 'email', message: 'Please enter a valid email' }
+        >
+
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            size="large"
+            initialValues={{
+              student_code: 'S'
+            }}
+          >
+            <Row gutter={[16, 0]}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="full_name"
+                  label="Full Name"
+                  rules={[{ required: true, message: 'Please enter full name' }]}
+                >
+                  <Input
+                    prefix={<UserOutlined />}
+                    placeholder="Enter student's full name"
+                  />
+                </Form.Item>
+              </Col>
+              
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="email"
+                  label="Email Address"
+                  rules={[
+                    { required: true, message: 'Please enter email' },
+                    { type: 'email', message: 'Please enter a valid email' }
+                  ]}
+                >
+                  <Input
+                    prefix={<MailOutlined />}
+                    placeholder="Enter email address"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="password"
+                  label="Password"
+                  rules={[
+                    { required: true, message: 'Please enter password' },
+                    { min: 6, message: 'Password must be at least 6 characters' }
+                  ]}
+                >
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder="Enter password"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="phone"
+                  label="Phone Number"
+                  rules={[
+                    { required: true, message: 'Please enter phone number' },
+                    { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
+                  ]}
+                >
+                  <Input
+                    prefix={<PhoneOutlined />}
+                    placeholder="Enter phone number"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="student_code"
+                  label="Student Code"
+                  rules={[{ required: true, message: 'Please enter student code' }]}
+                >
+                  <Input
+                    prefix={<IdcardOutlined />}
+                    placeholder="Enter student code"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+
+                <Form.Item
+                  name="class_instance_id"
+                  label="Class"
+                  rules={[{ required: true, message: 'Please select a class' }]}
+                >
+                  <Select
+                    placeholder="Select class"
+                    showSearch
+                    optionFilterProp="children"
+                    suffixIcon={<BookOutlined />}
+                  >
+                    {classInstances.map((instance) => (
+                      <Option key={instance.id} value={instance.id}>
+                        Grade {instance.class.grade} - {instance.class.section} | 
+                        AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item>
+              <Space>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  size="large"
+                  style={{
+                    background: '#6366f1',
+                    borderColor: '#6366f1',
+                    borderRadius: '8px',
+                    fontWeight: 500
+                  }}
+                >
+                  {loading ? 'Adding Student...' : 'Add Student'}
+                </Button>
+                <Button
+                  size="large"
+                  onClick={() => form.resetFields()}
+                >
+                  Reset Form
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+
+          {/* Student list section */}
+          <div style={{ marginTop: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <Title level={4} style={{ margin: 0 }}>
+                Existing Students ({filteredStudents.length} of {studentList.length})
+              </Title>
+              <Select
+                placeholder="Filter by Class"
+                value={selectedClass}
+                onChange={setSelectedClass}
+                allowClear
+                style={{ width: 200 }}
+              >
+                {uniqueClasses.map(classItem => (
+                  <Option key={classItem} value={classItem}>
+                    Grade {classItem}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+
+            <Table
+              columns={columns}
+              dataSource={filteredStudents}
+              loading={studentLoading}
+              rowKey={(record) => record.id}
+              pagination={{ 
+                pageSize: 25,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
+              }}
+              scroll={{ x: 1200 }}
+            />
+          </div>
+        </Card>
+
+        {/* Edit Modal */}
+        <Modal
+          open={editModalVisible}
+          title="Edit Student"
+          onCancel={() => setEditModalVisible(false)}
+          onOk={handleEditSave}
+          okText="Save Changes"
+        >
+          <Form form={editForm} layout="vertical">
+            <Form.Item
+              name="full_name"
+              label="Full Name"
+              rules={[{ required: true, message: 'Please enter full name' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="phone"
+              label="Phone Number"
+              rules={[{ required: true, message: 'Please enter phone number' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="student_code"
+              label="Student Code"
+              rules={[{ required: true, message: 'Please enter student code' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="class_instance_id"
+              label="Class"
+              rules={[{ required: true, message: 'Please select a class' }]}
+            >
+              <Select
+                placeholder="Select class"
+                showSearch
+                optionFilterProp="children"
+              >
+                {classInstances.map((instance) => (
+                  <Option key={instance.id} value={instance.id}>
+                    Grade {instance.class.grade} - {instance.class.section} | 
+                    AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
+    </div>
+  );
+};
+
+export default AddStudent;

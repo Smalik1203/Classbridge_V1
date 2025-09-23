@@ -7,6 +7,7 @@ import { supabase } from '../config/supabaseClient';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+
 const AddStudent = () => {
   const { user } = useAuth();
   
@@ -14,11 +15,6 @@ const AddStudent = () => {
   const school_code = user?.school_code || user?.user_metadata?.school_code;
   const super_admin_code = user?.super_admin_code || user?.user_metadata?.super_admin_code;
   
-  // Debug logging (only when needed)
-  // console.log('=== ADD STUDENT COMPONENT DEBUG ===');
-  // console.log('User role:', user?.app_metadata?.role || user?.user_metadata?.role);
-  // console.log('School code:', school_code);
-
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
   const [classInstances, setClassInstances] = useState([]);
@@ -56,9 +52,6 @@ const AddStudent = () => {
 
   useEffect(() => {
     const fetchClassInstances = async () => {
-      // console.log('=== FETCH CLASS INSTANCES DEBUG ===');
-      
-      // BACKEND INTEGRATION: Replace with comprehensive query above
       const { data, error } = await supabase
         .from('class_instances')
         .select(`
@@ -85,7 +78,6 @@ const AddStudent = () => {
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
-      // AUTHENTICATION: Validate current user session
       const sessionResult = await supabase.auth.getSession();
       const token = sessionResult.data.session?.access_token;
 
@@ -95,7 +87,6 @@ const AddStudent = () => {
         return;
       }
 
-  
       const response = await fetch('https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-student', {
         method: 'POST',
         headers: {
@@ -109,23 +100,19 @@ const AddStudent = () => {
           phone: values.phone,
           student_code: values.student_code,
           class_instance_id: values.class_instance_id,
-        
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        // ERROR HANDLING: Display specific error messages
         message.error(result.error || `Failed to create student. Status: ${response.status}`);
       } else {
-        // SUCCESS HANDLING: User feedback and form reset
         message.success('Student created successfully!');
         form.resetFields();
         fetchStudents();
       }
     } catch (err) {
-      // GENERAL ERROR HANDLING: Network and unexpected errors
       message.error('Unexpected error: ' + err.message);
     } finally {
       setLoading(false);
@@ -141,20 +128,11 @@ const AddStudent = () => {
   const handleEditSave = async () => {
     const values = await editForm.validateFields();
 
-
-    // First, let's check if the student exists and get current data
     const { data: currentStudent, error: fetchError } = await supabase
       .from('student')
       .select('*')
       .eq('id', editingStudent.id)
       .single();
-
-
-    // Also test if we can query any students at all
-    const { data: testStudents, error: testQueryError } = await supabase
-      .from('student')
-      .select('id, full_name, school_code')
-      .limit(1);
 
     if (fetchError) {
       console.error('Error fetching current student:', fetchError);
@@ -167,43 +145,17 @@ const AddStudent = () => {
       return;
     }
 
-    // Compare current data with new data
-
-    // Check if data is actually different
     const isDataDifferent = 
       currentStudent.class_instance_id !== values.class_instance_id ||
       currentStudent.full_name !== values.full_name ||
       currentStudent.phone !== values.phone ||
       currentStudent.student_code !== values.student_code;
 
-
     if (!isDataDifferent) {
       message.info('No changes detected. The data is identical to the current values.');
       return;
     }
 
-    // Test if we can update at all (try a simple update first)
-    const { data: testData, error: testError } = await supabase
-      .from('student')
-      .update({
-        full_name: currentStudent.full_name + ' (Test)'
-      })
-      .eq('id', editingStudent.id)
-      .select();
-
-
-    if (testError) {
-      message.error('Permission denied: ' + testError.message);
-      return;
-    }
-
-    if (!testData || testData.length === 0) {
-      message.error('Permission denied: You do not have permission to update this student.');
-      return;
-    }
-
-
-    // Now try the actual update
     const { data, error } = await supabase
       .from('student')
       .update({
@@ -214,7 +166,6 @@ const AddStudent = () => {
       })
       .eq('id', editingStudent.id)
       .select();
-
 
     if (error) {
       message.error('Update failed: ' + error.message);
@@ -360,7 +311,6 @@ const AddStudent = () => {
           }}
           headStyle={{ borderBottom: '1px solid #e2e8f0' }}
         >
-
           <Form
             form={form}
             layout="vertical"
@@ -446,7 +396,6 @@ const AddStudent = () => {
               </Col>
 
               <Col xs={24} md={12}>
-
                 <Form.Item
                   name="class_instance_id"
                   label="Class"
