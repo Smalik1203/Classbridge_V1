@@ -1,539 +1,505 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Select, message, Typography, Space, Row, Col, Table, Tag, Modal, Popconfirm } from 'antd';
-import { UserAddOutlined, MailOutlined, LockOutlined, PhoneOutlined, UserOutlined, IdcardOutlined, BookOutlined } from '@ant-design/icons';
-import { Pencil, Trash2 } from 'lucide-react';
+import {
+  Card,
+  Button,
+  Table,
+  Modal,
+  Form,
+  Input,
+  Select,
+  Upload,
+  Space,
+  Typography,
+  Row,
+  Col,
+  Tag,
+  message,
+  Empty,
+  Spin,
+  Tabs,
+  Progress,
+  Tooltip
+} from 'antd';
+import {
+  PlusOutlined,
+  UploadOutlined,
+  EyeOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  FileTextOutlined,
+  PlayCircleOutlined,
+  QuestionCircleOutlined,
+  DownloadOutlined
+} from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
-import { supabase } from '../config/supabaseClient';
+import { useTheme } from '../contexts/ThemeContext';
+import { 
+  getLearningResources, 
+  createLearningResource, 
+  updateLearningResource, 
+  deleteLearningResource 
+} from '../services/resourceService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { TextArea } = Input;
+const { TabPane } = Tabs;
 
-const AddStudent = () => {
+const LearningResources = () => {
   const { user } = useAuth();
+  const { theme: antdTheme } = useTheme();
   
-  // Try both locations for school_code
-  const school_code = user?.school_code || user?.user_metadata?.school_code;
-  const super_admin_code = user?.super_admin_code || user?.user_metadata?.super_admin_code;
-  
-  const [form] = Form.useForm();
-  const [editForm] = Form.useForm();
-  const [classInstances, setClassInstances] = useState([]);
+  const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [studentList, setStudentList] = useState([]);
-  const [studentLoading, setStudentLoading] = useState(false);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  
-  // Filter states
-  const [selectedClass, setSelectedClass] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingResource, setEditingResource] = useState(null);
+  const [previewResource, setPreviewResource] = useState(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [form] = Form.useForm();
+  const [activeTab, setActiveTab] = useState('all');
+  const [filters, setFilters] = useState({
+    resource_type: '',
+    subject_id: '',
+    class_instance_id: ''
+  });
 
-  const fetchStudents = async () => {
-    setStudentLoading(true);
-    const { data, error } = await supabase
-      .from('student')
-      .select(`
-        id, 
-        full_name, 
-        email, 
-        phone, 
-        student_code, 
-        class_instance_id,
-        class_instances!inner(grade, section)
-      `)
-      .eq('school_code', school_code);
+  const schoolCode = user?.user_metadata?.school_code;
+  const userRole = user?.app_metadata?.role || 'student';
 
-    if (error) {
-      message.error('Failed to load students');
-    } else {
-      setStudentList(data || []);
-    }
-    setStudentLoading(false);
-  };
+  const canEdit = ['superadmin', 'admin'].includes(userRole);
 
   useEffect(() => {
-    const fetchClassInstances = async () => {
-      const { data, error } = await supabase
-        .from('class_instances')
-        .select(`
-          id,
-          class:classes (grade, section),
-          academic_years:academic_years (year_start, year_end)
-        `)
-        .eq('school_code', school_code);
-
-      if (error) {
-        console.error('Class instances error:', error);
-        message.error('Failed to load classes: ' + error.message);
-      } else {
-        setClassInstances(data || []);
-      }
-    };
-
-    if (school_code && super_admin_code) {
-      fetchClassInstances();
-      fetchStudents();
+    if (schoolCode) {
+      fetchResources();
     }
-  }, [school_code, super_admin_code]);
+  }, [schoolCode, filters]);
 
-  const handleSubmit = async (values) => {
+  const fetchResources = async () => {
     setLoading(true);
     try {
-      const sessionResult = await supabase.auth.getSession();
-      const token = sessionResult.data.session?.access_token;
-
-      if (!token) {
-        message.error('Not authenticated. Please log in.');
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch('https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-student', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          full_name: values.full_name,
-          email: values.email,
-          password: values.password,
-          phone: values.phone,
-          student_code: values.student_code,
-          class_instance_id: values.class_instance_id,
-        }),
+      const result = await getLearningResources({
+        school_code: schoolCode,
+        ...filters,
+        page: 1,
+        limit: 50
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        message.error(result.error || `Failed to create student. Status: ${response.status}`);
-      } else {
-        message.success('Student created successfully!');
-        form.resetFields();
-        fetchStudents();
-      }
-    } catch (err) {
-      message.error('Unexpected error: ' + err.message);
+      setResources(result.data);
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+      message.error('Failed to fetch learning resources');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = (record) => {
-    setEditingStudent(record);
-    editForm.setFieldsValue(record);
-    setEditModalVisible(true);
+  const handleCreateResource = () => {
+    setEditingResource(null);
+    form.resetFields();
+    setModalVisible(true);
   };
 
-  const handleEditSave = async () => {
-    const values = await editForm.validateFields();
+  const handleEditResource = (resource) => {
+    setEditingResource(resource);
+    form.setFieldsValue({
+      title: resource.title,
+      description: resource.description,
+      resource_type: resource.resource_type,
+      content_url: resource.content_url,
+      class_instance_id: resource.class_instance_id,
+      subject_id: resource.subject_id
+    });
+    setModalVisible(true);
+  };
 
-    const { data: currentStudent, error: fetchError } = await supabase
-      .from('student')
-      .select('*')
-      .eq('id', editingStudent.id)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching current student:', fetchError);
-      message.error('Failed to fetch student data: ' + fetchError.message);
-      return;
+  const handleDeleteResource = async (resourceId) => {
+    try {
+      await deleteLearningResource(resourceId);
+      message.success('Resource deleted successfully');
+      fetchResources();
+    } catch (error) {
+      message.error('Failed to delete resource');
+      console.error('Error deleting resource:', error);
     }
+  };
 
-    if (!currentStudent) {
-      message.error('Student not found');
-      return;
-    }
+  const handleSubmit = async (values) => {
+    try {
+      const resourceData = {
+        ...values,
+        school_code: schoolCode,
+        uploaded_by: user.id
+      };
 
-    const isDataDifferent = 
-      currentStudent.class_instance_id !== values.class_instance_id ||
-      currentStudent.full_name !== values.full_name ||
-      currentStudent.phone !== values.phone ||
-      currentStudent.student_code !== values.student_code;
-
-    if (!isDataDifferent) {
-      message.info('No changes detected. The data is identical to the current values.');
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('student')
-      .update({
-        full_name: values.full_name,
-        phone: values.phone,
-        student_code: values.student_code,
-        class_instance_id: values.class_instance_id,
-      })
-      .eq('id', editingStudent.id)
-      .select();
-
-    if (error) {
-      message.error('Update failed: ' + error.message);
-    } else {
-      if (data && data.length > 0) {
-        message.success('Student updated successfully');
-        setEditModalVisible(false);
-        setEditingStudent(null);
-        fetchStudents();
+      if (editingResource) {
+        await updateLearningResource(editingResource.id, resourceData);
+        message.success('Resource updated successfully');
       } else {
-        message.warning('No rows were updated. The data might be the same or you may not have permission.');
+        await createLearningResource(resourceData);
+        message.success('Resource created successfully');
       }
+
+      setModalVisible(false);
+      fetchResources();
+    } catch (error) {
+      message.error(editingResource ? 'Failed to update resource' : 'Failed to create resource');
+      console.error('Error saving resource:', error);
     }
   };
 
-  const handleDelete = async (user_id) => {
-    const sessionResult = await supabase.auth.getSession();
-    const token = sessionResult.data.session?.access_token;
+  const handlePreview = (resource) => {
+    setPreviewResource(resource);
+    setPreviewVisible(true);
+  };
 
-    if (!token) {
-      message.error('Not authenticated. Please log in.');
-      return;
-    }
-
-    const res = await fetch(
-      'https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/delete-student',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ student_id: user_id }),
-      }
-    );
-
-    const result = await res.json();
-
-    if (!res.ok) {
-      message.error(result.error || 'Failed to delete student');
-    } else {
-      message.success('Student deleted successfully');
-      fetchStudents();
+  const getResourceIcon = (type) => {
+    switch (type) {
+      case 'video':
+        return <PlayCircleOutlined style={{ color: '#1890ff' }} />;
+      case 'pdf':
+        return <FileTextOutlined style={{ color: '#52c41a' }} />;
+      case 'quiz':
+        return <QuestionCircleOutlined style={{ color: '#faad14' }} />;
+      default:
+        return <FileTextOutlined />;
     }
   };
 
-  // Get unique classes for filters
-  const uniqueClasses = [...new Set(classInstances.map(ci => `${ci.class.grade}-${ci.class.section}`))].sort();
+  const getResourceTypeColor = (type) => {
+    switch (type) {
+      case 'video':
+        return 'blue';
+      case 'pdf':
+        return 'green';
+      case 'quiz':
+        return 'orange';
+      default:
+        return 'default';
+    }
+  };
 
-  // Filter students based on class filter only (search is handled by table)
-  const filteredStudents = studentList.filter(student => {
-    const matchesClass = !selectedClass || 
-      `${student.class_instances?.grade}-${student.class_instances?.section}` === selectedClass;
-
-    return matchesClass;
+  const filteredResources = resources.filter(resource => {
+    if (activeTab === 'all') return true;
+    return resource.resource_type === activeTab;
   });
 
   const columns = [
-    { 
-      title: 'Full Name', 
-      dataIndex: 'full_name', 
-      key: 'full_name',
-      sorter: (a, b) => a.full_name.localeCompare(b.full_name),
-      filterable: true,
-      filterSearch: true,
-      onFilter: (value, record) => 
-        record.full_name?.toLowerCase().includes(value.toLowerCase()) ||
-        record.email?.toLowerCase().includes(value.toLowerCase()) ||
-        record.student_code?.toLowerCase().includes(value.toLowerCase()) ||
-        String(record.phone || '').includes(value)
-    },
-    { 
-      title: 'Email', 
-      dataIndex: 'email', 
-      key: 'email',
-      sorter: (a, b) => a.email.localeCompare(b.email)
-    },
-    { 
-      title: 'Phone', 
-      dataIndex: 'phone', 
-      key: 'phone'
-    },
-    { 
-      title: 'Student Code', 
-      dataIndex: 'student_code', 
-      key: 'student_code',
-      sorter: (a, b) => a.student_code.localeCompare(b.student_code)
-    },
-    { 
-      title: 'Class', 
-      key: 'class',
+    {
+      title: 'Resource',
+      key: 'resource',
       render: (_, record) => (
-        <span>
-          Grade {record.class_instances?.grade} - {record.class_instances?.section}
-        </span>
-      ),
-      sorter: (a, b) => {
-        const aClass = `${a.class_instances?.grade}-${a.class_instances?.section}`;
-        const bClass = `${b.class_instances?.grade}-${b.class_instances?.section}`;
-        return aClass.localeCompare(bClass);
-      }
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {getResourceIcon(record.resource_type)}
+          <div>
+            <Text strong>{record.title}</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {record.description}
+            </Text>
+          </div>
+        </div>
+      )
     },
     {
-      title: 'Role',
-      dataIndex: 'role',
-      key: 'role',
-      render: (role) => <Tag color="green">{role || 'student'}</Tag>,
+      title: 'Type',
+      dataIndex: 'resource_type',
+      key: 'resource_type',
+      render: (type) => (
+        <Tag color={getResourceTypeColor(type)}>
+          {type.toUpperCase()}
+        </Tag>
+      )
+    },
+    {
+      title: 'Class',
+      key: 'class',
+      render: (_, record) => (
+        record.class_instances ? 
+          `Grade ${record.class_instances.grade} - ${record.class_instances.section}` : 
+          'All Classes'
+      )
+    },
+    {
+      title: 'Subject',
+      key: 'subject',
+      render: (_, record) => (
+        record.subjects ? record.subjects.subject_name : 'General'
+      )
+    },
+    {
+      title: 'Created',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (date) => new Date(date).toLocaleDateString('en-IN')
     },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<Pencil size={16} />} onClick={() => handleEdit(record)} type="link" />
-          <Popconfirm
-            title="Are you sure to delete this student?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button icon={<Trash2 size={16} />} type="link" danger />
-          </Popconfirm>
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => handlePreview(record)}
+          />
+          {canEdit && (
+            <>
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => handleEditResource(record)}
+              />
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => {
+                  Modal.confirm({
+                    title: 'Delete Resource',
+                    content: 'Are you sure you want to delete this resource?',
+                    onOk: () => handleDeleteResource(record.id)
+                  });
+                }}
+              />
+            </>
+          )}
         </Space>
-      ),
-    },
+      )
+    }
   ];
 
   return (
-    <div style={{ minHeight: '100vh', padding: '24px', background: '#f8fafc' }}>
-      <div className="max-w-3xl mx-auto">
-        <Card
-          title={
+    <div style={{ padding: '24px', background: antdTheme.token.colorBgLayout, minHeight: '100vh' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <Title level={2} style={{ margin: 0, color: antdTheme.token.colorText }}>
+          Learning Resources
+        </Title>
+        <Text type="secondary" style={{ fontSize: '16px' }}>
+          Manage and access educational content and materials
+        </Text>
+      </div>
+
+      {/* Action Bar */}
+      <Card style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Space>
+            <Select
+              placeholder="Filter by Type"
+              value={filters.resource_type}
+              onChange={(value) => setFilters(prev => ({ ...prev, resource_type: value }))}
+              style={{ width: 150 }}
+              allowClear
+            >
+              <Option value="video">Videos</Option>
+              <Option value="pdf">PDFs</Option>
+              <Option value="quiz">Quizzes</Option>
+            </Select>
+          </Space>
+          
+          {canEdit && (
             <Space>
-              <UserAddOutlined />
-              <Title level={3} style={{ margin: 0, color: '#1e293b', fontWeight: 600 }}>Add New Student</Title>
-            </Space>
-          }
-          style={{
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            background: '#ffffff'
-          }}
-          headStyle={{ borderBottom: '1px solid #e2e8f0' }}
-        >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            size="large"
-            initialValues={{
-              student_code: 'S'
-            }}
-          >
-            <Row gutter={[16, 0]}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="full_name"
-                  label="Full Name"
-                  rules={[{ required: true, message: 'Please enter full name' }]}
-                >
-                  <Input
-                    prefix={<UserOutlined />}
-                    placeholder="Enter student's full name"
-                  />
-                </Form.Item>
-              </Col>
-              
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="email"
-                  label="Email Address"
-                  rules={[
-                    { required: true, message: 'Please enter email' },
-                    { type: 'email', message: 'Please enter a valid email' }
-                  ]}
-                >
-                  <Input
-                    prefix={<MailOutlined />}
-                    placeholder="Enter email address"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="password"
-                  label="Password"
-                  rules={[
-                    { required: true, message: 'Please enter password' },
-                    { min: 6, message: 'Password must be at least 6 characters' }
-                  ]}
-                >
-                  <Input.Password
-                    prefix={<LockOutlined />}
-                    placeholder="Enter password"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="phone"
-                  label="Phone Number"
-                  rules={[
-                    { required: true, message: 'Please enter phone number' },
-                    { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
-                  ]}
-                >
-                  <Input
-                    prefix={<PhoneOutlined />}
-                    placeholder="Enter phone number"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="student_code"
-                  label="Student Code"
-                  rules={[{ required: true, message: 'Please enter student code' }]}
-                >
-                  <Input
-                    prefix={<IdcardOutlined />}
-                    placeholder="Enter student code"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="class_instance_id"
-                  label="Class"
-                  rules={[{ required: true, message: 'Please select a class' }]}
-                >
-                  <Select
-                    placeholder="Select class"
-                    showSearch
-                    optionFilterProp="children"
-                    suffixIcon={<BookOutlined />}
-                  >
-                    {classInstances.map((instance) => (
-                      <Option key={instance.id} value={instance.id}>
-                        Grade {instance.class.grade} - {instance.class.section} | 
-                        AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item>
-              <Space>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={loading}
-                  size="large"
-                  style={{
-                    background: '#6366f1',
-                    borderColor: '#6366f1',
-                    borderRadius: '8px',
-                    fontWeight: 500
-                  }}
-                >
-                  {loading ? 'Adding Student...' : 'Add Student'}
-                </Button>
-                <Button
-                  size="large"
-                  onClick={() => form.resetFields()}
-                >
-                  Reset Form
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
-
-          {/* Student list section */}
-          <div style={{ marginTop: '40px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <Title level={4} style={{ margin: 0 }}>
-                Existing Students ({filteredStudents.length} of {studentList.length})
-              </Title>
-              <Select
-                placeholder="Filter by Class"
-                value={selectedClass}
-                onChange={setSelectedClass}
-                allowClear
-                style={{ width: 200 }}
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleCreateResource}
               >
-                {uniqueClasses.map(classItem => (
-                  <Option key={classItem} value={classItem}>
-                    Grade {classItem}
-                  </Option>
-                ))}
-              </Select>
-            </div>
+                Add Resource
+              </Button>
+            </Space>
+          )}
+        </div>
+      </Card>
 
+      {/* Resource Tabs */}
+      <Card>
+        <Tabs activeKey={activeTab} onChange={setActiveTab}>
+          <TabPane tab="All Resources" key="all">
             <Table
               columns={columns}
-              dataSource={filteredStudents}
-              loading={studentLoading}
-              rowKey={(record) => record.id}
-              pagination={{ 
-                pageSize: 25,
+              dataSource={filteredResources}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                pageSize: 10,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
+                showTotal: (total, range) => 
+                  `${range[0]}-${range[1]} of ${total} resources`
               }}
-              scroll={{ x: 1200 }}
+              locale={{
+                emptyText: (
+                  <Empty
+                    description="No learning resources found"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                )
+              }}
             />
-          </div>
-        </Card>
+          </TabPane>
+          
+          <TabPane tab="Videos" key="video">
+            <Table
+              columns={columns}
+              dataSource={resources.filter(r => r.resource_type === 'video')}
+              rowKey="id"
+              loading={loading}
+              pagination={{ pageSize: 10 }}
+            />
+          </TabPane>
+          
+          <TabPane tab="PDFs" key="pdf">
+            <Table
+              columns={columns}
+              dataSource={resources.filter(r => r.resource_type === 'pdf')}
+              rowKey="id"
+              loading={loading}
+              pagination={{ pageSize: 10 }}
+            />
+          </TabPane>
+          
+          <TabPane tab="Quizzes" key="quiz">
+            <Table
+              columns={columns}
+              dataSource={resources.filter(r => r.resource_type === 'quiz')}
+              rowKey="id"
+              loading={loading}
+              pagination={{ pageSize: 10 }}
+            />
+          </TabPane>
+        </Tabs>
+      </Card>
 
-        {/* Edit Modal */}
-        <Modal
-          open={editModalVisible}
-          title="Edit Student"
-          onCancel={() => setEditModalVisible(false)}
-          onOk={handleEditSave}
-          okText="Save Changes"
+      {/* Create/Edit Resource Modal */}
+      <Modal
+        title={editingResource ? 'Edit Resource' : 'Add New Resource'}
+        open={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{
+            resource_type: 'video'
+          }}
         >
-          <Form form={editForm} layout="vertical">
-            <Form.Item
-              name="full_name"
-              label="Full Name"
-              rules={[{ required: true, message: 'Please enter full name' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="phone"
-              label="Phone Number"
-              rules={[{ required: true, message: 'Please enter phone number' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="student_code"
-              label="Student Code"
-              rules={[{ required: true, message: 'Please enter student code' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="class_instance_id"
-              label="Class"
-              rules={[{ required: true, message: 'Please select a class' }]}
-            >
-              <Select
-                placeholder="Select class"
-                showSearch
-                optionFilterProp="children"
+          <Form.Item
+            name="title"
+            label="Resource Title"
+            rules={[{ required: true, message: 'Please enter resource title' }]}
+          >
+            <Input placeholder="Enter resource title" />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="Description"
+          >
+            <TextArea
+              rows={3}
+              placeholder="Enter resource description"
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="resource_type"
+                label="Resource Type"
+                rules={[{ required: true, message: 'Please select resource type' }]}
               >
-                {classInstances.map((instance) => (
-                  <Option key={instance.id} value={instance.id}>
-                    Grade {instance.class.grade} - {instance.class.section} | 
-                    AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Form>
-        </Modal>
-      </div>
+                <Select placeholder="Select type">
+                  <Option value="video">Video</Option>
+                  <Option value="pdf">PDF Document</Option>
+                  <Option value="quiz">Quiz</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="subject_id"
+                label="Subject"
+              >
+                <Select placeholder="Select subject" allowClear>
+                  {/* Subject options would be loaded from API */}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="content_url"
+            label="Content URL"
+            rules={[{ required: true, message: 'Please enter content URL' }]}
+          >
+            <Input placeholder="Enter URL or upload file" />
+          </Form.Item>
+
+          <Form.Item
+            name="class_instance_id"
+            label="Class (Optional)"
+          >
+            <Select placeholder="Select class" allowClear>
+              {/* Class options would be loaded from API */}
+            </Select>
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={() => setModalVisible(false)}>
+                Cancel
+              </Button>
+              <Button type="primary" htmlType="submit">
+                {editingResource ? 'Update Resource' : 'Add Resource'}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Preview Modal */}
+      <Modal
+        title={previewResource?.title}
+        open={previewVisible}
+        onCancel={() => setPreviewVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setPreviewVisible(false)}>
+            Close
+          </Button>
+        ]}
+        width="90%"
+        style={{ top: 20 }}
+      >
+        {previewResource && (
+          <div style={{ height: '70vh' }}>
+            {previewResource.resource_type === 'video' && (
+              <iframe
+                src={previewResource.content_url}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title={previewResource.title}
+              />
+            )}
+            {previewResource.resource_type === 'pdf' && (
+              <iframe
+                src={previewResource.content_url}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title={previewResource.title}
+              />
+            )}
+            {previewResource.resource_type === 'quiz' && (
+              <div style={{ padding: '20px', textAlign: 'center' }}>
+                <QuestionCircleOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+                <Title level={4}>Quiz Preview</Title>
+                <Text>Quiz functionality will be available soon</Text>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
 
-export default AddStudent;
+export default LearningResources;

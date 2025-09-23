@@ -1,606 +1,400 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Select, message, Typography, Space, Row, Col, Table, Tag, Modal, Popconfirm } from 'antd';
-import { UserAddOutlined, MailOutlined, LockOutlined, PhoneOutlined, UserOutlined, IdcardOutlined, BookOutlined } from '@ant-design/icons';
-import { Pencil, Trash2 } from 'lucide-react';
-import { useAuth } from '../AuthProvider';
+import {
+  Card,
+  Table,
+  Button,
+  Select,
+  DatePicker,
+  Space,
+  Typography,
+  Tag,
+  message,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Modal,
+  Form,
+  Radio,
+  Empty
+} from 'antd';
+import {
+  CalendarOutlined,
+  UserOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  TeamOutlined
+} from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { supabase } from '../config/supabaseClient';
+import { useAuth } from '../AuthProvider';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const AddStudent = () => {
+const UnifiedAttendance = () => {
   const { user } = useAuth();
+  const { theme: antdTheme } = useTheme();
   
-  // Try both locations for school_code
-  const school_code = user?.school_code || user?.user_metadata?.school_code;
-  const super_admin_code = user?.super_admin_code || user?.user_metadata?.super_admin_code;
-  
-  const [form] = Form.useForm();
-  const [editForm] = Form.useForm();
-  const [classInstances, setClassInstances] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [studentList, setStudentList] = useState([]);
-  const [studentLoading, setStudentLoading] = useState(false);
-  const [editingStudent, setEditingStudent] = useState(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  
-  // Filter states
-  const [selectedClass, setSelectedClass] = useState('');
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(dayjs());
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [classes, setClasses] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [form] = Form.useForm();
 
-  const fetchStudents = async () => {
-    setStudentLoading(true);
-    const { data, error } = await supabase
-      .from('student')
-      .select(`
-        id, 
-        full_name, 
-        email, 
-        phone, 
-        student_code, 
-        class_instance_id,
-        class_instances!inner(grade, section)
-      `)
-      .eq('school_code', school_code);
+  const userRole = user?.app_metadata?.role || 'student';
+  const schoolCode = user?.user_metadata?.school_code;
 
-    if (error) {
-      message.error('Failed to load students');
-    } else {
-      setStudentList(data || []);
-    }
-    setStudentLoading(false);
-  };
+  const canMarkAttendance = ['superadmin', 'admin'].includes(userRole);
 
   useEffect(() => {
-    const fetchClassInstances = async () => {
-      const { data, error } = await supabase
-        .from('class_instances')
-        .select(`
-          id,
-          class:classes (grade, section),
-          academic_years:academic_years (year_start, year_end)
-        `)
-        .eq('school_code', school_code);
+    if (schoolCode) {
+      fetchClasses();
+    }
+  }, [schoolCode]);
 
-      if (error) {
-        console.error('Class instances error:', error);
-        message.error('Failed to load classes: ' + error.message);
-      } else {
-        setClassInstances(data || []);
-      }
-    };
-
-    if (school_code && super_admin_code) {
-      fetchClassInstances();
+  useEffect(() => {
+    if (selectedClass && selectedDate) {
+      fetchAttendanceData();
       fetchStudents();
     }
-  }, [school_code, super_admin_code]);
+  }, [selectedClass, selectedDate]);
 
-  const handleSubmit = async (values) => {
+  const fetchClasses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('class_instances')
+        .select('id, grade, section')
+        .eq('school_code', schoolCode)
+        .order('grade', { ascending: true });
+
+      if (error) throw error;
+      setClasses(data || []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      message.error('Failed to fetch classes');
+    }
+  };
+
+  const fetchStudents = async () => {
+    if (!selectedClass) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('student')
+        .select('id, full_name, student_code')
+        .eq('class_instance_id', selectedClass)
+        .eq('school_code', schoolCode)
+        .order('full_name', { ascending: true });
+
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      message.error('Failed to fetch students');
+    }
+  };
+
+  const fetchAttendanceData = async () => {
+    if (!selectedClass || !selectedDate) return;
+    
     setLoading(true);
     try {
-      const sessionResult = await supabase.auth.getSession();
-      const token = sessionResult.data.session?.access_token;
+      const { data, error } = await supabase
+        .from('attendance')
+        .select(`
+          id,
+          student_id,
+          status,
+          date,
+          student:student(full_name, student_code)
+        `)
+        .eq('class_instance_id', selectedClass)
+        .eq('date', selectedDate.format('YYYY-MM-DD'))
+        .eq('school_code', schoolCode);
 
-      if (!token) {
-        message.error('Not authenticated. Please log in.');
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch('https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-student', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          full_name: values.full_name,
-          email: values.email,
-          password: values.password,
-          phone: values.phone,
-          student_code: values.student_code,
-          class_instance_id: values.class_instance_id,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        message.error(result.error || `Failed to create student. Status: ${response.status}`);
-      } else {
-        message.success('Student created successfully!');
-        form.resetFields();
-        fetchStudents();
-      }
-    } catch (err) {
-      message.error('Unexpected error: ' + err.message);
+      if (error) throw error;
+      setAttendanceData(data || []);
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      message.error('Failed to fetch attendance data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = (record) => {
-    setEditingStudent(record);
-    editForm.setFieldsValue(record);
-    setEditModalVisible(true);
-  };
+  const handleMarkAttendance = async (studentId, status) => {
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .upsert({
+          student_id: studentId,
+          class_instance_id: selectedClass,
+          status: status,
+          date: selectedDate.format('YYYY-MM-DD'),
+          marked_by: user.id,
+          marked_by_role_code: userRole,
+          school_code: schoolCode
+        }, {
+          onConflict: 'student_id,date'
+        });
 
-  const handleEditSave = async () => {
-    const values = await editForm.validateFields();
-
-    const { data: currentStudent, error: fetchError } = await supabase
-      .from('student')
-      .select('*')
-      .eq('id', editingStudent.id)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching current student:', fetchError);
-      message.error('Failed to fetch student data: ' + fetchError.message);
-      return;
-    }
-
-    if (!currentStudent) {
-      message.error('Student not found');
-      return;
-    }
-
-    const isDataDifferent = 
-      currentStudent.class_instance_id !== values.class_instance_id ||
-      currentStudent.full_name !== values.full_name ||
-      currentStudent.phone !== values.phone ||
-      currentStudent.student_code !== values.student_code;
-
-    if (!isDataDifferent) {
-      message.info('No changes detected. The data is identical to the current values.');
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('student')
-      .update({
-        full_name: values.full_name,
-        phone: values.phone,
-        student_code: values.student_code,
-        class_instance_id: values.class_instance_id,
-      })
-      .eq('id', editingStudent.id)
-      .select();
-
-    if (error) {
-      message.error('Update failed: ' + error.message);
-    } else {
-      if (data && data.length > 0) {
-        message.success('Student updated successfully');
-        setEditModalVisible(false);
-        setEditingStudent(null);
-        fetchStudents();
-      } else {
-        message.warning('No rows were updated. The data might be the same or you may not have permission.');
-      }
+      if (error) throw error;
+      
+      message.success('Attendance marked successfully');
+      fetchAttendanceData();
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      message.error('Failed to mark attendance');
     }
   };
 
-  const handleDelete = async (user_id) => {
-    const sessionResult = await supabase.auth.getSession();
-    const token = sessionResult.data.session?.access_token;
+  const getAttendanceStatus = (studentId) => {
+    const record = attendanceData.find(a => a.student_id === studentId);
+    return record?.status || 'not_marked';
+  };
 
-    if (!token) {
-      message.error('Not authenticated. Please log in.');
-      return;
-    }
-
-    const res = await fetch(
-      'https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/delete-student',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ student_id: user_id }),
-      }
-    );
-
-    const result = await res.json();
-
-    if (!res.ok) {
-      message.error(result.error || 'Failed to delete student');
-    } else {
-      message.success('Student deleted successfully');
-      fetchStudents();
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'present':
+        return 'success';
+      case 'absent':
+        return 'error';
+      case 'late':
+        return 'warning';
+      default:
+        return 'default';
     }
   };
 
-  // Get unique classes for filters
-  const uniqueClasses = [...new Set(classInstances.map(ci => `${ci.class.grade}-${ci.class.section}`))].sort();
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'present':
+        return <CheckCircleOutlined />;
+      case 'absent':
+        return <CloseCircleOutlined />;
+      case 'late':
+        return <ClockCircleOutlined />;
+      default:
+        return <UserOutlined />;
+    }
+  };
 
-  // Filter students based on class filter only (search is handled by table)
-  const filteredStudents = studentList.filter(student => {
-    const matchesClass = !selectedClass || 
-      `${student.class_instances?.grade}-${student.class_instances?.section}` === selectedClass;
+  const calculateStats = () => {
+    const total = students.length;
+    const present = attendanceData.filter(a => a.status === 'present').length;
+    const absent = attendanceData.filter(a => a.status === 'absent').length;
+    const late = attendanceData.filter(a => a.status === 'late').length;
+    const notMarked = total - (present + absent + late);
 
-    return matchesClass;
-  });
+    return { total, present, absent, late, notMarked };
+  };
+
+  const stats = calculateStats();
 
   const columns = [
-    { 
-      title: 'Full Name', 
-      dataIndex: 'full_name', 
-      key: 'full_name',
-      sorter: (a, b) => a.full_name.localeCompare(b.full_name),
-      filterable: true,
-      filterSearch: true,
-      onFilter: (value, record) => 
-        record.full_name?.toLowerCase().includes(value.toLowerCase()) ||
-        record.email?.toLowerCase().includes(value.toLowerCase()) ||
-        record.student_code?.toLowerCase().includes(value.toLowerCase()) ||
-        String(record.phone || '').includes(value)
-    },
-    { 
-      title: 'Email', 
-      dataIndex: 'email', 
-      key: 'email',
-      sorter: (a, b) => a.email.localeCompare(b.email)
-    },
-    { 
-      title: 'Phone', 
-      dataIndex: 'phone', 
-      key: 'phone'
-    },
-    { 
-      title: 'Student Code', 
-      dataIndex: 'student_code', 
-      key: 'student_code',
-      sorter: (a, b) => a.student_code.localeCompare(b.student_code)
-    },
-    { 
-      title: 'Class', 
-      key: 'class',
+    {
+      title: 'Student',
+      key: 'student',
       render: (_, record) => (
-        <span>
-          Grade {record.class_instances?.grade} - {record.class_instances?.section}
-        </span>
-      ),
-      sorter: (a, b) => {
-        const aClass = `${a.class_instances?.grade}-${a.class_instances?.section}`;
-        const bClass = `${b.class_instances?.grade}-${b.class_instances?.section}`;
-        return aClass.localeCompare(bClass);
-      }
+        <div>
+          <Text strong>{record.full_name}</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            {record.student_code}
+          </Text>
+        </div>
+      )
     },
     {
-      title: 'Role',
-      dataIndex: 'role',
-      key: 'role',
-      render: (role) => <Tag color="green">{role || 'student'}</Tag>,
+      title: 'Status',
+      key: 'status',
+      render: (_, record) => {
+        const status = getAttendanceStatus(record.id);
+        return (
+          <Tag 
+            color={getStatusColor(status)} 
+            icon={getStatusIcon(status)}
+          >
+            {status === 'not_marked' ? 'Not Marked' : status.toUpperCase()}
+          </Tag>
+        );
+      }
     },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-        <Space>
-          <Button icon={<Pencil size={16} />} onClick={() => handleEdit(record)} type="link" />
-          <Popconfirm
-            title="Are you sure to delete this student?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button icon={<Trash2 size={16} />} type="link" danger />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+        canMarkAttendance ? (
+          <Space>
+            <Button
+              size="small"
+              type={getAttendanceStatus(record.id) === 'present' ? 'primary' : 'default'}
+              onClick={() => handleMarkAttendance(record.id, 'present')}
+            >
+              Present
+            </Button>
+            <Button
+              size="small"
+              type={getAttendanceStatus(record.id) === 'absent' ? 'primary' : 'default'}
+              danger={getAttendanceStatus(record.id) === 'absent'}
+              onClick={() => handleMarkAttendance(record.id, 'absent')}
+            >
+              Absent
+            </Button>
+            <Button
+              size="small"
+              type={getAttendanceStatus(record.id) === 'late' ? 'primary' : 'default'}
+              onClick={() => handleMarkAttendance(record.id, 'late')}
+            >
+              Late
+            </Button>
+          </Space>
+        ) : (
+          <Text type="secondary">View Only</Text>
+        )
+      )
+    }
   ];
 
   return (
-    <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
-      {/* Modern Header */}
-      <div className="cb-dashboard-header">
-        <div className="cb-text-center">
-          <h1 className="cb-heading-2 cb-mb-2">
-            👨‍🎓 Add New Student
-          </h1>
-          <p className="cb-text-caption">
-            Enroll students into your classes and manage their information
-          </p>
-        </div>
+    <div style={{ padding: '24px', background: antdTheme.token.colorBgLayout, minHeight: '100vh' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <Title level={2} style={{ margin: 0, color: antdTheme.token.colorText }}>
+          Attendance Management
+        </Title>
+        <Text type="secondary" style={{ fontSize: '16px' }}>
+          {canMarkAttendance ? 'Mark and track student attendance' : 'View your attendance records'}
+        </Text>
       </div>
 
-      {/* Modern Form Card */}
-      <div className="cb-card cb-mb-8">
-        <div className="cb-card-header">
-          <h3 className="cb-heading-4">Student Information</h3>
-          <p className="cb-text-caption">Enter the student's details below</p>
-        </div>
-        <div className="cb-card-body">
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            className="cb-form"
-            size="large"
-            initialValues={{
-              student_code: 'S'
-            }}
-          >
-            <div className="cb-form-section">
-              <h4 className="cb-form-section-title">Personal Information</h4>
-              
-              <div className="cb-form-row">
-                <div className="cb-form-group">
-                  <label className="cb-label cb-label-required">Full Name</label>
-                  <Form.Item
-                    name="full_name"
-                    rules={[{ required: true, message: 'Please enter full name' }]}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <div className="cb-input-group">
-                      <span className="cb-input-icon">👤</span>
-                      <Input
-                        className="cb-input cb-input-with-icon"
-                        placeholder="Enter student's full name"
-                      />
-                    </div>
-                  </Form.Item>
-                </div>
-                
-                <div className="cb-form-group">
-                  <label className="cb-label cb-label-required">Email Address</label>
-                  <Form.Item
-                    name="email"
-                    rules={[
-                      { required: true, message: 'Please enter email' },
-                      { type: 'email', message: 'Please enter a valid email' }
-                    ]}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <div className="cb-input-group">
-                      <span className="cb-input-icon">📧</span>
-                      <Input
-                        className="cb-input cb-input-with-icon"
-                        placeholder="Enter email address"
-                      />
-                    </div>
-                  </Form.Item>
-                </div>
-              </div>
-            </div>
-          </Form>
-        </div>
-      </div>
-
-      <Card
-        title={
-          <Space>
-            <UserAddOutlined />
-            <span>Add New Student</span>
-          </Space>
-        }
-        style={{ marginBottom: '24px' }}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          size="large"
-          initialValues={{
-            student_code: 'S'
-          }}
-        >
-          <Row gutter={[16, 0]}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="full_name"
-                label="Full Name"
-                rules={[{ required: true, message: 'Please enter full name' }]}
-              >
-                <Input
-                  prefix={<UserOutlined />}
-                  placeholder="Enter student's full name"
-                />
-              </Form.Item>
-            </Col>
-            
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="email"
-                label="Email Address"
-                rules={[
-                  { required: true, message: 'Please enter email' },
-                  { type: 'email', message: 'Please enter a valid email' }
-                ]}
-              >
-                <Input
-                  prefix={<MailOutlined />}
-                  placeholder="Enter email address"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="password"
-                label="Password"
-                rules={[
-                  { required: true, message: 'Please enter password' },
-                  { min: 6, message: 'Password must be at least 6 characters' }
-                ]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined />}
-                  placeholder="Enter password"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="phone"
-                label="Phone Number"
-                rules={[
-                  { required: true, message: 'Please enter phone number' },
-                  { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
-                ]}
-              >
-                <Input
-                  prefix={<PhoneOutlined />}
-                  placeholder="Enter phone number"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="student_code"
-                label="Student Code"
-                rules={[{ required: true, message: 'Please enter student code' }]}
-              >
-                <Input
-                  prefix={<IdcardOutlined />}
-                  placeholder="Enter student code"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="class_instance_id"
-                label="Class"
-                rules={[{ required: true, message: 'Please select a class' }]}
-              >
-                <Select
-                  placeholder="Select class"
-                  showSearch
-                  optionFilterProp="children"
-                  suffixIcon={<BookOutlined />}
-                >
-                  {classInstances.map((instance) => (
-                    <Option key={instance.id} value={instance.id}>
-                      Grade {instance.class.grade} - {instance.class.section} | 
-                      AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item>
-            <Space>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-                size="large"
-                style={{
-                  background: '#6366f1',
-                  borderColor: '#6366f1',
-                  borderRadius: '8px',
-                  fontWeight: 500
-                }}
-              >
-                {loading ? 'Adding Student...' : 'Add Student'}
-              </Button>
-              <Button
-                size="large"
-                onClick={() => form.resetFields()}
-              >
-                Reset Form
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-
-        {/* Student list section */}
-        <div style={{ marginTop: '40px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <Title level={4} style={{ margin: 0 }}>
-              Existing Students ({filteredStudents.length} of {studentList.length})
-            </Title>
+      {/* Filters */}
+      <Card style={{ marginBottom: '24px' }}>
+        <Row gutter={16} align="middle">
+          <Col>
+            <Text strong>Class: </Text>
+          </Col>
+          <Col>
             <Select
-              placeholder="Filter by Class"
+              style={{ width: 200 }}
+              placeholder="Select Class"
               value={selectedClass}
               onChange={setSelectedClass}
-              allowClear
-              style={{ width: 200 }}
             >
-              {uniqueClasses.map(classItem => (
-                <Option key={classItem} value={classItem}>
-                  Grade {classItem}
+              {classes.map(cls => (
+                <Option key={cls.id} value={cls.id}>
+                  Grade {cls.grade} - {cls.section}
                 </Option>
               ))}
             </Select>
-          </div>
-
-          <Table
-            columns={columns}
-            dataSource={filteredStudents}
-            loading={studentLoading}
-            rowKey={(record) => record.id}
-            pagination={{ 
-              pageSize: 25,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
-            }}
-            scroll={{ x: 1200 }}
-          />
-        </div>
+          </Col>
+          <Col>
+            <Text strong>Date: </Text>
+          </Col>
+          <Col>
+            <DatePicker
+              value={selectedDate}
+              onChange={setSelectedDate}
+              format="DD/MM/YYYY"
+            />
+          </Col>
+          <Col>
+            <Button
+              type="primary"
+              onClick={fetchAttendanceData}
+              disabled={!selectedClass || !selectedDate}
+            >
+              Load Attendance
+            </Button>
+          </Col>
+        </Row>
       </Card>
 
-      {/* Edit Modal */}
-      <Modal
-        open={editModalVisible}
-        title="Edit Student"
-        onCancel={() => setEditModalVisible(false)}
-        onOk={handleEditSave}
-        okText="Save Changes"
-      >
-        <Form form={editForm} layout="vertical">
-          <Form.Item
-            name="full_name"
-            label="Full Name"
-            rules={[{ required: true, message: 'Please enter full name' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="phone"
-            label="Phone Number"
-            rules={[{ required: true, message: 'Please enter phone number' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="student_code"
-            label="Student Code"
-            rules={[{ required: true, message: 'Please enter student code' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="class_instance_id"
-            label="Class"
-            rules={[{ required: true, message: 'Please select a class' }]}
-          >
-            <Select
-              placeholder="Select class"
-              showSearch
-              optionFilterProp="children"
-            >
-              {classInstances.map((instance) => (
-                <Option key={instance.id} value={instance.id}>
-                  Grade {instance.class.grade} - {instance.class.section} | 
-                  AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* Statistics */}
+      {selectedClass && (
+        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Total Students"
+                value={stats.total}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: antdTheme.token.colorPrimary }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Present"
+                value={stats.present}
+                prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: antdTheme.token.colorSuccess }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Absent"
+                value={stats.absent}
+                prefix={<CloseCircleOutlined />}
+                valueStyle={{ color: antdTheme.token.colorError }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Attendance Rate"
+                value={stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}
+                suffix="%"
+                prefix={<CalendarOutlined />}
+                valueStyle={{ color: antdTheme.token.colorInfo }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+      {/* Attendance Table */}
+      <Card>
+        {!selectedClass ? (
+          <Empty
+            description="Please select a class to view attendance"
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={students}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              pageSize: 20,
+              showSizeChanger: true,
+              showTotal: (total, range) => 
+                `${range[0]}-${range[1]} of ${total} students`
+            }}
+            locale={{
+              emptyText: (
+                <Empty
+                  description="No students found for this class"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
+              )
+            }}
+          />
+        )}
+      </Card>
     </div>
   );
 };
 
-export default AddStudent;
+export default UnifiedAttendance;
