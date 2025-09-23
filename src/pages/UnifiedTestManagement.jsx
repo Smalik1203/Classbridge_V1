@@ -1,979 +1,581 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Card,
-  Button,
-  Table,
-  Modal,
-  Form,
-  Input,
-  Select,
-  message,
-  Typography,
-  Space,
-  Tag,
-  Row,
-  Col,
-  Statistic,
-  Tooltip,
-  Tabs,
-  Empty,
-  Spin,
-  Pagination,
-  Dropdown,
-  Menu,
-  Switch
-} from 'antd';
-import { 
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  EyeOutlined,
-  ClockCircleOutlined,
-  TrophyOutlined,
-  BookOutlined,
-  UserOutlined,
-  QuestionCircleOutlined,
-  SettingOutlined,
-  UploadOutlined,
-  MoreOutlined,
-  FilterOutlined,
-  ReloadOutlined
-} from '@ant-design/icons';
+import { Card, Form, Input, Button, Select, message, Typography, Space, Row, Col, Table, Tag, Modal, Popconfirm } from 'antd';
+import { UserAddOutlined, MailOutlined, LockOutlined, PhoneOutlined, UserOutlined, IdcardOutlined, BookOutlined } from '@ant-design/icons';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
-import { useTheme } from '../contexts/ThemeContext';
-import { 
-  getTests, 
-  createTest, 
-  updateTest, 
-  deleteTest, 
-  getClassInstances, 
-  getSubjects 
-} from '../services/testService';
-import { chapterService } from '../services/chapterService';
-import QuestionBuilder from '../components/QuestionBuilder';
-import PreviewQuestionsModal from '../components/PreviewQuestionsModal';
-import TestImportModal from '../components/TestImportModal';
 import { supabase } from '../config/supabaseClient';
 
 const { Title, Text } = Typography;
-const { TextArea } = Input;
-const { TabPane } = Tabs;
+const { Option } = Select;
 
-const UnifiedTestManagement = () => {
+const AddStudent = () => {
   const { user } = useAuth();
-  const { theme: antdTheme } = useTheme();
-  const [tests, setTests] = useState([]);
-  const [classInstances, setClassInstances] = useState([]);
-  const [subjects, setSubjects] = useState([]);
-  const [chapters, setChapters] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingTest, setEditingTest] = useState(null);
-  const [confirmLoading, setConfirmLoading] = useState(false);
   
-  // Question management states
-  const [questionBuilderVisible, setQuestionBuilderVisible] = useState(false);
-  const [previewModalVisible, setPreviewModalVisible] = useState(false);
-  const [selectedTest, setSelectedTest] = useState(null);
+  // Try both locations for school_code
+  const school_code = user?.school_code || user?.user_metadata?.school_code;
+  const super_admin_code = user?.super_admin_code || user?.user_metadata?.super_admin_code;
   
-  // Import states
-  const [importModalVisible, setImportModalVisible] = useState(false);
-  
-  // Filtering states
-  const [filteredTests, setFilteredTests] = useState([]);
-  const [filters, setFilters] = useState({
-    school: null,
-    class: null,
-    subject: null,
-    testType: null
-  });
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
+  const [classInstances, setClassInstances] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [studentList, setStudentList] = useState([]);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  
+  // Filter states
+  const [selectedClass, setSelectedClass] = useState('');
 
-  // Get school code from user context
-  const schoolCode = user?.school_code;
+  const fetchStudents = async () => {
+    setStudentLoading(true);
+    const { data, error } = await supabase
+      .from('student')
+      .select(`
+        id, 
+        full_name, 
+        email, 
+        phone, 
+        student_code, 
+        class_instance_id,
+        class_instances!inner(grade, section)
+      `)
+      .eq('school_code', school_code);
 
-  useEffect(() => {
-    console.log('=== USEEFFECT DEBUG ===');
-    console.log('School code:', schoolCode);
-    console.log('User:', user);
-    console.log('Will fetch data:', !!schoolCode);
-    
-    if (schoolCode) {
-      console.log('Calling fetchData...');
-      fetchData();
+    if (error) {
+      message.error('Failed to load students');
     } else {
-      console.log('No school code, not fetching data');
+      setStudentList(data || []);
     }
-  }, [schoolCode]);
+    setStudentLoading(false);
+  };
 
   useEffect(() => {
-    applyFilters();
-  }, [tests, filters]);
+    const fetchClassInstances = async () => {
+      const { data, error } = await supabase
+        .from('class_instances')
+        .select(`
+          id,
+          class:classes (grade, section),
+          academic_years:academic_years (year_start, year_end)
+        `)
+        .eq('school_code', school_code);
 
-  const fetchData = async () => {
+      if (error) {
+        console.error('Class instances error:', error);
+        message.error('Failed to load classes: ' + error.message);
+      } else {
+        setClassInstances(data || []);
+      }
+    };
+
+    if (school_code && super_admin_code) {
+      fetchClassInstances();
+      fetchStudents();
+    }
+  }, [school_code, super_admin_code]);
+
+  const handleSubmit = async (values) => {
     setLoading(true);
     try {
-      const [testsData, classesData, subjectsData] = await Promise.all([
-        getTests(schoolCode),
-        getClassInstances(schoolCode),
-        getSubjects(schoolCode)
-      ]);
-      
-      setTests(testsData || []);
-      setClassInstances(classesData || []);
-      setSubjects(subjectsData || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      message.error('Failed to fetch data: ' + error.message);
+      const sessionResult = await supabase.auth.getSession();
+      const token = sessionResult.data.session?.access_token;
+
+      if (!token) {
+        message.error('Not authenticated. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-student', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: values.full_name,
+          email: values.email,
+          password: values.password,
+          phone: values.phone,
+          student_code: values.student_code,
+          class_instance_id: values.class_instance_id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        message.error(result.error || `Failed to create student. Status: ${response.status}`);
+      } else {
+        message.success('Student created successfully!');
+        form.resetFields();
+        fetchStudents();
+      }
+    } catch (err) {
+      message.error('Unexpected error: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load chapters for selected class and subject
-  const loadChapters = async (classInstanceId, subjectId) => {
-    if (!classInstanceId || !subjectId) {
-      setChapters([]);
+  const handleEdit = (record) => {
+    setEditingStudent(record);
+    editForm.setFieldsValue(record);
+    setEditModalVisible(true);
+  };
+
+  const handleEditSave = async () => {
+    const values = await editForm.validateFields();
+
+    const { data: currentStudent, error: fetchError } = await supabase
+      .from('student')
+      .select('*')
+      .eq('id', editingStudent.id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current student:', fetchError);
+      message.error('Failed to fetch student data: ' + fetchError.message);
       return;
     }
 
-    try {
-      const chaptersData = await chapterService.getChaptersForClassSubject(classInstanceId, subjectId);
-      setChapters(chaptersData || []);
-    } catch (error) {
-      console.error('Error loading chapters:', error);
-      setChapters([]);
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...tests];
-
-    if (filters.class) {
-      filtered = filtered.filter(test => {
-        const classInstanceId = test.class_instance_id || test.class_instances?.id;
-        return classInstanceId === filters.class;
-      });
+    if (!currentStudent) {
+      message.error('Student not found');
+      return;
     }
 
-    if (filters.subject) {
-      filtered = filtered.filter(test => {
-        const subjectId = test.subject_id || test.subjects?.id;
-        return subjectId === filters.subject;
-      });
+    const isDataDifferent = 
+      currentStudent.class_instance_id !== values.class_instance_id ||
+      currentStudent.full_name !== values.full_name ||
+      currentStudent.phone !== values.phone ||
+      currentStudent.student_code !== values.student_code;
+
+    if (!isDataDifferent) {
+      message.info('No changes detected. The data is identical to the current values.');
+      return;
     }
 
-    if (filters.testType) {
-      filtered = filtered.filter(test => test.test_type === filters.testType);
-    }
+    const { data, error } = await supabase
+      .from('student')
+      .update({
+        full_name: values.full_name,
+        phone: values.phone,
+        student_code: values.student_code,
+        class_instance_id: values.class_instance_id,
+      })
+      .eq('id', editingStudent.id)
+      .select();
 
-    setFilteredTests(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  };
-
-  const handleCreateTest = async (values) => {
-    setConfirmLoading(true);
-    try {
-      const testData = {
-        ...values,
-        school_code: schoolCode,
-        created_by: user.id
-      };
-
-      if (editingTest) {
-        await updateTest(editingTest.id, testData);
-        message.success('Test updated successfully');
-      } else {
-        await createTest(testData);
-        message.success('Test created successfully');
-      }
-
-      setModalVisible(false);
-      setEditingTest(null);
-      form.resetFields();
-      fetchData();
-    } catch (error) {
-      console.error('Error saving test:', error);
-      message.error('Failed to save test');
-    } finally {
-      setConfirmLoading(false);
-    }
-  };
-
-  const handleEditTest = async (test) => {
-    setEditingTest(test);
-    form.setFieldsValue({
-      title: test.title,
-      description: test.description,
-      test_type: test.test_type,
-      class_instance_id: test.class_instance_id,
-      subject_id: test.subject_id,
-      chapter_id: test.chapter_id || null,
-      time_limit_seconds: test.time_limit_seconds,
-      allow_reattempts: test.allow_reattempts || false,
-      // passing_score removed - using correct answers instead
-    });
-    
-    // Load chapters for the test's class and subject
-    if (test.class_instance_id && test.subject_id) {
-      await loadChapters(test.class_instance_id, test.subject_id);
-    }
-    
-    setModalVisible(true);
-  };
-
-  const handleDeleteTest = async (testId) => {
-    try {
-      await deleteTest(testId);
-      message.success('Test deleted successfully');
-      fetchData();
-    } catch (error) {
-      console.error('Error deleting test:', error);
-      message.error('Failed to delete test');
-    }
-  };
-
-  const handleManageQuestions = (test) => {
-    setSelectedTest(test);
-    setQuestionBuilderVisible(true);
-  };
-
-  const handlePreviewQuestions = (test) => {
-    setSelectedTest(test);
-    setPreviewModalVisible(true);
-  };
-
-  const handleQuestionBuilderClose = () => {
-    setQuestionBuilderVisible(false);
-    setSelectedTest(null);
-    // Force refresh to get updated question counts
-    if (schoolCode) {
-      fetchData();
-    }
-  };
-
-  const handlePreviewModalClose = () => {
-    setPreviewModalVisible(false);
-    setSelectedTest(null);
-  };
-
-  // Handle import
-  const handleImportTests = () => {
-    setImportModalVisible(true);
-  };
-
-  const handleImportComplete = () => {
-    fetchData(); // Refresh the test list
-  };
-
-  const handleImportModalClose = () => {
-    setImportModalVisible(false);
-  };
-
-  // Handle allow reattempts
-  const handleAllowReattempts = async (test) => {
-    try {
-      // Show confirmation modal
-      Modal.confirm({
-        title: 'Allow Reattempts',
-        content: `Are you sure you want to allow all students to retake the test "${test.title}"? This will reset all previous attempts for this test.`,
-        okText: 'Yes, Allow Reattempts',
-        cancelText: 'Cancel',
-        onOk: async () => {
-          try {
-            // Reset all attempts for this test to 'abandoned' status
-            const { error } = await supabase
-              .from('test_attempts')
-              .update({ 
-                status: 'abandoned',
-                updated_at: new Date().toISOString()
-              })
-              .eq('test_id', test.id)
-              .eq('status', 'completed');
-
-            if (error) throw error;
-            
-            message.success('Reattempts allowed for all students. They can now retake this test.');
-          } catch (error) {
-            console.error('Error allowing reattempts:', error);
-            message.error('Failed to allow reattempts');
-          }
-        }
-      });
-    } catch (error) {
-      console.error('Error allowing reattempts:', error);
-      message.error('Failed to allow reattempts');
-    }
-  };
-
-  // Filter handlers
-  const handleFilterChange = (filterType, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }));
-  };
-
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      school: null,
-      class: null,
-      subject: null,
-      testType: null
-    });
-  };
-
-  // Get test type color
-  const getTestTypeColor = (type) => {
-    const colors = {
-      quiz: 'blue',
-      unit_test: 'green',
-      assignment: 'orange',
-      exam: 'red',
-      practice: 'purple'
-    };
-    return colors[type] || 'default';
-  };
-
-  // Format time limit
-  const formatTimeLimit = (seconds) => {
-    if (!seconds) return 'No limit';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m`;
+    if (error) {
+      message.error('Update failed: ' + error.message);
     } else {
-      return `${secs}s`;
+      if (data && data.length > 0) {
+        message.success('Student updated successfully');
+        setEditModalVisible(false);
+        setEditingStudent(null);
+        fetchStudents();
+      } else {
+        message.warning('No rows were updated. The data might be the same or you may not have permission.');
+      }
     }
   };
 
-  // Calculate statistics
-  const totalTests = tests.length;
-  const totalQuestions = tests.reduce((sum, test) => sum + (test.question_count || 0), 0);
-  const quizCount = tests.filter(test => test.test_type === 'quiz').length;
-  const examCount = tests.filter(test => test.test_type === 'exam').length;
+  const handleDelete = async (user_id) => {
+    const sessionResult = await supabase.auth.getSession();
+    const token = sessionResult.data.session?.access_token;
 
-  // Pagination
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedTests = filteredTests.slice(startIndex, endIndex);
+    if (!token) {
+      message.error('Not authenticated. Please log in.');
+      return;
+    }
 
-  // Test type options
-  const testTypeOptions = [
-    { value: 'quiz', label: 'Quiz' },
-    { value: 'unit_test', label: 'Unit Test' },
-    { value: 'assignment', label: 'Assignment' },
-    { value: 'exam', label: 'Exam' },
-    { value: 'practice', label: 'Practice' }
+    const res = await fetch(
+      'https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/delete-student',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ student_id: user_id }),
+      }
+    );
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      message.error(result.error || 'Failed to delete student');
+    } else {
+      message.success('Student deleted successfully');
+      fetchStudents();
+    }
+  };
+
+  // Get unique classes for filters
+  const uniqueClasses = [...new Set(classInstances.map(ci => `${ci.class.grade}-${ci.class.section}`))].sort();
+
+  // Filter students based on class filter only (search is handled by table)
+  const filteredStudents = studentList.filter(student => {
+    const matchesClass = !selectedClass || 
+      `${student.class_instances?.grade}-${student.class_instances?.section}` === selectedClass;
+
+    return matchesClass;
+  });
+
+  const columns = [
+    { 
+      title: 'Full Name', 
+      dataIndex: 'full_name', 
+      key: 'full_name',
+      sorter: (a, b) => a.full_name.localeCompare(b.full_name),
+      filterable: true,
+      filterSearch: true,
+      onFilter: (value, record) => 
+        record.full_name?.toLowerCase().includes(value.toLowerCase()) ||
+        record.email?.toLowerCase().includes(value.toLowerCase()) ||
+        record.student_code?.toLowerCase().includes(value.toLowerCase()) ||
+        String(record.phone || '').includes(value)
+    },
+    { 
+      title: 'Email', 
+      dataIndex: 'email', 
+      key: 'email',
+      sorter: (a, b) => a.email.localeCompare(b.email)
+    },
+    { 
+      title: 'Phone', 
+      dataIndex: 'phone', 
+      key: 'phone'
+    },
+    { 
+      title: 'Student Code', 
+      dataIndex: 'student_code', 
+      key: 'student_code',
+      sorter: (a, b) => a.student_code.localeCompare(b.student_code)
+    },
+    { 
+      title: 'Class', 
+      key: 'class',
+      render: (_, record) => (
+        <span>
+          Grade {record.class_instances?.grade} - {record.class_instances?.section}
+        </span>
+      ),
+      sorter: (a, b) => {
+        const aClass = `${a.class_instances?.grade}-${a.class_instances?.section}`;
+        const bClass = `${b.class_instances?.grade}-${b.class_instances?.section}`;
+        return aClass.localeCompare(bClass);
+      }
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role) => <Tag color="green">{role || 'student'}</Tag>,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Button icon={<Pencil size={16} />} onClick={() => handleEdit(record)} type="link" />
+          <Popconfirm
+            title="Are you sure to delete this student?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button icon={<Trash2 size={16} />} type="link" danger />
+          </Popconfirm>
+        </Space>
+      ),
+    },
   ];
 
   return (
     <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
       {/* Modern Header */}
       <div className="cb-dashboard-header">
-        <div className="cb-flex cb-justify-between cb-items-start">
-          <div>
-            <h1 className="cb-heading-2 cb-mb-2">
-              📝 Test Management
-            </h1>
-            <p className="cb-text-caption">
-              Create, manage, and organize tests and assessments
-            </p>
-          </div>
-          
-          <div className="cb-dashboard-actions">
-            <button
-              className="cb-button cb-button-secondary"
-              onClick={handleImportTests}
-            >
-              <span>📤</span>
-              <span>Import Tests</span>
-            </button>
-            <button
-              className="cb-button cb-button-secondary"
-              onClick={() => {
-                console.log('Manual refresh clicked');
-                fetchData();
-              }}
-            >
-              <span>🔄</span>
-              <span>Refresh</span>
-            </button>
-            <button
-              className="cb-button cb-button-primary"
-              onClick={() => setModalVisible(true)}
-            >
-              <span>➕</span>
-              <span>Create Test</span>
-            </button>
-          </div>
+        <div className="cb-text-center">
+          <h1 className="cb-heading-2 cb-mb-2">
+            👨‍🎓 Add New Student
+          </h1>
+          <p className="cb-text-caption">
+            Enroll students into your classes and manage their information
+          </p>
         </div>
       </div>
 
-      {/* Modern Stats */}
-      <div className="cb-kpi-grid cb-mb-8">
-        <div className="cb-kpi-card">
-          <div className="cb-stat-header">
-            <div className="cb-stat-icon">📝</div>
-            <div className="cb-stat-change positive">↗️ +12%</div>
-          </div>
-          <div className="cb-stat-value">{totalTests}</div>
-          <div className="cb-stat-label">Total Tests</div>
+      {/* Modern Form Card */}
+      <div className="cb-card cb-mb-8">
+        <div className="cb-card-header">
+          <h3 className="cb-heading-4">Student Information</h3>
+          <p className="cb-text-caption">Enter the student's details below</p>
         </div>
-        <div className="cb-kpi-card">
-          <div className="cb-stat-header">
-            <div className="cb-stat-icon">❓</div>
-            <div className="cb-stat-change positive">↗️ +8%</div>
-          </div>
-          <div className="cb-stat-value">{totalQuestions}</div>
-          <div className="cb-stat-label">Total Questions</div>
-        </div>
-        <div className="cb-kpi-card">
-          <div className="cb-stat-header">
-            <div className="cb-stat-icon">🎯</div>
-            <div className="cb-stat-change positive">↗️ +5%</div>
-          </div>
-          <div className="cb-stat-value">{quizCount}</div>
-          <div className="cb-stat-label">Active Quizzes</div>
-        </div>
-        <div className="cb-kpi-card">
-          <div className="cb-stat-header">
-            <div className="cb-stat-icon">🎓</div>
-            <div className="cb-stat-change neutral">→ Stable</div>
-          </div>
-          <div className="cb-stat-value">{examCount}</div>
-          <div className="cb-stat-label">Exams</div>
-        </div>
-      </div>
-
-      {/* Modern Filters */}
-      {user?.role === 'superadmin' && (
-        <div className="cb-filter-bar cb-mb-6">
-          <div className="cb-text-overline">Filter Tests</div>
-          
-          <div className="cb-filter-chips">
-            {[
-              { key: 'all', label: 'All Tests', icon: '📚' },
-              { key: 'quiz', label: 'Quizzes', icon: '❓' },
-              { key: 'unit_test', label: 'Unit Tests', icon: '📝' },
-              { key: 'exam', label: 'Exams', icon: '🎓' },
-              { key: 'assignment', label: 'Assignments', icon: '📋' }
-            ].map(type => (
-              <button
-                key={type.key}
-                className={`cb-chip ${filters.testType === type.key ? 'active' : ''}`}
-                onClick={() => handleFilterChange('testType', type.key)}
-              >
-                <span>{type.icon}</span>
-                <span>{type.label}</span>
-                <span className="cb-badge cb-badge-neutral cb-badge-sm">
-                  {type.key === 'all' ? tests.length : tests.filter(t => t.test_type === type.key).length}
-                </span>
-              </button>
-            ))}
-          </div>
-          
-          <div className="cb-flex cb-gap-4 cb-items-center">
-            <select
-              className="cb-input"
-              style={{ width: '200px' }}
-              value={filters.class || ''}
-              onChange={(e) => handleFilterChange('class', e.target.value || null)}
-            >
-              <option value="">All Classes</option>
-              {classInstances.map(cls => (
-                <option key={cls.id} value={cls.id}>
-                  Grade {cls.grade} {cls.section}
-                </option>
-              ))}
-            </select>
-            
-            <select
-              className="cb-input"
-              style={{ width: '200px' }}
-              value={filters.subject || ''}
-              onChange={(e) => handleFilterChange('subject', e.target.value || null)}
-            >
-              <option value="">All Subjects</option>
-              {subjects.map(subject => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.subject_name}
-                </option>
-              ))}
-            </select>
-            
-            <div className="cb-flex cb-items-center cb-gap-2" style={{ marginLeft: 'auto' }}>
-              {(filters.class || filters.subject || filters.testType) && (
-                <span className="cb-text-caption-sm">
-                  {[filters.class, filters.subject, filters.testType].filter(Boolean).length} active
-                </span>
-              )}
-              <button 
-                className="cb-button cb-button-sm cb-button-ghost"
-                onClick={clearFilters}
-                disabled={!filters.class && !filters.subject && !filters.testType}
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modern Test List */}
-      <div className="cb-card">
         <div className="cb-card-body">
-          {loading ? (
-            <div className="cb-grid cb-grid-auto">
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className="cb-skeleton" style={{ 
-                  height: '200px',
-                  borderRadius: 'var(--radius-2xl)' 
-                }}></div>
-              ))}
-            </div>
-          ) : filteredTests.length === 0 ? (
-            <div className="cb-empty-state">
-              <div className="cb-empty-icon">📝</div>
-              <h3 className="cb-empty-title">No tests found</h3>
-              <p className="cb-empty-description">
-                {canEdit 
-                  ? 'Start creating assessments for your students. You can add quizzes, unit tests, assignments, and exams.'
-                  : 'Your teachers haven\'t created any tests yet. Check back soon!'
-                }
-              </p>
-              {canEdit && (
-                <button 
-                  className="cb-button cb-button-primary cb-button-lg"
-                  onClick={() => setModalVisible(true)}
-                >
-                  <span>✨</span>
-                  <span>Create First Test</span>
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="cb-grid cb-grid-auto">
-              {paginatedTests.map((test) => (
-                <div key={test.id} className="cb-card cb-card-interactive">
-                  <div className="cb-card-body">
-                    <div className="cb-flex cb-justify-between cb-items-start cb-mb-4">
-                      <div className="cb-flex cb-items-center cb-gap-3">
-                        <div className="cb-stat-icon" style={{ 
-                          width: '40px', 
-                          height: '40px',
-                          fontSize: 'var(--text-lg)',
-                          background: `var(--color-${getTestTypeColor(test.test_type)}-100)`,
-                          color: `var(--color-${getTestTypeColor(test.test_type)}-600)`
-                        }}>
-                          {getTestTypeIcon(test.test_type)}
-                        </div>
-                        <div>
-                          <h4 className="cb-heading-5 cb-mb-1">{test.title}</h4>
-                          <div className="cb-flex cb-gap-2 cb-items-center">
-                            <span className={`cb-badge cb-badge-${getTestTypeColor(test.test_type)} cb-badge-sm`}>
-                              {test.test_type.replace('_', ' ')}
-                            </span>
-                            <span className="cb-text-caption-sm">•</span>
-                            <span className="cb-text-caption-sm">
-                              Grade {test.class_instances?.grade} {test.class_instances?.section}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <Dropdown
-                        menu={{
-                          items: [
-                            {
-                              key: 'edit',
-                              label: 'Edit Test',
-                              icon: <EditOutlined />,
-                              onClick: () => handleEditTest(test)
-                            },
-                            {
-                              key: 'preview',
-                              label: 'Preview Questions',
-                              icon: <EyeOutlined />,
-                              onClick: () => handlePreviewQuestions(test)
-                            },
-                            {
-                              type: 'divider'
-                            },
-                            {
-                              key: 'delete',
-                              label: 'Delete Test',
-                              icon: <DeleteOutlined />,
-                              danger: true,
-                              onClick: () => {
-                                Modal.confirm({
-                                  title: 'Delete Test',
-                                  content: 'Are you sure you want to delete this test?',
-                                  onOk: () => handleDeleteTest(test.id)
-                                });
-                              }
-                            }
-                          ]
-                        }}
-                        trigger={['click']}
-                      >
-                        <button className="cb-button cb-button-sm cb-button-ghost">
-                          ⋯
-                        </button>
-                      </Dropdown>
-                    </div>
-
-                    {test.description && (
-                      <p className="cb-text-caption cb-mb-4" style={{ 
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}>
-                        {test.description}
-                      </p>
-                    )}
-
-                    {test.syllabus_chapters && (
-                      <div className="cb-badge cb-badge-neutral cb-badge-sm cb-mb-4">
-                        📚 Chapter {test.syllabus_chapters.chapter_no}: {test.syllabus_chapters.title}
-                      </div>
-                    )}
-
-                    <div className="cb-flex cb-justify-between cb-items-center cb-mb-4">
-                      <div className="cb-flex cb-gap-4">
-                        <div className="cb-text-center">
-                          <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>
-                            {test.question_count || 0}
-                          </div>
-                          <div className="cb-text-caption-sm">Questions</div>
-                        </div>
-                        <div className="cb-text-center">
-                          <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>
-                            {formatTimeLimit(test.time_limit_seconds)}
-                          </div>
-                          <div className="cb-text-caption-sm">Time Limit</div>
-                        </div>
-                        <div className="cb-text-center">
-                          <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>
-                            {test.subjects?.subject_name}
-                          </div>
-                          <div className="cb-text-caption-sm">Subject</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="cb-flex cb-gap-2">
-                      <button
-                        className="cb-button cb-button-sm cb-button-primary"
-                        onClick={() => handleManageQuestions(test)}
-                        style={{ flex: 1 }}
-                      >
-                        <span>⚙️</span>
-                        <span>Manage Questions</span>
-                      </button>
-                      <button
-                        className="cb-button cb-button-sm cb-button-secondary"
-                        onClick={() => handlePreviewQuestions(test)}
-                      >
-                        <span>👁️</span>
-                        <span>Preview</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {filteredTests.length > pageSize && (
-            <div className="cb-flex cb-justify-center cb-mt-8">
-              <Pagination
-                current={currentPage}
-                pageSize={pageSize}
-                total={filteredTests.length}
-                onChange={(page, size) => {
-                  setCurrentPage(page);
-                  setPageSize(size);
-                }}
-                showSizeChanger
-                showQuickJumper
-                showTotal={(total, range) => 
-                  `${range[0]}-${range[1]} of ${total} tests`
-                }
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Enhanced Create/Edit Test Modal */}
-      <Modal
-        title={
-          <div className="cb-flex cb-items-center cb-gap-2">
-            <span>{editingTest ? '✏️' : '➕'}</span>
-            <span>{editingTest ? 'Edit Test' : 'Create Test'}</span>
-          </div>
-        }
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          setEditingTest(null);
-          form.resetFields();
-        }}
-        footer={null}
-        width={700}
-        className="cb-modal"
-      >
-        <div className="cb-modal-body">
           <Form
             form={form}
             layout="vertical"
-            onFinish={handleCreateTest}
+            onFinish={handleSubmit}
             className="cb-form"
+            size="large"
+            initialValues={{
+              student_code: 'S'
+            }}
           >
             <div className="cb-form-section">
-              <h4 className="cb-form-section-title">Basic Information</h4>
-              
-              <div className="cb-form-group">
-                <label className="cb-label cb-label-required">Test Title</label>
-                <Form.Item
-                  name="title"
-                  rules={[{ required: true, message: 'Please enter test title' }]}
-                  style={{ marginBottom: 0 }}
-                >
-                  <Input 
-                    className="cb-input"
-                    placeholder="Enter test title" 
-                  />
-                </Form.Item>
-              </div>
-
-              <div className="cb-form-group">
-                <label className="cb-label">Description</label>
-                <Form.Item
-                  name="description"
-                  style={{ marginBottom: 0 }}
-                >
-                  <Input.TextArea 
-                    className="cb-input cb-textarea"
-                    placeholder="Enter test description" 
-                    rows={3}
-                  />
-                </Form.Item>
-              </div>
-            </div>
-
-            <div className="cb-form-section">
-              <h4 className="cb-form-section-title">Test Configuration</h4>
+              <h4 className="cb-form-section-title">Personal Information</h4>
               
               <div className="cb-form-row">
                 <div className="cb-form-group">
-                  <label className="cb-label cb-label-required">Test Type</label>
+                  <label className="cb-label cb-label-required">Full Name</label>
                   <Form.Item
-                    name="test_type"
-                    rules={[{ required: true, message: 'Please select test type' }]}
+                    name="full_name"
+                    rules={[{ required: true, message: 'Please enter full name' }]}
                     style={{ marginBottom: 0 }}
                   >
-                    <Select 
-                      className="cb-input"
-                      placeholder="Select test type"
-                    >
-                      {testTypeOptions.map(option => (
-                        <Select.Option key={option.value} value={option.value}>
-                          {option.label}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </div>
-                
-                <div className="cb-form-group">
-                  <label className="cb-label cb-label-required">Class</label>
-                  <Form.Item
-                    name="class_instance_id"
-                    rules={[{ required: true, message: 'Please select class' }]}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <Select 
-                      className="cb-input"
-                      placeholder="Select class"
-                      onChange={(value) => {
-                        const subjectId = form.getFieldValue('subject_id');
-                        if (subjectId) {
-                          loadChapters(value, subjectId);
-                        }
-                      }}
-                    >
-                      {classInstances.map(cls => (
-                        <Select.Option key={cls.id} value={cls.id}>
-                          Grade {cls.grade} {cls.section}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </div>
-              </div>
-
-              <div className="cb-form-group">
-                <label className="cb-label cb-label-required">Subject</label>
-                <Form.Item
-                  name="subject_id"
-                  rules={[{ required: true, message: 'Please select subject' }]}
-                  style={{ marginBottom: 0 }}
-                >
-                  <Select 
-                    className="cb-input"
-                    placeholder="Select subject"
-                    onChange={(value) => {
-                      const classId = form.getFieldValue('class_instance_id');
-                      if (classId) {
-                        loadChapters(classId, value);
-                      }
-                    }}
-                  >
-                    {subjects.map(subject => (
-                      <Select.Option key={subject.id} value={subject.id}>
-                        {subject.subject_name}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </div>
-
-              <div className="cb-form-group">
-                <label className="cb-label">Chapter (Optional)</label>
-                <Form.Item
-                  name="chapter_id"
-                  style={{ marginBottom: 0 }}
-                >
-                  <Select 
-                    className="cb-input"
-                    placeholder="Select chapter (optional)"
-                    allowClear
-                    disabled={!chapters.length}
-                  >
-                    {chapters.map(chapter => (
-                      <Select.Option key={chapter.id} value={chapter.id}>
-                        Ch {chapter.chapter_no}: {chapter.title}
-                      </Select.Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-                <div className="cb-help-text">
-                  Select a chapter from the syllabus to associate with this test
-                </div>
-              </div>
-            </div>
-
-            <div className="cb-form-section">
-              <h4 className="cb-form-section-title">Settings</h4>
-              
-              <div className="cb-form-row">
-                <div className="cb-form-group">
-                  <label className="cb-label">Time Limit (seconds)</label>
-                  <Form.Item
-                    name="time_limit_seconds"
-                    style={{ marginBottom: 0 }}
-                  >
-                    <Input 
-                      className="cb-input"
-                      type="number" 
-                      placeholder="Enter time limit"
-                      min={0}
-                    />
-                  </Form.Item>
-                  <div className="cb-help-text">Leave empty for no time limit</div>
-                </div>
-                
-                <div className="cb-form-group">
-                  <label className="cb-label">Allow Reattempts</label>
-                  <Form.Item
-                    name="allow_reattempts"
-                    valuePropName="checked"
-                    style={{ marginBottom: 0 }}
-                  >
-                    <div className="cb-flex cb-items-center cb-gap-3">
-                      <label className="cb-flex cb-items-center cb-gap-2">
-                        <input type="radio" name="reattempts" value="no" defaultChecked />
-                        <span className="cb-text-body-sm">No</span>
-                      </label>
-                      <label className="cb-flex cb-items-center cb-gap-2">
-                        <input type="radio" name="reattempts" value="yes" />
-                        <span className="cb-text-body-sm">Yes</span>
-                      </label>
+                    <div className="cb-input-group">
+                      <span className="cb-input-icon">👤</span>
+                      <Input
+                        className="cb-input cb-input-with-icon"
+                        placeholder="Enter student's full name"
+                      />
                     </div>
                   </Form.Item>
-                  <div className="cb-help-text">
-                    When enabled, students can retake this test multiple times
-                  </div>
                 </div>
-              </div>
-            </div>
+                
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Email Address</label>
+                  <Form.Item
+                    name="email"
+                    rules={[
+                      { required: true, message: 'Please enter email' },
+                      { type: 'email', message: 'Please enter a valid email' }
+        >
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            size="large"
+            initialValues={{
+              student_code: 'S'
+            }}
+          >
+            <Row gutter={[16, 0]}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="full_name"
+                  label="Full Name"
+                  rules={[{ required: true, message: 'Please enter full name' }]}
+                >
+                  <Input
+                    prefix={<UserOutlined />}
+                    placeholder="Enter student's full name"
+                  />
+                </Form.Item>
+              </Col>
+              
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="email"
+                  label="Email Address"
+                  rules={[
+                    { required: true, message: 'Please enter email' },
+                    { type: 'email', message: 'Please enter a valid email' }
+                  ]}
+                >
+                  <Input
+                    prefix={<MailOutlined />}
+                    placeholder="Enter email address"
+                  />
+                </Form.Item>
+              </Col>
 
-            <div className="cb-flex cb-justify-end cb-gap-3">
-              <button 
-                type="button"
-                className="cb-button cb-button-secondary"
-                onClick={() => {
-                  setModalVisible(false);
-                  setEditingTest(null);
-                  form.resetFields();
-                }}
-              >
-                Cancel
-              </button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={confirmLoading}
-                className="cb-button cb-button-primary"
-              >
-                <span>{editingTest ? '💾' : '✨'}</span>
-                <span>{editingTest ? 'Update Test' : 'Create Test'}</span>
-              </Button>
-            </div>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="password"
+                  label="Password"
+                  rules={[
+                    { required: true, message: 'Please enter password' },
+                    { min: 6, message: 'Password must be at least 6 characters' }
+                  ]}
+                >
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder="Enter password"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="phone"
+                  label="Phone Number"
+                  rules={[
+                    { required: true, message: 'Please enter phone number' },
+                    { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
+                  ]}
+                >
+                  <Input
+                    prefix={<PhoneOutlined />}
+                    placeholder="Enter phone number"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="student_code"
+                  label="Student Code"
+                  rules={[{ required: true, message: 'Please enter student code' }]}
+                >
+                  <Input
+                    prefix={<IdcardOutlined />}
+                    placeholder="Enter student code"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="class_instance_id"
+                  label="Class"
+                  rules={[{ required: true, message: 'Please select a class' }]}
+                >
+                  <Select
+                    placeholder="Select class"
+                    showSearch
+                    optionFilterProp="children"
+                    suffixIcon={<BookOutlined />}
+                  >
+                    {classInstances.map((instance) => (
+                      <Option key={instance.id} value={instance.id}>
+                        Grade {instance.class.grade} - {instance.class.section} | 
+                        AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item>
+              <Space>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  size="large"
+                  style={{
+                    background: '#6366f1',
+                    borderColor: '#6366f1',
+                    borderRadius: '8px',
+                    fontWeight: 500
+                  }}
+                >
+                  {loading ? 'Adding Student...' : 'Add Student'}
+                </Button>
+                <Button
+                  size="large"
+                  onClick={() => form.resetFields()}
+                >
+                  Reset Form
+                </Button>
+              </Space>
+            </Form.Item>
           </Form>
-        </div>
-      </Modal>
 
-      {/* Question Builder Modal */}
-      <QuestionBuilder
-        visible={questionBuilderVisible}
-        onClose={handleQuestionBuilderClose}
-        test={selectedTest}
-      />
+          {/* Student list section */}
+          <div style={{ marginTop: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <Title level={4} style={{ margin: 0 }}>
+                Existing Students ({filteredStudents.length} of {studentList.length})
+              </Title>
+              <Select
+                placeholder="Filter by Class"
+                value={selectedClass}
+                onChange={setSelectedClass}
+                allowClear
+                style={{ width: 200 }}
+              >
+                {uniqueClasses.map(classItem => (
+                  <Option key={classItem} value={classItem}>
+                    Grade {classItem}
+                  </Option>
+                ))}
+              </Select>
+            </div>
 
-      {/* Preview Questions Modal */}
-      <PreviewQuestionsModal
-        visible={previewModalVisible}
-        onClose={handlePreviewModalClose}
-        test={selectedTest}
-      />
+            <Table
+              columns={columns}
+              dataSource={filteredStudents}
+              loading={studentLoading}
+              rowKey={(record) => record.id}
+              pagination={{ 
+                pageSize: 25,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
+              }}
+              scroll={{ x: 1200 }}
+            />
+          </div>
+        </Card>
 
-      {/* Test Import Modal */}
-      <TestImportModal
-        visible={importModalVisible}
-        onClose={handleImportModalClose}
-        onImportComplete={handleImportComplete}
-        classInstances={classInstances}
-        subjects={subjects}
-        schoolCode={schoolCode}
-        userId={user.id}
-      />
+        {/* Edit Modal */}
+        <Modal
+          open={editModalVisible}
+          title="Edit Student"
+          onCancel={() => setEditModalVisible(false)}
+          onOk={handleEditSave}
+          okText="Save Changes"
+        >
+          <Form form={editForm} layout="vertical">
+            <Form.Item
+              name="full_name"
+              label="Full Name"
+              rules={[{ required: true, message: 'Please enter full name' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="phone"
+              label="Phone Number"
+              rules={[{ required: true, message: 'Please enter phone number' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="student_code"
+              label="Student Code"
+              rules={[{ required: true, message: 'Please enter student code' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="class_instance_id"
+              label="Class"
+              rules={[{ required: true, message: 'Please select a class' }]}
+            >
+              <Select
+                placeholder="Select class"
+                showSearch
+                optionFilterProp="children"
+              >
+                {classInstances.map((instance) => (
+                  <Option key={instance.id} value={instance.id}>
+                    Grade {instance.class.grade} - {instance.class.section} | 
+                    AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
     </div>
   );
 };
 
-export default UnifiedTestManagement;
+export default AddStudent;

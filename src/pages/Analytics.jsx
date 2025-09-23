@@ -1,23 +1,29 @@
 import React from 'react';
+import { Card, Typography, Empty } from 'antd';
 import { useAuth } from '../AuthProvider';
-import AdminAnalytics from './admin/AdminAnalytics';
-import StudentAnalytics from './student/StudentAnalytics';
-import SuperAdminAnalytics from './superadmin/SuperAdminAnalytics';
+
+const { Title, Text } = Typography;
 
 const AnalyticsPage = () => {
   const { user } = useAuth();
   const role = user?.app_metadata?.role;
 
-  switch (role) {
-    case 'superadmin':
-      return <SuperAdminAnalytics />;
-    case 'admin':
-      return <AdminAnalytics />;
-    case 'student':
-      return <StudentAnalytics />;
-    default:
-      return <div>Access Denied</div>;
-  }
+  return (
+    <div style={{ padding: '24px', minHeight: '100vh' }}>
+      <Card>
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <Title level={2}>Analytics Dashboard</Title>
+          <Text type="secondary" style={{ display: 'block', marginBottom: '24px' }}>
+            Analytics features are coming soon for {role} users.
+          </Text>
+          <Empty 
+            description="Analytics dashboard will be available in the next update"
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        </div>
+      </Card>
+    </div>
+  );
 };
 
 export default AnalyticsPage;
