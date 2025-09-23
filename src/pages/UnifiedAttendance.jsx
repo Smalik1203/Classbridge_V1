@@ -352,228 +352,253 @@ const AddStudent = () => {
                     rules={[
                       { required: true, message: 'Please enter email' },
                       { type: 'email', message: 'Please enter a valid email' }
-        >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            size="large"
-            initialValues={{
-              student_code: 'S'
-            }}
-          >
-            <Row gutter={[16, 0]}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="full_name"
-                  label="Full Name"
-                  rules={[{ required: true, message: 'Please enter full name' }]}
-                >
-                  <Input
-                    prefix={<UserOutlined />}
-                    placeholder="Enter student's full name"
-                  />
-                </Form.Item>
-              </Col>
-              
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="email"
-                  label="Email Address"
-                  rules={[
-                    { required: true, message: 'Please enter email' },
-                    { type: 'email', message: 'Please enter a valid email' }
-                  ]}
-                >
-                  <Input
-                    prefix={<MailOutlined />}
-                    placeholder="Enter email address"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="password"
-                  label="Password"
-                  rules={[
-                    { required: true, message: 'Please enter password' },
-                    { min: 6, message: 'Password must be at least 6 characters' }
-                  ]}
-                >
-                  <Input.Password
-                    prefix={<LockOutlined />}
-                    placeholder="Enter password"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="phone"
-                  label="Phone Number"
-                  rules={[
-                    { required: true, message: 'Please enter phone number' },
-                    { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
-                  ]}
-                >
-                  <Input
-                    prefix={<PhoneOutlined />}
-                    placeholder="Enter phone number"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="student_code"
-                  label="Student Code"
-                  rules={[{ required: true, message: 'Please enter student code' }]}
-                >
-                  <Input
-                    prefix={<IdcardOutlined />}
-                    placeholder="Enter student code"
-                  />
-                </Form.Item>
-              </Col>
-
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="class_instance_id"
-                  label="Class"
-                  rules={[{ required: true, message: 'Please select a class' }]}
-                >
-                  <Select
-                    placeholder="Select class"
-                    showSearch
-                    optionFilterProp="children"
-                    suffixIcon={<BookOutlined />}
+                    ]}
+                    style={{ marginBottom: 0 }}
                   >
-                    {classInstances.map((instance) => (
-                      <Option key={instance.id} value={instance.id}>
-                        Grade {instance.class.grade} - {instance.class.section} | 
-                        AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Form.Item>
-              <Space>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={loading}
-                  size="large"
-                  style={{
-                    background: '#6366f1',
-                    borderColor: '#6366f1',
-                    borderRadius: '8px',
-                    fontWeight: 500
-                  }}
-                >
-                  {loading ? 'Adding Student...' : 'Add Student'}
-                </Button>
-                <Button
-                  size="large"
-                  onClick={() => form.resetFields()}
-                >
-                  Reset Form
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
-
-          {/* Student list section */}
-          <div style={{ marginTop: '40px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <Title level={4} style={{ margin: 0 }}>
-                Existing Students ({filteredStudents.length} of {studentList.length})
-              </Title>
-              <Select
-                placeholder="Filter by Class"
-                value={selectedClass}
-                onChange={setSelectedClass}
-                allowClear
-                style={{ width: 200 }}
-              >
-                {uniqueClasses.map(classItem => (
-                  <Option key={classItem} value={classItem}>
-                    Grade {classItem}
-                  </Option>
-                ))}
-              </Select>
+                    <div className="cb-input-group">
+                      <span className="cb-input-icon">📧</span>
+                      <Input
+                        className="cb-input cb-input-with-icon"
+                        placeholder="Enter email address"
+                      />
+                    </div>
+                  </Form.Item>
+                </div>
+              </div>
             </div>
-
-            <Table
-              columns={columns}
-              dataSource={filteredStudents}
-              loading={studentLoading}
-              rowKey={(record) => record.id}
-              pagination={{ 
-                pageSize: 25,
-                showSizeChanger: true,
-                showQuickJumper: true,
-                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
-              }}
-              scroll={{ x: 1200 }}
-            />
-          </div>
-        </Card>
-
-        {/* Edit Modal */}
-        <Modal
-          open={editModalVisible}
-          title="Edit Student"
-          onCancel={() => setEditModalVisible(false)}
-          onOk={handleEditSave}
-          okText="Save Changes"
-        >
-          <Form form={editForm} layout="vertical">
-            <Form.Item
-              name="full_name"
-              label="Full Name"
-              rules={[{ required: true, message: 'Please enter full name' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="phone"
-              label="Phone Number"
-              rules={[{ required: true, message: 'Please enter phone number' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="student_code"
-              label="Student Code"
-              rules={[{ required: true, message: 'Please enter student code' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="class_instance_id"
-              label="Class"
-              rules={[{ required: true, message: 'Please select a class' }]}
-            >
-              <Select
-                placeholder="Select class"
-                showSearch
-                optionFilterProp="children"
-              >
-                {classInstances.map((instance) => (
-                  <Option key={instance.id} value={instance.id}>
-                    Grade {instance.class.grade} - {instance.class.section} | 
-                    AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
           </Form>
-        </Modal>
+        </div>
       </div>
+
+      <Card
+        title={
+          <Space>
+            <UserAddOutlined />
+            <span>Add New Student</span>
+          </Space>
+        }
+        style={{ marginBottom: '24px' }}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          size="large"
+          initialValues={{
+            student_code: 'S'
+          }}
+        >
+          <Row gutter={[16, 0]}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="full_name"
+                label="Full Name"
+                rules={[{ required: true, message: 'Please enter full name' }]}
+              >
+                <Input
+                  prefix={<UserOutlined />}
+                  placeholder="Enter student's full name"
+                />
+              </Form.Item>
+            </Col>
+            
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="email"
+                label="Email Address"
+                rules={[
+                  { required: true, message: 'Please enter email' },
+                  { type: 'email', message: 'Please enter a valid email' }
+                ]}
+              >
+                <Input
+                  prefix={<MailOutlined />}
+                  placeholder="Enter email address"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="password"
+                label="Password"
+                rules={[
+                  { required: true, message: 'Please enter password' },
+                  { min: 6, message: 'Password must be at least 6 characters' }
+                ]}
+              >
+                <Input.Password
+                  prefix={<LockOutlined />}
+                  placeholder="Enter password"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="phone"
+                label="Phone Number"
+                rules={[
+                  { required: true, message: 'Please enter phone number' },
+                  { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
+                ]}
+              >
+                <Input
+                  prefix={<PhoneOutlined />}
+                  placeholder="Enter phone number"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="student_code"
+                label="Student Code"
+                rules={[{ required: true, message: 'Please enter student code' }]}
+              >
+                <Input
+                  prefix={<IdcardOutlined />}
+                  placeholder="Enter student code"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="class_instance_id"
+                label="Class"
+                rules={[{ required: true, message: 'Please select a class' }]}
+              >
+                <Select
+                  placeholder="Select class"
+                  showSearch
+                  optionFilterProp="children"
+                  suffixIcon={<BookOutlined />}
+                >
+                  {classInstances.map((instance) => (
+                    <Option key={instance.id} value={instance.id}>
+                      Grade {instance.class.grade} - {instance.class.section} | 
+                      AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                size="large"
+                style={{
+                  background: '#6366f1',
+                  borderColor: '#6366f1',
+                  borderRadius: '8px',
+                  fontWeight: 500
+                }}
+              >
+                {loading ? 'Adding Student...' : 'Add Student'}
+              </Button>
+              <Button
+                size="large"
+                onClick={() => form.resetFields()}
+              >
+                Reset Form
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+
+        {/* Student list section */}
+        <div style={{ marginTop: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <Title level={4} style={{ margin: 0 }}>
+              Existing Students ({filteredStudents.length} of {studentList.length})
+            </Title>
+            <Select
+              placeholder="Filter by Class"
+              value={selectedClass}
+              onChange={setSelectedClass}
+              allowClear
+              style={{ width: 200 }}
+            >
+              {uniqueClasses.map(classItem => (
+                <Option key={classItem} value={classItem}>
+                  Grade {classItem}
+                </Option>
+              ))}
+            </Select>
+          </div>
+
+          <Table
+            columns={columns}
+            dataSource={filteredStudents}
+            loading={studentLoading}
+            rowKey={(record) => record.id}
+            pagination={{ 
+              pageSize: 25,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
+            }}
+            scroll={{ x: 1200 }}
+          />
+        </div>
+      </Card>
+
+      {/* Edit Modal */}
+      <Modal
+        open={editModalVisible}
+        title="Edit Student"
+        onCancel={() => setEditModalVisible(false)}
+        onOk={handleEditSave}
+        okText="Save Changes"
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item
+            name="full_name"
+            label="Full Name"
+            rules={[{ required: true, message: 'Please enter full name' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label="Phone Number"
+            rules={[{ required: true, message: 'Please enter phone number' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="student_code"
+            label="Student Code"
+            rules={[{ required: true, message: 'Please enter student code' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="class_instance_id"
+            label="Class"
+            rules={[{ required: true, message: 'Please select a class' }]}
+          >
+            <Select
+              placeholder="Select class"
+              showSearch
+              optionFilterProp="children"
+            >
+              {classInstances.map((instance) => (
+                <Option key={instance.id} value={instance.id}>
+                  Grade {instance.class.grade} - {instance.class.section} | 
+                  AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };
