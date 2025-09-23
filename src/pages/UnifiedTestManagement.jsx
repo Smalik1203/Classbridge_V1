@@ -378,788 +378,574 @@ const UnifiedTestManagement = () => {
   ];
 
   return (
-    <div style={{ padding: '24px', background: antdTheme.token.colorBgLayout, minHeight: '100vh' }}>
-      {/* Compact Header with Stats and Actions */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-start',
-          marginBottom: '16px'
-        }}>
+    <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
+      {/* Modern Header */}
+      <div className="cb-dashboard-header">
+        <div className="cb-flex cb-justify-between cb-items-start">
           <div>
-            <Title level={2} style={{ 
-              margin: 0, 
-              fontSize: '24px', 
-              fontWeight: '600',
-              color: antdTheme.token.colorText,
-              marginBottom: '4px'
-            }}>
-              Test Management
-            </Title>
-            <Text style={{ 
-              fontSize: '14px', 
-              color: antdTheme.token.colorTextSecondary
-            }}>
+            <h1 className="cb-heading-2 cb-mb-2">
+              📝 Test Management
+            </h1>
+            <p className="cb-text-caption">
               Create, manage, and organize tests and assessments
-            </Text>
+            </p>
           </div>
           
-          <Space>
-            <Button
-              icon={<UploadOutlined />}
+          <div className="cb-dashboard-actions">
+            <button
+              className="cb-button cb-button-secondary"
               onClick={handleImportTests}
-              size="large"
-              style={{
-                borderRadius: '8px',
-                height: '40px',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}
             >
-              Import Tests
-            </Button>
-            <Button
+              <span>📤</span>
+              <span>Import Tests</span>
+            </button>
+            <button
+              className="cb-button cb-button-secondary"
               onClick={() => {
                 console.log('Manual refresh clicked');
-                console.log('School code:', schoolCode);
-                console.log('User:', user);
                 fetchData();
               }}
-              size="large"
-              style={{
-                borderRadius: '8px',
-                height: '40px',
-                fontSize: '14px',
-                fontWeight: '500'
-              }}
             >
-              Refresh Data
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
+              <span>🔄</span>
+              <span>Refresh</span>
+            </button>
+            <button
+              className="cb-button cb-button-primary"
               onClick={() => setModalVisible(true)}
-              size="large"
-              style={{
-                background: antdTheme.token.colorPrimary,
-                borderColor: antdTheme.token.colorPrimary,
-                borderRadius: '8px',
-                height: '40px',
-                fontSize: '14px',
-                fontWeight: '500',
-                boxShadow: '0 2px 4px rgba(24, 144, 255, 0.2)'
-              }}
             >
-              Create Test
-            </Button>
-          </Space>
+              <span>➕</span>
+              <span>Create Test</span>
+            </button>
+          </div>
         </div>
-
-        {/* Compact Stats Row */}
-        <Row gutter={[12, 12]}>
-          <Col xs={12} sm={6}>
-            <Card
-              style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                border: 'none',
-                borderRadius: '8px',
-                height: '60px'
-              }}
-              bodyStyle={{ padding: '12px 16px', height: '100%' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
-                <div>
-                  <div style={{ 
-                    fontSize: '20px', 
-                    fontWeight: '700', 
-                    color: 'white',
-                    lineHeight: '1'
-                  }}>
-                    {totalTests}
-                  </div>
-                  <Text style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '12px', fontWeight: '500' }}>
-                    Total Tests
-                  </Text>
-                </div>
-                <BookOutlined style={{ fontSize: '20px', color: 'rgba(255, 255, 255, 0.8)' }} />
-              </div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card
-              style={{
-                background: antdTheme.token.colorFillTertiary,
-                border: `1px solid ${antdTheme.token.colorBorder}`,
-                borderRadius: '8px',
-                height: '60px'
-              }}
-              bodyStyle={{ padding: '12px 16px', height: '100%' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
-                <div>
-                  <div style={{ 
-                    fontSize: '20px', 
-                    fontWeight: '700', 
-                    color: antdTheme.token.colorPrimary,
-                    lineHeight: '1'
-                  }}>
-                    {totalQuestions}
-                  </div>
-                  <Text style={{ color: antdTheme.token.colorTextSecondary, fontSize: '12px', fontWeight: '500' }}>
-                    Questions
-                  </Text>
-                </div>
-                <QuestionCircleOutlined style={{ fontSize: '20px', color: antdTheme.token.colorTextTertiary }} />
-              </div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card
-              style={{
-                background: antdTheme.token.colorFillTertiary,
-                border: `1px solid ${antdTheme.token.colorBorder}`,
-                borderRadius: '8px',
-                height: '60px'
-              }}
-              bodyStyle={{ padding: '12px 16px', height: '100%' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
-                <div>
-                  <div style={{ 
-                    fontSize: '20px', 
-                    fontWeight: '700', 
-                    color: antdTheme.token.colorPrimary,
-                    lineHeight: '1'
-                  }}>
-                    {quizCount}
-                  </div>
-                  <Text style={{ color: antdTheme.token.colorTextSecondary, fontSize: '12px', fontWeight: '500' }}>
-                    Quizzes
-                  </Text>
-                </div>
-                <TrophyOutlined style={{ fontSize: '20px', color: antdTheme.token.colorTextTertiary }} />
-              </div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={6}>
-            <Card
-              style={{
-                background: antdTheme.token.colorFillTertiary,
-                border: `1px solid ${antdTheme.token.colorBorder}`,
-                borderRadius: '8px',
-                height: '60px'
-              }}
-              bodyStyle={{ padding: '12px 16px', height: '100%' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '100%' }}>
-                <div>
-                  <div style={{ 
-                    fontSize: '20px', 
-                    fontWeight: '700', 
-                    color: antdTheme.token.colorPrimary,
-                    lineHeight: '1'
-                  }}>
-                    {examCount}
-                  </div>
-                  <Text style={{ color: antdTheme.token.colorTextSecondary, fontSize: '12px', fontWeight: '500' }}>
-                    Exams
-                  </Text>
-                </div>
-                <UserOutlined style={{ fontSize: '20px', color: antdTheme.token.colorTextTertiary }} />
-              </div>
-            </Card>
-          </Col>
-        </Row>
       </div>
 
-      {/* Main Content */}
-      <Card
-        style={{
-          background: antdTheme.token.colorBgContainer,
-          border: `1px solid ${antdTheme.token.colorBorder}`,
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-        }}
-        bodyStyle={{ padding: '24px' }}
-      >
-        {/* Toolbar */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '24px',
-          paddingBottom: '16px',
-          borderBottom: `1px solid ${antdTheme.token.colorBorder}`
-        }}>
-          <Title level={4} style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
-            All Tests
-          </Title>
+      {/* Modern Stats */}
+      <div className="cb-kpi-grid cb-mb-8">
+        <div className="cb-kpi-card">
+          <div className="cb-stat-header">
+            <div className="cb-stat-icon">📝</div>
+            <div className="cb-stat-change positive">↗️ +12%</div>
+          </div>
+          <div className="cb-stat-value">{totalTests}</div>
+          <div className="cb-stat-label">Total Tests</div>
         </div>
+        <div className="cb-kpi-card">
+          <div className="cb-stat-header">
+            <div className="cb-stat-icon">❓</div>
+            <div className="cb-stat-change positive">↗️ +8%</div>
+          </div>
+          <div className="cb-stat-value">{totalQuestions}</div>
+          <div className="cb-stat-label">Total Questions</div>
+        </div>
+        <div className="cb-kpi-card">
+          <div className="cb-stat-header">
+            <div className="cb-stat-icon">🎯</div>
+            <div className="cb-stat-change positive">↗️ +5%</div>
+          </div>
+          <div className="cb-stat-value">{quizCount}</div>
+          <div className="cb-stat-label">Active Quizzes</div>
+        </div>
+        <div className="cb-kpi-card">
+          <div className="cb-stat-header">
+            <div className="cb-stat-icon">🎓</div>
+            <div className="cb-stat-change neutral">→ Stable</div>
+          </div>
+          <div className="cb-stat-value">{examCount}</div>
+          <div className="cb-stat-label">Exams</div>
+        </div>
+      </div>
 
-                  {/* Filters */}
-                  {user?.role === 'superadmin' && (
-                    <div style={{ 
-                      display: 'flex', 
-                      gap: '8px', 
-                      marginBottom: '20px',
-                      padding: '12px 16px',
-                      background: antdTheme.token.colorBgContainer,
-                      border: `1px solid ${antdTheme.token.colorBorder}`,
-                      borderRadius: '8px',
-                      alignItems: 'center',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
-                    }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '6px',
-                        marginRight: '8px',
-                        paddingRight: '12px',
-                        borderRight: `1px solid ${antdTheme.token.colorBorder}`
-                      }}>
-                        <FilterOutlined style={{ 
-                          color: antdTheme.token.colorTextSecondary,
-                          fontSize: '14px'
-                        }} />
-                        <Text style={{ 
-                          fontSize: '13px', 
-                          fontWeight: '500',
-                          color: antdTheme.token.colorTextSecondary
+      {/* Modern Filters */}
+      {user?.role === 'superadmin' && (
+        <div className="cb-filter-bar cb-mb-6">
+          <div className="cb-text-overline">Filter Tests</div>
+          
+          <div className="cb-filter-chips">
+            {[
+              { key: 'all', label: 'All Tests', icon: '📚' },
+              { key: 'quiz', label: 'Quizzes', icon: '❓' },
+              { key: 'unit_test', label: 'Unit Tests', icon: '📝' },
+              { key: 'exam', label: 'Exams', icon: '🎓' },
+              { key: 'assignment', label: 'Assignments', icon: '📋' }
+            ].map(type => (
+              <button
+                key={type.key}
+                className={`cb-chip ${filters.testType === type.key ? 'active' : ''}`}
+                onClick={() => handleFilterChange('testType', type.key)}
+              >
+                <span>{type.icon}</span>
+                <span>{type.label}</span>
+                <span className="cb-badge cb-badge-neutral cb-badge-sm">
+                  {type.key === 'all' ? tests.length : tests.filter(t => t.test_type === type.key).length}
+                </span>
+              </button>
+            ))}
+          </div>
+          
+          <div className="cb-flex cb-gap-4 cb-items-center">
+            <select
+              className="cb-input"
+              style={{ width: '200px' }}
+              value={filters.class || ''}
+              onChange={(e) => handleFilterChange('class', e.target.value || null)}
+            >
+              <option value="">All Classes</option>
+              {classInstances.map(cls => (
+                <option key={cls.id} value={cls.id}>
+                  Grade {cls.grade} {cls.section}
+                </option>
+              ))}
+            </select>
+            
+            <select
+              className="cb-input"
+              style={{ width: '200px' }}
+              value={filters.subject || ''}
+              onChange={(e) => handleFilterChange('subject', e.target.value || null)}
+            >
+              <option value="">All Subjects</option>
+              {subjects.map(subject => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.subject_name}
+                </option>
+              ))}
+            </select>
+            
+            <div className="cb-flex cb-items-center cb-gap-2" style={{ marginLeft: 'auto' }}>
+              {(filters.class || filters.subject || filters.testType) && (
+                <span className="cb-text-caption-sm">
+                  {[filters.class, filters.subject, filters.testType].filter(Boolean).length} active
+                </span>
+              )}
+              <button 
+                className="cb-button cb-button-sm cb-button-ghost"
+                onClick={clearFilters}
+                disabled={!filters.class && !filters.subject && !filters.testType}
+              >
+                Clear All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern Test List */}
+      <div className="cb-card">
+        <div className="cb-card-body">
+          {loading ? (
+            <div className="cb-grid cb-grid-auto">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="cb-skeleton" style={{ 
+                  height: '200px',
+                  borderRadius: 'var(--radius-2xl)' 
+                }}></div>
+              ))}
+            </div>
+          ) : filteredTests.length === 0 ? (
+            <div className="cb-empty-state">
+              <div className="cb-empty-icon">📝</div>
+              <h3 className="cb-empty-title">No tests found</h3>
+              <p className="cb-empty-description">
+                {canEdit 
+                  ? 'Start creating assessments for your students. You can add quizzes, unit tests, assignments, and exams.'
+                  : 'Your teachers haven\'t created any tests yet. Check back soon!'
+                }
+              </p>
+              {canEdit && (
+                <button 
+                  className="cb-button cb-button-primary cb-button-lg"
+                  onClick={() => setModalVisible(true)}
+                >
+                  <span>✨</span>
+                  <span>Create First Test</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="cb-grid cb-grid-auto">
+              {paginatedTests.map((test) => (
+                <div key={test.id} className="cb-card cb-card-interactive">
+                  <div className="cb-card-body">
+                    <div className="cb-flex cb-justify-between cb-items-start cb-mb-4">
+                      <div className="cb-flex cb-items-center cb-gap-3">
+                        <div className="cb-stat-icon" style={{ 
+                          width: '40px', 
+                          height: '40px',
+                          fontSize: 'var(--text-lg)',
+                          background: `var(--color-${getTestTypeColor(test.test_type)}-100)`,
+                          color: `var(--color-${getTestTypeColor(test.test_type)}-600)`
                         }}>
-                          Filters
-                        </Text>
-                      </div>
-                      
-                      <Select
-                        placeholder="Class"
-                        value={filters.class}
-                        onChange={(value) => handleFilterChange('class', value)}
-                        style={{ 
-                          minWidth: '120px',
-                          fontSize: '13px'
-                        }}
-                        allowClear
-                        size="small"
-                        suffixIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-                      >
-                        {classInstances.map(cls => (
-                          <Select.Option key={cls.id} value={cls.id}>
-                            Grade {cls.grade} {cls.section}
-                          </Select.Option>
-                        ))}
-                      </Select>
-                      
-                      <Select
-                        placeholder="Subject"
-                        value={filters.subject}
-                        onChange={(value) => handleFilterChange('subject', value)}
-                        style={{ 
-                          minWidth: '120px',
-                          fontSize: '13px'
-                        }}
-                        allowClear
-                        size="small"
-                        suffixIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-                      >
-                        {subjects.map(subject => (
-                          <Select.Option key={subject.id} value={subject.id}>
-                            {subject.subject_name}
-                          </Select.Option>
-                        ))}
-                      </Select>
-                      
-                      <Select
-                        placeholder="Type"
-                        value={filters.testType}
-                        onChange={(value) => handleFilterChange('testType', value)}
-                        style={{ 
-                          minWidth: '120px',
-                          fontSize: '13px'
-                        }}
-                        allowClear
-                        size="small"
-                        suffixIcon={<span style={{ fontSize: '12px' }}>▼</span>}
-                      >
-                        {testTypeOptions.map(option => (
-                          <Select.Option key={option.value} value={option.value}>
-                            {option.label}
-                          </Select.Option>
-                        ))}
-                      </Select>
-                      
-                      <div style={{ 
-                        marginLeft: 'auto',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
-                        {(filters.class || filters.subject || filters.testType) && (
-                          <Text style={{ 
-                            fontSize: '12px', 
-                            color: antdTheme.token.colorTextTertiary
-                          }}>
-                            {[filters.class, filters.subject, filters.testType].filter(Boolean).length} active
-                          </Text>
-                        )}
-                        <Button 
-                          onClick={clearFilters}
-                          size="small"
-                          type="text"
-                          style={{ 
-                            fontSize: '12px',
-                            color: antdTheme.token.colorTextSecondary,
-                            padding: '4px 8px',
-                            height: 'auto'
-                          }}
-                          disabled={!filters.class && !filters.subject && !filters.testType}
-                        >
-                          Clear All
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {loading ? (
-                    <div style={{ textAlign: 'center', padding: '40px' }}>
-                      <Spin size="large" />
-                    </div>
-                  ) : filteredTests.length === 0 ? (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="No tests found"
-                      style={{ padding: '40px 0' }}
-                    >
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => setModalVisible(true)}
-                        size="large"
-                      >
-                        Create Your First Test
-                      </Button>
-                    </Empty>
-                  ) : (
-                    <div>
-                      {/* Test Cards */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {paginatedTests.map((test) => (
-                          <Card
-                            key={test.id}
-                            style={{
-                              borderRadius: '12px',
-                              border: `1px solid ${antdTheme.token.colorBorder}`,
-                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                              transition: 'all 0.2s ease',
-                              cursor: 'pointer'
-                            }}
-                            hoverable
-                            bodyStyle={{ padding: '20px' }}
-                          >
-                            <div style={{ 
-                              display: 'flex', 
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start'
-                            }}>
-                              {/* Left: Title, Description, Type */}
-                              <div style={{ flex: '1', minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                                  <Title level={4} style={{ 
-                                    margin: 0, 
-                                    fontSize: '16px', 
-                                    fontWeight: '600',
-                                    color: antdTheme.token.colorText,
-                                    marginRight: '12px'
-                                  }}>
-                                    {test.title}
-                                  </Title>
-                                  <Tag 
-                                    color={getTestTypeColor(test.test_type)} 
-                                    style={{ 
-                                      textTransform: 'capitalize',
-                                      fontWeight: '500',
-                                      borderRadius: '6px',
-                                      padding: '2px 8px',
-                                      fontSize: '11px',
-                                      margin: 0
-                                    }}
-                                  >
-                                    {test.test_type.replace('_', ' ')}
-                                  </Tag>
-                                </div>
-                                
-                                {test.description && (
-                                  <Text 
-                                    type="secondary" 
-                                    style={{ 
-                                      fontSize: '14px', 
-                                      lineHeight: '1.4',
-                                      display: 'block',
-                                      marginBottom: '12px'
-                                    }}
-                                  >
-                                    {test.description}
-                                  </Text>
-                                )}
-
-                                {test.syllabus_chapters && (
-                                  <div style={{ 
-                                    marginBottom: '12px',
-                                    padding: '6px 10px',
-                                    background: antdTheme.token.colorFillTertiary,
-                                    borderRadius: '6px',
-                                    border: `1px solid ${antdTheme.token.colorBorderSecondary}`
-                                  }}>
-                                    <Text style={{ 
-                                      fontSize: '12px', 
-                                      color: antdTheme.token.colorTextSecondary,
-                                      fontWeight: '500'
-                                    }}>
-                                      📚 Chapter {test.syllabus_chapters.chapter_no}: {test.syllabus_chapters.title}
-                                    </Text>
-                                  </div>
-                                )}
-
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                  <Text style={{ 
-                                    fontSize: '12px', 
-                                    color: antdTheme.token.colorTextTertiary,
-                                    background: antdTheme.token.colorFillTertiary,
-                                    padding: '2px 8px',
-                                    borderRadius: '4px'
-                                  }}>
-                                    Grade {test.class_instances?.grade} {test.class_instances?.section}
-                                  </Text>
-                                  <Text style={{ 
-                                    fontSize: '12px', 
-                                    color: antdTheme.token.colorTextTertiary,
-                                    background: antdTheme.token.colorFillTertiary,
-                                    padding: '2px 8px',
-                                    borderRadius: '4px'
-                                  }}>
-                                    {test.subjects?.subject_name}
-                                  </Text>
-                                </div>
-                              </div>
-
-                              {/* Right: Stats and Actions */}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                                {/* Stats */}
-                                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                                  <div style={{ textAlign: 'center' }}>
-                                    <div style={{ 
-                                      fontSize: '18px', 
-                                      fontWeight: '600', 
-                                      color: antdTheme.token.colorPrimary,
-                                      lineHeight: '1'
-                                    }}>
-                                      {test.question_count || 0}
-                                    </div>
-                                    <Text type="secondary" style={{ fontSize: '11px', fontWeight: '500' }}>
-                                      Questions
-                                    </Text>
-                                  </div>
-                                  
-                                  <div style={{ textAlign: 'center' }}>
-                                    <div style={{ 
-                                      fontSize: '14px', 
-                                      fontWeight: '500',
-                                      color: antdTheme.token.colorText,
-                                      lineHeight: '1',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px'
-                                    }}>
-                                      <ClockCircleOutlined style={{ fontSize: '12px' }} />
-                                      {formatTimeLimit(test.time_limit_seconds)}
-                                    </div>
-                                    <Text type="secondary" style={{ fontSize: '11px', fontWeight: '500' }}>
-                                      Time Limit
-                                    </Text>
-                                  </div>
-                                  
-                                  <div style={{ textAlign: 'center' }}>
-                                    <div style={{ 
-                                      fontSize: '14px', 
-                                      fontWeight: '500',
-                                      color: antdTheme.token.colorTextTertiary,
-                                      lineHeight: '1',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: '4px'
-                                    }}>
-                                      <BookOutlined style={{ fontSize: '12px' }} />
-                                      {test.question_count || 0} questions
-                                    </div>
-                                    <Text type="secondary" style={{ fontSize: '11px', fontWeight: '500' }}>
-                                      Questions
-                                    </Text>
-                                  </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <Button
-                                    type="primary"
-                                    size="small"
-                                    icon={<SettingOutlined />}
-                                    onClick={() => handleManageQuestions(test)}
-                                    style={{
-                                      fontSize: '12px',
-                                      fontWeight: '500',
-                                      height: '32px',
-                                      paddingLeft: '12px',
-                                      paddingRight: '12px',
-                                      borderRadius: '6px'
-                                    }}
-                                  >
-                                    Manage
-                                  </Button>
-                                  
-                                  <Dropdown
-                                    menu={{
-                                      items: [
-                                        {
-                                          key: 'edit',
-                                          label: 'Edit Test',
-                                          icon: <EditOutlined />,
-                                          onClick: () => handleEditTest(test)
-                                        },
-                                        {
-                                          key: 'preview',
-                                          label: 'Preview Questions',
-                                          icon: <EyeOutlined />,
-                                          onClick: () => handlePreviewQuestions(test)
-                                        },
-                                        {
-                                          type: 'divider'
-                                        },
-                                        {
-                                          key: 'delete',
-                                          label: 'Delete Test',
-                                          icon: <DeleteOutlined />,
-                                          danger: true,
-                                          onClick: () => {
-                                            Modal.confirm({
-                                              title: 'Delete Test',
-                                              content: 'Are you sure you want to delete this test?',
-                                              onOk: () => handleDeleteTest(test.id)
-                                            });
-                                          }
-                                        }
-                                      ]
-                                    }}
-                                    trigger={['click']}
-                                  >
-                                    <Button
-                                      size="small"
-                                      icon={<MoreOutlined />}
-                                      style={{
-                                        height: '32px',
-                                        width: '32px',
-                                        borderRadius: '6px'
-                                      }}
-                                    />
-                                  </Dropdown>
-                                </div>
-                              </div>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
-
-                      {/* Pagination */}
-                      {filteredTests.length > pageSize && (
-                        <div style={{ 
-                          display: 'flex', 
-                          justifyContent: 'flex-end', 
-                          marginTop: '24px',
-                          paddingTop: '16px',
-                          borderTop: `1px solid ${antdTheme.token.colorBorder}`
-                        }}>
-                          <Pagination
-                            current={currentPage}
-                            pageSize={pageSize}
-                            total={filteredTests.length}
-                            onChange={(page, size) => {
-                              setCurrentPage(page);
-                              setPageSize(size);
-                            }}
-                            showSizeChanger
-                            showQuickJumper
-                            showTotal={(total, range) => 
-                              `${range[0]}-${range[1]} of ${total} tests`
-                            }
-                          />
+                          {getTestTypeIcon(test.test_type)}
                         </div>
-                      )}
+                        <div>
+                          <h4 className="cb-heading-5 cb-mb-1">{test.title}</h4>
+                          <div className="cb-flex cb-gap-2 cb-items-center">
+                            <span className={`cb-badge cb-badge-${getTestTypeColor(test.test_type)} cb-badge-sm`}>
+                              {test.test_type.replace('_', ' ')}
+                            </span>
+                            <span className="cb-text-caption-sm">•</span>
+                            <span className="cb-text-caption-sm">
+                              Grade {test.class_instances?.grade} {test.class_instances?.section}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Dropdown
+                        menu={{
+                          items: [
+                            {
+                              key: 'edit',
+                              label: 'Edit Test',
+                              icon: <EditOutlined />,
+                              onClick: () => handleEditTest(test)
+                            },
+                            {
+                              key: 'preview',
+                              label: 'Preview Questions',
+                              icon: <EyeOutlined />,
+                              onClick: () => handlePreviewQuestions(test)
+                            },
+                            {
+                              type: 'divider'
+                            },
+                            {
+                              key: 'delete',
+                              label: 'Delete Test',
+                              icon: <DeleteOutlined />,
+                              danger: true,
+                              onClick: () => {
+                                Modal.confirm({
+                                  title: 'Delete Test',
+                                  content: 'Are you sure you want to delete this test?',
+                                  onOk: () => handleDeleteTest(test.id)
+                                });
+                              }
+                            }
+                          ]
+                        }}
+                        trigger={['click']}
+                      >
+                        <button className="cb-button cb-button-sm cb-button-ghost">
+                          ⋯
+                        </button>
+                      </Dropdown>
                     </div>
-                  )}
-      </Card>
 
-      {/* Create/Edit Test Modal */}
+                    {test.description && (
+                      <p className="cb-text-caption cb-mb-4" style={{ 
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                        {test.description}
+                      </p>
+                    )}
+
+                    {test.syllabus_chapters && (
+                      <div className="cb-badge cb-badge-neutral cb-badge-sm cb-mb-4">
+                        📚 Chapter {test.syllabus_chapters.chapter_no}: {test.syllabus_chapters.title}
+                      </div>
+                    )}
+
+                    <div className="cb-flex cb-justify-between cb-items-center cb-mb-4">
+                      <div className="cb-flex cb-gap-4">
+                        <div className="cb-text-center">
+                          <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>
+                            {test.question_count || 0}
+                          </div>
+                          <div className="cb-text-caption-sm">Questions</div>
+                        </div>
+                        <div className="cb-text-center">
+                          <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>
+                            {formatTimeLimit(test.time_limit_seconds)}
+                          </div>
+                          <div className="cb-text-caption-sm">Time Limit</div>
+                        </div>
+                        <div className="cb-text-center">
+                          <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>
+                            {test.subjects?.subject_name}
+                          </div>
+                          <div className="cb-text-caption-sm">Subject</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="cb-flex cb-gap-2">
+                      <button
+                        className="cb-button cb-button-sm cb-button-primary"
+                        onClick={() => handleManageQuestions(test)}
+                        style={{ flex: 1 }}
+                      >
+                        <span>⚙️</span>
+                        <span>Manage Questions</span>
+                      </button>
+                      <button
+                        className="cb-button cb-button-sm cb-button-secondary"
+                        onClick={() => handlePreviewQuestions(test)}
+                      >
+                        <span>👁️</span>
+                        <span>Preview</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredTests.length > pageSize && (
+            <div className="cb-flex cb-justify-center cb-mt-8">
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={filteredTests.length}
+                onChange={(page, size) => {
+                  setCurrentPage(page);
+                  setPageSize(size);
+                }}
+                showSizeChanger
+                showQuickJumper
+                showTotal={(total, range) => 
+                  `${range[0]}-${range[1]} of ${total} tests`
+                }
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced Create/Edit Test Modal */}
       <Modal
-        title={editingTest ? 'Edit Test' : 'Create Test'}
+        title={
+          <div className="cb-flex cb-items-center cb-gap-2">
+            <span>{editingTest ? '✏️' : '➕'}</span>
+            <span>{editingTest ? 'Edit Test' : 'Create Test'}</span>
+          </div>
+        }
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
           setEditingTest(null);
           form.resetFields();
         }}
-        onOk={() => form.submit()}
-        confirmLoading={confirmLoading}
-        width={600}
+        footer={null}
+        width={700}
+        className="cb-modal"
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreateTest}
-        >
-          <Form.Item
-            name="title"
-            label="Test Title"
-            rules={[{ required: true, message: 'Please enter test title' }]}
+        <div className="cb-modal-body">
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleCreateTest}
+            className="cb-form"
           >
-            <Input placeholder="Enter test title" />
-          </Form.Item>
-
-          <Form.Item
-            name="description"
-            label="Description"
-          >
-            <TextArea 
-              placeholder="Enter test description" 
-              rows={3}
-            />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="test_type"
-                label="Test Type"
-                rules={[{ required: true, message: 'Please select test type' }]}
-              >
-                <Select placeholder="Select test type">
-                  {testTypeOptions.map(option => (
-                    <Select.Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="class_instance_id"
-                label="Class"
-                rules={[{ required: true, message: 'Please select class' }]}
-              >
-                <Select 
-                  placeholder="Select class"
-                  onChange={(value) => {
-                    const subjectId = form.getFieldValue('subject_id');
-                    if (subjectId) {
-                      loadChapters(value, subjectId);
-                    }
-                  }}
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Basic Information</h4>
+              
+              <div className="cb-form-group">
+                <label className="cb-label cb-label-required">Test Title</label>
+                <Form.Item
+                  name="title"
+                  rules={[{ required: true, message: 'Please enter test title' }]}
+                  style={{ marginBottom: 0 }}
                 >
-                  {classInstances.map(cls => (
-                    <Select.Option key={cls.id} value={cls.id}>
-                      Grade {cls.grade} {cls.section}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
+                  <Input 
+                    className="cb-input"
+                    placeholder="Enter test title" 
+                  />
+                </Form.Item>
+              </div>
 
-          <Form.Item
-            name="subject_id"
-            label="Subject"
-            rules={[{ required: true, message: 'Please select subject' }]}
-          >
-            <Select 
-              placeholder="Select subject"
-              onChange={(value) => {
-                const classId = form.getFieldValue('class_instance_id');
-                if (classId) {
-                  loadChapters(classId, value);
-                }
-              }}
-            >
-              {subjects.map(subject => (
-                <Select.Option key={subject.id} value={subject.id}>
-                  {subject.subject_name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="chapter_id"
-            label="Chapter (Optional)"
-            help="Select a chapter from the syllabus to associate with this test"
-          >
-            <Select 
-              placeholder="Select chapter (optional)"
-              allowClear
-              disabled={!chapters.length}
-            >
-              {chapters.map(chapter => (
-                <Select.Option key={chapter.id} value={chapter.id}>
-                  Ch {chapter.chapter_no}: {chapter.title}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="time_limit_seconds"
-                label="Time Limit (seconds)"
-              >
-                <Input 
-                  type="number" 
-                  placeholder="Enter time limit"
-                  min={0}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="allow_reattempts"
-                label="Allow Reattempts"
-                valuePropName="checked"
-              >
-                <Switch 
-                  checkedChildren="Yes" 
-                  unCheckedChildren="No"
-                  defaultChecked={false}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="reattempt_note"
-            label="Reattempt Settings"
-            help="When enabled, students can retake this test multiple times. Previous attempts will be marked as 'abandoned' when a new attempt is started."
-          >
-            <div style={{ 
-              padding: '12px', 
-              background: antdTheme.token.colorFillTertiary, 
-              borderRadius: '6px',
-              fontSize: '12px',
-              color: antdTheme.token.colorTextSecondary
-            }}>
-              <Text type="secondary">
-                Note: Reattempt settings can be changed at any time. When disabled, students can only take the test once.
-              </Text>
+              <div className="cb-form-group">
+                <label className="cb-label">Description</label>
+                <Form.Item
+                  name="description"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input.TextArea 
+                    className="cb-input cb-textarea"
+                    placeholder="Enter test description" 
+                    rows={3}
+                  />
+                </Form.Item>
+              </div>
             </div>
-          </Form.Item>
-        </Form>
+
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Test Configuration</h4>
+              
+              <div className="cb-form-row">
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Test Type</label>
+                  <Form.Item
+                    name="test_type"
+                    rules={[{ required: true, message: 'Please select test type' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select 
+                      className="cb-input"
+                      placeholder="Select test type"
+                    >
+                      {testTypeOptions.map(option => (
+                        <Select.Option key={option.value} value={option.value}>
+                          {option.label}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </div>
+                
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Class</label>
+                  <Form.Item
+                    name="class_instance_id"
+                    rules={[{ required: true, message: 'Please select class' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select 
+                      className="cb-input"
+                      placeholder="Select class"
+                      onChange={(value) => {
+                        const subjectId = form.getFieldValue('subject_id');
+                        if (subjectId) {
+                          loadChapters(value, subjectId);
+                        }
+                      }}
+                    >
+                      {classInstances.map(cls => (
+                        <Select.Option key={cls.id} value={cls.id}>
+                          Grade {cls.grade} {cls.section}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </div>
+              </div>
+
+              <div className="cb-form-group">
+                <label className="cb-label cb-label-required">Subject</label>
+                <Form.Item
+                  name="subject_id"
+                  rules={[{ required: true, message: 'Please select subject' }]}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Select 
+                    className="cb-input"
+                    placeholder="Select subject"
+                    onChange={(value) => {
+                      const classId = form.getFieldValue('class_instance_id');
+                      if (classId) {
+                        loadChapters(classId, value);
+                      }
+                    }}
+                  >
+                    {subjects.map(subject => (
+                      <Select.Option key={subject.id} value={subject.id}>
+                        {subject.subject_name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </div>
+
+              <div className="cb-form-group">
+                <label className="cb-label">Chapter (Optional)</label>
+                <Form.Item
+                  name="chapter_id"
+                  style={{ marginBottom: 0 }}
+                >
+                  <Select 
+                    className="cb-input"
+                    placeholder="Select chapter (optional)"
+                    allowClear
+                    disabled={!chapters.length}
+                  >
+                    {chapters.map(chapter => (
+                      <Select.Option key={chapter.id} value={chapter.id}>
+                        Ch {chapter.chapter_no}: {chapter.title}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+                <div className="cb-help-text">
+                  Select a chapter from the syllabus to associate with this test
+                </div>
+              </div>
+            </div>
+
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Settings</h4>
+              
+              <div className="cb-form-row">
+                <div className="cb-form-group">
+                  <label className="cb-label">Time Limit (seconds)</label>
+                  <Form.Item
+                    name="time_limit_seconds"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input 
+                      className="cb-input"
+                      type="number" 
+                      placeholder="Enter time limit"
+                      min={0}
+                    />
+                  </Form.Item>
+                  <div className="cb-help-text">Leave empty for no time limit</div>
+                </div>
+                
+                <div className="cb-form-group">
+                  <label className="cb-label">Allow Reattempts</label>
+                  <Form.Item
+                    name="allow_reattempts"
+                    valuePropName="checked"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <div className="cb-flex cb-items-center cb-gap-3">
+                      <label className="cb-flex cb-items-center cb-gap-2">
+                        <input type="radio" name="reattempts" value="no" defaultChecked />
+                        <span className="cb-text-body-sm">No</span>
+                      </label>
+                      <label className="cb-flex cb-items-center cb-gap-2">
+                        <input type="radio" name="reattempts" value="yes" />
+                        <span className="cb-text-body-sm">Yes</span>
+                      </label>
+                    </div>
+                  </Form.Item>
+                  <div className="cb-help-text">
+                    When enabled, students can retake this test multiple times
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="cb-flex cb-justify-end cb-gap-3">
+              <button 
+                type="button"
+                className="cb-button cb-button-secondary"
+                onClick={() => {
+                  setModalVisible(false);
+                  setEditingTest(null);
+                  form.resetFields();
+                }}
+              >
+                Cancel
+              </button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={confirmLoading}
+                className="cb-button cb-button-primary"
+              >
+                <span>{editingTest ? '💾' : '✨'}</span>
+                <span>{editingTest ? 'Update Test' : 'Create Test'}</span>
+              </Button>
+            </div>
+          </Form>
+        </div>
       </Modal>
 
       {/* Question Builder Modal */}

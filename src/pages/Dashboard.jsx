@@ -6,7 +6,10 @@ import {
   TrophyOutlined, 
   CalendarOutlined,
   ArrowUpOutlined,
-  ArrowDownOutlined
+  ArrowDownOutlined,
+  RiseOutlined,
+  UserOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
 import { useTheme } from '../contexts/ThemeContext';
@@ -20,41 +23,46 @@ const Dashboard = () => {
   
   const [stats, setStats] = useState([
     {
-      title: 'Total Students',
+      title: 'Students',
       value: 0,
       icon: <TeamOutlined />,
-      color: '#3b82f6',
+      color: 'primary',
       trend: 12,
-      suffix: ''
+      suffix: '',
+      description: 'Active students'
     },
     {
-      title: 'Total Classes',
+      title: 'Classes',
       value: 0,
       icon: <BookOutlined />,
-      color: '#10b981',
+      color: 'success',
       trend: 8,
-      suffix: ''
+      suffix: '',
+      description: 'Active classes'
     },
     {
-      title: 'Average Score',
-      value: 0,
-      icon: <TrophyOutlined />,
-      color: '#f59e0b',
-      trend: -2,
-      suffix: '%'
-    },
-    {
-      title: 'Events This Month',
+      title: 'Attendance',
       value: 0,
       icon: <CalendarOutlined />,
-      color: '#8b5cf6',
+      color: 'info',
+      trend: 3,
+      suffix: '%',
+      description: 'This month'
+    },
+    {
+      title: 'Resources',
+      value: 0,
+      icon: <FileTextOutlined />,
+      color: 'warning',
       trend: 15,
-      suffix: ''
+      suffix: '',
+      description: 'Learning materials'
     }
   ]);
 
   const userName = user?.user_metadata?.full_name || 'User';
   const role = user?.app_metadata?.role || 'user';
+  const schoolName = user?.user_metadata?.school_name || '';
 
   const getRoleDisplay = (role) => {
     const roles = {
@@ -62,117 +70,334 @@ const Dashboard = () => {
       'superadmin': 'Super Admin',
       'admin': 'Admin',
       'student': 'Student',
-      // 'parent': 'Parent' // Parent functionality not implemented yet
     };
     return roles[role] || 'User';
   };
 
   const getWelcomeMessage = (role) => {
+    const hour = new Date().getHours();
+    let greeting = 'Good morning';
+    if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+    if (hour >= 17) greeting = 'Good evening';
+
     const messages = {
-      'cb_admin': 'Manage schools and administrators across the platform',
-      'superadmin': 'Set up and manage your school system',
-      'admin': 'Manage classes, students, and daily operations',
-      'student': 'Track your progress and stay updated with your classes',
-      // 'parent': 'Monitor your children\'s academic progress' // Parent functionality not implemented yet
+      'cb_admin': 'Manage schools and administrators across the platform.',
+      'superadmin': 'Ready to manage your school system?',
+      'admin': 'Let\'s check on your classes today.',
+      'student': 'Ready to continue your learning journey?',
     };
-    return messages[role] || 'Welcome to ClassBridge';
+    return { greeting, message: messages[role] || 'Welcome to ClassBridge!' };
   };
 
+  const welcomeMsg = getWelcomeMessage(role);
+
+  const getQuickActions = () => {
+    if (role === 'superadmin') {
+      return [
+        { label: 'Add Student', icon: '👤', path: '/add-student', color: 'primary' },
+        { label: 'Create Class', icon: '🏫', path: '/add-specific-class', color: 'success' },
+        { label: 'Upload Resource', icon: '📤', path: '/learning-resources', color: 'info' },
+        { label: 'View Analytics', icon: '📊', path: '/analytics', color: 'warning' }
+      ];
+    } else if (role === 'admin') {
+      return [
+        { label: 'Mark Attendance', icon: '✓', path: '/attendance', color: 'primary' },
+        { label: 'Create Test', icon: '📝', path: '/test-management', color: 'success' },
+        { label: 'Upload Resource', icon: '📤', path: '/learning-resources', color: 'info' },
+        { label: 'View Results', icon: '🏆', path: '/results', color: 'warning' }
+      ];
+    } else if (role === 'student') {
+      return [
+        { label: 'Take Test', icon: '📝', path: '/take-tests', color: 'primary' },
+        { label: 'View Resources', icon: '📚', path: '/learning-resources', color: 'success' },
+        { label: 'Check Attendance', icon: '📅', path: '/attendance', color: 'info' },
+        { label: 'View Grades', icon: '🏆', path: '/results', color: 'warning' }
+      ];
+    }
+    return [];
+  };
+
+  const quickActions = getQuickActions();
+
   return (
-    <Content style={{ 
-      padding: antdTheme.token.paddingLG, 
-      background: antdTheme.token.colorBgLayout, 
-      minHeight: '100vh' 
-    }}>
-      {/* Header Section */}
-      <div style={{ marginBottom: antdTheme.token.marginLG }}>
-        <Row justify="space-between" align="middle">
-          <Col>
-            <Title level={2} style={{ 
-              margin: 0, 
-              color: antdTheme.token.colorTextHeading, 
-              fontWeight: 600 
-            }}>
-              Welcome back, {userName}!
-            </Title>
-            <Text type="secondary" style={{ fontSize: antdTheme.token.fontSizeLG }}>
-              {getWelcomeMessage(role)}
-            </Text>
-          </Col>
-          <Col>
-            <Space>
-              <Button 
-                type="primary" 
-                size="middle"
-                style={{ 
-                  background: antdTheme.token.colorPrimary, 
-                  borderColor: antdTheme.token.colorPrimary,
-                  borderRadius: antdTheme.token.borderRadius,
-                  fontWeight: 500,
-                  fontSize: '13px',
-                  height: '32px'
-                }}
-              >
-                {getRoleDisplay(role)}
-              </Button>
-            </Space>
-          </Col>
-        </Row>
+    <div className="cb-container cb-section">
+      {/* Modern Welcome Header */}
+      <div className="cb-dashboard-header">
+        <div className="cb-flex cb-justify-between cb-items-start">
+          <div>
+            <div className="cb-dashboard-welcome">
+              {welcomeMsg.greeting}, {userName}! 👋
+            </div>
+            <div className="cb-dashboard-subtitle">
+              {welcomeMsg.message}
+            </div>
+            {schoolName && (
+              <div className="cb-badge cb-badge-primary cb-badge-lg cb-mt-3">
+                🏫 {schoolName}
+              </div>
+            )}
+          </div>
+          
+          <div className="cb-dashboard-actions">
+            <div className="cb-badge cb-badge-primary">
+              {getRoleDisplay(role)}
+            </div>
+            <button className="cb-button cb-button-ghost">
+              <span>🔔</span>
+            </button>
+            <button className="cb-button cb-button-ghost">
+              <span>⚙️</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Statistics Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: antdTheme.token.marginLG }}>
+      {/* Modern KPI Cards */}
+      <div className="cb-kpi-grid">
         {stats.map((stat, index) => (
-          <Col xs={24} sm={12} lg={6} key={index}>
-            <Card 
-              style={{ 
-                borderRadius: antdTheme.token.borderRadiusLG,
-                height: '100%',
-                border: `1px solid ${antdTheme.token.colorBorder}`,
-                boxShadow: antdTheme.token.boxShadowSecondary,
-                background: antdTheme.token.colorBgContainer,
-                transition: 'all 0.2s ease-in-out'
-              }}
-            >
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ 
-                  fontSize: '48px', 
-                  color: stat.color, 
-                  marginBottom: antdTheme.token.margin 
+          <div key={index} className="cb-kpi-card">
+            <div className="cb-stat-header">
+              <div className="cb-stat-icon">
+                {stat.icon}
+              </div>
+              <div className={`cb-stat-change ${stat.trend > 0 ? 'positive' : stat.trend < 0 ? 'negative' : 'neutral'}`}>
+                {stat.trend > 0 && '↗️'}
+                {stat.trend < 0 && '↘️'}
+                {stat.trend === 0 && '➡️'}
+                {stat.trend > 0 ? '+' : ''}{stat.trend}%
+              </div>
+            </div>
+            <div className="cb-stat-value">{stat.value}{stat.suffix}</div>
+            <div className="cb-stat-label">{stat.title}</div>
+            <div className="cb-text-caption-sm cb-mt-1">{stat.description}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Actions and Recent Activity */}
+      <div className="cb-grid cb-grid-2">
+        {/* Quick Actions */}
+        <div className="cb-card">
+          <div className="cb-card-header">
+            <h3 className="cb-heading-4">Quick Actions</h3>
+            <p className="cb-text-caption">Common tasks for your role</p>
+          </div>
+          <div className="cb-card-body">
+            <div className="cb-quick-actions">
+              {quickActions.map((action, index) => (
+                <a
+                  key={index}
+                  href={action.path}
+                  className="cb-quick-action"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // Navigation would be handled by router
+                    window.location.href = action.path;
+                  }}
+                >
+                  <span className="cb-quick-action-icon">{action.icon}</span>
+                  <span className="cb-quick-action-label">{action.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="cb-card">
+          <div className="cb-card-header">
+            <h3 className="cb-heading-4">Recent Activity</h3>
+            <p className="cb-text-caption">Latest updates and actions</p>
+          </div>
+          <div className="cb-card-body">
+            <div className="cb-list">
+              <div className="cb-list-item">
+                <div className="cb-stat-icon" style={{ 
+                  width: '40px', 
+                  height: '40px',
+                  fontSize: 'var(--text-lg)',
+                  background: 'var(--color-success-100)',
+                  color: 'var(--color-success-600)'
                 }}>
-                  {stat.icon}
+                  📅
                 </div>
-                <Statistic
-                  title={stat.title}
-                  value={stat.value}
-                  suffix={stat.suffix}
-                  valueStyle={{ color: stat.color }}
-                  titleStyle={{ color: antdTheme.token.colorTextSecondary, fontWeight: 500 }}
-                />
-                <div style={{ marginTop: antdTheme.token.marginXS }}>
-                  <Text style={{ fontSize: antdTheme.token.fontSizeSM, color: antdTheme.token.colorTextSecondary }}>
-                    {stat.trend > 0 ? (
-                      <Space>
-                        <ArrowUpOutlined style={{ color: antdTheme.token.colorSuccess }} />
-                        <span style={{ color: antdTheme.token.colorSuccess }}>+{stat.trend}%</span>
-                      </Space>
-                    ) : stat.trend < 0 ? (
-                      <Space>
-                        <ArrowDownOutlined style={{ color: antdTheme.token.colorError }} />
-                        <span style={{ color: antdTheme.token.colorError }}>{stat.trend}%</span>
-                      </Space>
-                    ) : (
-                      <span>No change</span>
-                    )}
-                    <span style={{ marginLeft: antdTheme.token.marginXS }}>from last month</span>
-                  </Text>
+                <div className="cb-list-item-content">
+                  <div className="cb-list-item-title">Attendance Marked</div>
+                  <div className="cb-list-item-subtitle">Grade 10-A completed • 2 hours ago</div>
                 </div>
               </div>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-    </Content>
+              <div className="cb-list-item">
+                <div className="cb-stat-icon" style={{ 
+                  width: '40px', 
+                  height: '40px',
+                  fontSize: 'var(--text-lg)',
+                  background: 'var(--color-primary-100)',
+                  color: 'var(--color-primary-600)'
+                }}>
+                  🎥
+                </div>
+                <div className="cb-list-item-content">
+                  <div className="cb-list-item-title">New Resource Added</div>
+                  <div className="cb-list-item-subtitle">Physics Chapter 5 video uploaded • 4 hours ago</div>
+                </div>
+              </div>
+              <div className="cb-list-item">
+                <div className="cb-stat-icon" style={{ 
+                  width: '40px', 
+                  height: '40px',
+                  fontSize: 'var(--text-lg)',
+                  background: 'var(--color-warning-100)',
+                  color: 'var(--color-warning-600)'
+                }}>
+                  📝
+                </div>
+                <div className="cb-list-item-content">
+                  <div className="cb-list-item-title">Results Published</div>
+                  <div className="cb-list-item-subtitle">Math Quiz results are now available • 1 day ago</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Role-specific sections */}
+      {(role === 'superadmin' || role === 'admin') && (
+        <div className="cb-mt-8">
+          <h3 className="cb-heading-3 cb-mb-6">Today's Overview</h3>
+          <div className="cb-grid cb-grid-3">
+            <div className="cb-card">
+              <div className="cb-card-body">
+                <h4 className="cb-heading-5 cb-mb-4">Attendance Summary</h4>
+                <div className="cb-progress cb-mb-3">
+                  <div 
+                    className="cb-progress-bar cb-progress-success" 
+                    style={{ width: '92%' }}
+                  ></div>
+                </div>
+                <div className="cb-flex cb-justify-between cb-items-center">
+                  <span className="cb-text-caption">92% present today</span>
+                  <span className="cb-badge cb-badge-success cb-badge-sm">
+                    ↗️ +3%
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="cb-card">
+              <div className="cb-card-body">
+                <h4 className="cb-heading-5 cb-mb-4">Pending Tasks</h4>
+                <div className="cb-flex cb-flex-col cb-gap-3">
+                  <div className="cb-flex cb-justify-between cb-items-center">
+                    <span className="cb-text-secondary">Tests to grade</span>
+                    <span className="cb-badge cb-badge-warning cb-badge-sm">3</span>
+                  </div>
+                  <div className="cb-flex cb-justify-between cb-items-center">
+                    <span className="cb-text-secondary">Attendance to mark</span>
+                    <span className="cb-badge cb-badge-error cb-badge-sm">2</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="cb-card">
+              <div className="cb-card-body">
+                <h4 className="cb-heading-5 cb-mb-4">This Week</h4>
+                <div className="cb-flex cb-flex-col cb-gap-3">
+                  <div className="cb-flex cb-justify-between cb-items-center">
+                    <span className="cb-text-secondary">Tests scheduled</span>
+                    <span className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>5</span>
+                  </div>
+                  <div className="cb-flex cb-justify-between cb-items-center">
+                    <span className="cb-text-secondary">Resources added</span>
+                    <span className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>12</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {role === 'student' && (
+        <div className="cb-mt-8">
+          <h3 className="cb-heading-3 cb-mb-6">Your Progress</h3>
+          <div className="cb-grid cb-grid-2">
+            <div className="cb-card">
+              <div className="cb-card-header">
+                <h4 className="cb-heading-5">This Week's Schedule</h4>
+              </div>
+              <div className="cb-card-body">
+                <div className="cb-list">
+                  <div className="cb-list-item">
+                    <div className="cb-badge cb-badge-math">Math</div>
+                    <div className="cb-list-item-content">
+                      <div className="cb-list-item-title">Mathematics</div>
+                      <div className="cb-list-item-subtitle">Today, 10:00 AM</div>
+                    </div>
+                    <button className="cb-button cb-button-sm cb-button-primary">Join</button>
+                  </div>
+                  <div className="cb-list-item">
+                    <div className="cb-badge cb-badge-science">Science</div>
+                    <div className="cb-list-item-content">
+                      <div className="cb-list-item-title">Science Lab</div>
+                      <div className="cb-list-item-subtitle">Tomorrow, 2:00 PM</div>
+                    </div>
+                    <button className="cb-button cb-button-sm cb-button-secondary">View</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="cb-card">
+              <div className="cb-card-header">
+                <h4 className="cb-heading-5">Upcoming Tests</h4>
+              </div>
+              <div className="cb-card-body">
+                <div className="cb-list">
+                  <div className="cb-list-item">
+                    <div className="cb-stat-icon" style={{ 
+                      width: '32px', 
+                      height: '32px',
+                      fontSize: 'var(--text-base)',
+                      background: 'var(--color-warning-100)',
+                      color: 'var(--color-warning-600)'
+                    }}>
+                      📝
+                    </div>
+                    <div className="cb-list-item-content">
+                      <div className="cb-list-item-title">Physics Unit Test</div>
+                      <div className="cb-list-item-subtitle">Due in 3 days</div>
+                    </div>
+                    <button className="cb-button cb-button-sm cb-button-primary">
+                      Take Test
+                    </button>
+                  </div>
+                  <div className="cb-list-item">
+                    <div className="cb-stat-icon" style={{ 
+                      width: '32px', 
+                      height: '32px',
+                      fontSize: 'var(--text-base)',
+                      background: 'var(--color-primary-100)',
+                      color: 'var(--color-primary-600)'
+                    }}>
+                      📋
+                    </div>
+                    <div className="cb-list-item-content">
+                      <div className="cb-list-item-title">Math Assignment</div>
+                      <div className="cb-list-item-subtitle">Due in 1 week</div>
+                    </div>
+                    <button className="cb-button cb-button-sm cb-button-secondary">
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

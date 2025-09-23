@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import './styles/modern-design-system.css';
 
 /* Reset and base styles */
 * {
@@ -8,578 +9,655 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-family-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-/* Smooth transitions for theme switching */
-* {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-}
-
-/* Table zebra striping */
-.table-row-light {
-  background-color: transparent !important;
-}
-
-.table-row-dark {
-  background-color: rgba(0, 0, 0, 0.02) !important;
-}
-
-.table-row-light:hover,
-.table-row-dark:hover {
-  background-color: rgba(24, 144, 255, 0.05) !important;
-}
-
-/* Ensure proper layout structure */
+/* Modern page layout */
 #root {
   min-height: 100vh;
+  background: var(--color-background);
 }
 
-/* Custom scrollbar for better UX */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* Dark theme scrollbar */
-.dark-theme ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.dark-theme ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Focus management for accessibility */
+/* Enhanced focus management */
 *:focus {
   outline: none;
 }
 
 *:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--color-primary-500);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-/* Ensure proper text rendering */
-.ant-typography {
-  text-rendering: optimizeLegibility;
+/* Modern selection styles */
+::selection {
+  background: var(--color-primary-200);
+  color: var(--color-primary-800);
 }
 
-/* ===== TYPOGRAPHY CONSISTENCY SYSTEM ===== */
-
-/* Global font consistency */
-body, 
-.ant-typography,
-.ant-btn,
-.ant-input,
-.ant-select,
-.ant-table,
-.ant-card,
-.ant-form,
-.ant-menu,
-.ant-dropdown {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-weight: 400;
-  line-height: 1.5;
+/* Smooth transitions for all interactive elements */
+* {
+  transition: background-color var(--transition-fast), 
+              color var(--transition-fast), 
+              border-color var(--transition-fast),
+              transform var(--transition-fast),
+              box-shadow var(--transition-fast);
 }
 
-/* Consistent font sizes across all components */
-.ant-typography h1,
-.ant-typography h2,
-.ant-typography h3,
-.ant-typography h4,
-.ant-typography h5,
-.ant-typography h6 {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-  font-weight: 600;
-  line-height: 1.3;
+/* Enhanced Ant Design component overrides */
+.ant-layout {
+  background: var(--color-background) !important;
 }
 
-/* Page titles */
-.ant-typography h1 {
-  font-size: 24px !important;
-  font-weight: 600 !important;
+.ant-layout-content {
+  background: var(--color-background) !important;
+  transition: background-color var(--transition-normal) !important;
 }
 
-.ant-typography h2 {
-  font-size: 20px !important;
-  font-weight: 600 !important;
+.ant-layout-sider {
+  background: var(--color-surface) !important;
+  border-right: 1px solid var(--color-border-subtle) !important;
 }
 
-.ant-typography h3 {
-  font-size: 18px !important;
-  font-weight: 600 !important;
+/* Modern card styling */
+.ant-card {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+  border-radius: var(--radius-2xl) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all var(--transition-normal) !important;
 }
 
-.ant-typography h4 {
-  font-size: 16px !important;
-  font-weight: 600 !important;
+.ant-card:hover {
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-2px) !important;
+  border-color: var(--color-primary-200) !important;
 }
 
-.ant-typography h5 {
-  font-size: 14px !important;
-  font-weight: 600 !important;
+.ant-card-head {
+  background: var(--color-surface) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  padding: var(--space-6) !important;
 }
 
-.ant-typography h6 {
-  font-size: 12px !important;
-  font-weight: 600 !important;
+.ant-card-head-title {
+  font-size: var(--text-lg) !important;
+  font-weight: var(--font-semibold) !important;
+  color: var(--color-text-primary) !important;
 }
 
-/* Body text consistency */
-.ant-typography {
-  font-size: 14px !important;
-  font-weight: 400 !important;
+.ant-card-body {
+  padding: var(--space-6) !important;
+  background: var(--color-surface) !important;
 }
 
-/* Button text consistency */
+/* Modern button styling */
 .ant-btn {
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  line-height: 1.4 !important;
+  border-radius: var(--radius-lg) !important;
+  font-weight: var(--font-medium) !important;
+  transition: all var(--transition-fast) !important;
+  box-shadow: var(--shadow-sm) !important;
+  height: auto !important;
+  padding: var(--space-3) var(--space-4) !important;
+  font-size: var(--text-sm) !important;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600)) !important;
+  border-color: var(--color-primary-600) !important;
+  color: var(--color-white) !important;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-700)) !important;
+  border-color: var(--color-primary-700) !important;
 }
 
 .ant-btn-lg {
-  font-size: 14px !important;
+  padding: var(--space-4) var(--space-6) !important;
+  font-size: var(--text-base) !important;
+  border-radius: var(--radius-xl) !important;
 }
 
 .ant-btn-sm {
-  font-size: 12px !important;
+  padding: var(--space-2) var(--space-3) !important;
+  font-size: var(--text-xs) !important;
+  border-radius: var(--radius-md) !important;
 }
 
-/* Input and form consistency */
-.ant-input,
-.ant-input-affix-wrapper,
-.ant-select-selector,
-.ant-picker {
-  font-size: 14px !important;
-  font-weight: 400 !important;
+/* Modern input styling */
+.ant-input {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-border) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
+  transition: all var(--transition-fast) !important;
+  padding: var(--space-3) var(--space-4) !important;
+  font-size: var(--text-base) !important;
 }
 
-/* Table consistency */
+.ant-input:focus {
+  border-color: var(--color-primary-500) !important;
+  box-shadow: 0 0 0 3px var(--color-primary-100) !important;
+}
+
+.ant-input::placeholder {
+  color: var(--color-text-quaternary) !important;
+}
+
+/* Modern select styling */
+.ant-select-selector {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-border) !important;
+  background: var(--color-surface) !important;
+  transition: all var(--transition-fast) !important;
+  padding: var(--space-1) var(--space-4) !important;
+}
+
+.ant-select:hover .ant-select-selector {
+  border-color: var(--color-primary-300) !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: var(--color-primary-500) !important;
+  box-shadow: 0 0 0 3px var(--color-primary-100) !important;
+}
+
+/* Modern table styling */
 .ant-table {
-  font-size: 13px !important;
+  background: var(--color-surface) !important;
+  border-radius: var(--radius-2xl) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--color-border-subtle) !important;
 }
 
 .ant-table-thead > tr > th {
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  color: #666 !important;
+  background: var(--color-gray-50) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  font-weight: var(--font-semibold) !important;
+  color: var(--color-text-secondary) !important;
+  padding: var(--space-4) var(--space-6) !important;
 }
 
 .ant-table-tbody > tr > td {
-  font-size: 13px !important;
-  font-weight: 400 !important;
+  padding: var(--space-4) var(--space-6) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  color: var(--color-text-primary) !important;
 }
 
-/* Card titles */
-.ant-card-head-title {
-  font-size: 16px !important;
-  font-weight: 600 !important;
+.ant-table-tbody > tr:hover > td {
+  background: var(--color-surface-hover) !important;
 }
 
-/* Menu consistency */
-.ant-menu-item,
-.ant-menu-submenu-title {
-  font-size: 14px !important;
-  font-weight: 400 !important;
+.ant-table-tbody > tr:last-child > td {
+  border-bottom: none !important;
 }
 
-/* Tag consistency */
+/* Modern tag styling */
 .ant-tag {
-  font-size: 11px !important;
-  font-weight: 500 !important;
+  border-radius: var(--radius-full) !important;
+  font-weight: var(--font-medium) !important;
+  border: none !important;
+  padding: var(--space-1) var(--space-3) !important;
+  font-size: var(--text-xs) !important;
   line-height: 1.2 !important;
 }
 
-/* Tooltip consistency */
-.ant-tooltip-inner {
-  font-size: 12px !important;
-  font-weight: 400 !important;
+/* Modern modal styling */
+.ant-modal {
+  border-radius: var(--radius-2xl) !important;
 }
 
-/* Modal consistency */
-.ant-modal-title {
-  font-size: 16px !important;
-  font-weight: 600 !important;
+.ant-modal-content {
+  border-radius: var(--radius-2xl) !important;
+  overflow: hidden !important;
+  background: var(--color-surface) !important;
+}
+
+.ant-modal-header {
+  background: var(--color-surface) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  padding: var(--space-6) !important;
 }
 
 .ant-modal-body {
-  font-size: 14px !important;
+  background: var(--color-surface) !important;
+  padding: var(--space-6) !important;
 }
 
-/* Form labels */
-.ant-form-item-label > label {
-  font-size: 14px !important;
-  font-weight: 500 !important;
+.ant-modal-footer {
+  background: var(--color-gray-50) !important;
+  border-top: 1px solid var(--color-border-subtle) !important;
+  padding: var(--space-4) var(--space-6) !important;
 }
 
-/* Select dropdown */
-.ant-select-item {
-  font-size: 14px !important;
-  font-weight: 400 !important;
+/* Modern typography */
+.ant-typography {
+  color: var(--color-text-primary) !important;
+  font-family: var(--font-family-primary) !important;
 }
 
-/* Breadcrumb */
-.ant-breadcrumb {
-  font-size: 13px !important;
+.ant-typography h1 {
+  font-size: var(--text-4xl) !important;
+  font-weight: var(--font-bold) !important;
+  color: var(--color-text-primary) !important;
+  line-height: var(--leading-tight) !important;
 }
 
-.ant-breadcrumb-link {
-  font-weight: 400 !important;
+.ant-typography h2 {
+  font-size: var(--text-3xl) !important;
+  font-weight: var(--font-semibold) !important;
+  color: var(--color-text-primary) !important;
+  line-height: var(--leading-tight) !important;
 }
 
-/* Pagination */
-.ant-pagination-item,
-.ant-pagination-prev,
-.ant-pagination-next {
-  font-size: 13px !important;
+.ant-typography h3 {
+  font-size: var(--text-2xl) !important;
+  font-weight: var(--font-semibold) !important;
+  color: var(--color-text-primary) !important;
+  line-height: var(--leading-tight) !important;
 }
 
-/* Steps */
-.ant-steps-item-title {
-  font-size: 14px !important;
-  font-weight: 500 !important;
+.ant-typography h4 {
+  font-size: var(--text-xl) !important;
+  font-weight: var(--font-semibold) !important;
+  color: var(--color-text-primary) !important;
+  line-height: var(--leading-tight) !important;
 }
 
-.ant-steps-item-description {
-  font-size: 12px !important;
+.ant-typography h5 {
+  font-size: var(--text-lg) !important;
+  font-weight: var(--font-semibold) !important;
+  color: var(--color-text-primary) !important;
 }
 
-/* Tabs */
+/* Modern menu styling */
+.ant-menu {
+  background: var(--color-surface) !important;
+  border: none !important;
+}
+
+.ant-menu-item {
+  border-radius: var(--radius-lg) !important;
+  margin: var(--space-1) var(--space-3) !important;
+  padding: var(--space-3) var(--space-4) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-medium) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.ant-menu-item:hover {
+  background: var(--color-surface-hover) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-menu-item-selected {
+  background: var(--color-primary-100) !important;
+  color: var(--color-primary-700) !important;
+  font-weight: var(--font-semibold) !important;
+}
+
+/* Modern tabs styling */
+.ant-tabs {
+  color: var(--color-text-primary) !important;
+}
+
 .ant-tabs-tab {
-  font-size: 14px !important;
-  font-weight: 500 !important;
+  padding: var(--space-3) var(--space-4) !important;
+  border-radius: var(--radius-lg) !important;
+  font-weight: var(--font-medium) !important;
+  color: var(--color-text-secondary) !important;
+  transition: all var(--transition-fast) !important;
 }
 
-/* Alert */
-.ant-alert-message {
-  font-size: 14px !important;
-  font-weight: 500 !important;
+.ant-tabs-tab:hover {
+  color: var(--color-text-primary) !important;
 }
 
-.ant-alert-description {
-  font-size: 13px !important;
-  font-weight: 400 !important;
+.ant-tabs-tab-active {
+  color: var(--color-primary-600) !important;
+  font-weight: var(--font-semibold) !important;
 }
 
-/* Message */
-.ant-message {
-  font-size: 14px !important;
+.ant-tabs-ink-bar {
+  background: var(--color-primary-500) !important;
+  height: 3px !important;
+  border-radius: var(--radius-full) !important;
 }
 
-/* Notification */
-.ant-notification-notice-message {
-  font-size: 14px !important;
-  font-weight: 500 !important;
+/* Modern form styling */
+.ant-form-item-label > label {
+  font-size: var(--text-sm) !important;
+  font-weight: var(--font-medium) !important;
+  color: var(--color-text-primary) !important;
 }
 
-.ant-notification-notice-description {
-  font-size: 13px !important;
-  font-weight: 400 !important;
+.ant-form-item-required::before {
+  color: var(--color-error-500) !important;
 }
 
-/* Drawer */
-.ant-drawer-title {
-  font-size: 16px !important;
-  font-weight: 600 !important;
+/* Modern alert styling */
+.ant-alert {
+  border-radius: var(--radius-xl) !important;
+  border: 1px solid !important;
+  padding: var(--space-4) !important;
 }
 
-.ant-drawer-body {
-  font-size: 14px !important;
+.ant-alert-info {
+  background: var(--color-primary-50) !important;
+  border-color: var(--color-primary-200) !important;
+  color: var(--color-primary-800) !important;
 }
 
-/* Popover */
-.ant-popover-inner-content {
-  font-size: 13px !important;
+.ant-alert-success {
+  background: var(--color-success-50) !important;
+  border-color: var(--color-success-200) !important;
+  color: var(--color-success-800) !important;
 }
 
-/* Dropdown */
-.ant-dropdown-menu-item {
-  font-size: 14px !important;
-  font-weight: 400 !important;
+.ant-alert-warning {
+  background: var(--color-warning-50) !important;
+  border-color: var(--color-warning-200) !important;
+  color: var(--color-warning-800) !important;
 }
 
-/* Calendar */
-.ant-picker-calendar-date-content {
-  font-size: 13px !important;
+.ant-alert-error {
+  background: var(--color-error-50) !important;
+  border-color: var(--color-error-200) !important;
+  color: var(--color-error-800) !important;
 }
 
-/* Progress */
-.ant-progress-text {
-  font-size: 12px !important;
-  font-weight: 500 !important;
-}
-
-/* Rate */
-.ant-rate {
-  font-size: 16px !important;
-}
-
-/* Slider */
-.ant-slider-mark-text {
-  font-size: 12px !important;
-}
-
-/* Switch */
-.ant-switch-inner {
-  font-size: 12px !important;
-}
-
-/* Transfer */
-.ant-transfer-list-header {
-  font-size: 14px !important;
-  font-weight: 500 !important;
-}
-
-/* Tree */
-.ant-tree-title {
-  font-size: 14px !important;
-}
-
-/* Upload */
-.ant-upload-list-item-name {
-  font-size: 13px !important;
-}
-
-/* Timeline */
-.ant-timeline-item-content {
-  font-size: 14px !important;
-}
-
-/* Anchor */
-.ant-anchor-link-title {
-  font-size: 14px !important;
-}
-
-/* BackTop */
-.ant-back-top {
-  font-size: 16px !important;
-}
-
-/* Affix */
-.ant-affix {
-  font-size: 14px !important;
-}
-
-/* Anchor */
-.ant-anchor-link-title {
-  font-size: 14px !important;
-}
-
-/* Avatar */
-.ant-avatar-string {
-  font-size: 14px !important;
-  font-weight: 500 !important;
-}
-
-/* Badge */
-.ant-badge-count {
-  font-size: 11px !important;
-  font-weight: 500 !important;
-}
-
-/* Carousel */
-.ant-carousel .slick-slide {
-  font-size: 14px !important;
-}
-
-/* Collapse */
-.ant-collapse-header {
-  font-size: 14px !important;
-  font-weight: 500 !important;
-}
-
-.ant-collapse-content-box {
-  font-size: 13px !important;
-}
-
-/* Descriptions */
-.ant-descriptions-item-label {
-  font-size: 14px !important;
-  font-weight: 500 !important;
-}
-
-.ant-descriptions-item-content {
-  font-size: 14px !important;
-}
-
-/* Empty */
-.ant-empty-description {
-  font-size: 14px !important;
-}
-
-/* List */
-.ant-list-item-meta-title {
-  font-size: 14px !important;
-  font-weight: 500 !important;
-}
-
-.ant-list-item-meta-description {
-  font-size: 13px !important;
-}
-
-/* PageHeader */
-.ant-page-header-heading-title {
-  font-size: 20px !important;
-  font-weight: 600 !important;
-}
-
-.ant-page-header-heading-sub-title {
-  font-size: 14px !important;
-}
-
-/* Result */
-.ant-result-title {
-  font-size: 24px !important;
-  font-weight: 600 !important;
-}
-
-.ant-result-subtitle {
-  font-size: 14px !important;
-}
-
-/* Skeleton */
-.ant-skeleton-title,
-.ant-skeleton-paragraph > li {
-  font-size: 14px !important;
-}
-
-/* Statistic */
+/* Modern statistic styling */
 .ant-statistic-title {
-  font-size: 14px !important;
-  font-weight: 500 !important;
+  font-size: var(--text-sm) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-medium) !important;
 }
 
 .ant-statistic-content {
-  font-size: 24px !important;
-  font-weight: 600 !important;
+  font-size: var(--text-3xl) !important;
+  font-weight: var(--font-bold) !important;
+  color: var(--color-text-primary) !important;
 }
 
-/* Typography specific overrides */
-.ant-typography.ant-typography-secondary {
-  font-size: 13px !important;
-  color: #8c8c8c !important;
+/* Modern progress styling */
+.ant-progress-bg {
+  border-radius: var(--radius-full) !important;
 }
 
-.ant-typography.ant-typography-success {
-  font-size: 14px !important;
-  color: #52c41a !important;
+.ant-progress-inner {
+  background: var(--color-gray-200) !important;
+  border-radius: var(--radius-full) !important;
 }
 
-.ant-typography.ant-typography-warning {
-  font-size: 14px !important;
-  color: #faad14 !important;
+/* Modern pagination styling */
+.ant-pagination-item {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-primary) !important;
 }
 
-.ant-typography.ant-typography-danger {
-  font-size: 14px !important;
-  color: #ff4d4f !important;
+.ant-pagination-item-active {
+  background: var(--color-primary-500) !important;
+  border-color: var(--color-primary-500) !important;
+  color: var(--color-white) !important;
 }
 
-/* Custom utility classes for common patterns */
-.text-center {
-  text-align: center;
+/* Modern drawer styling */
+.ant-drawer-content {
+  background: var(--color-surface) !important;
 }
 
-.text-left {
-  text-align: left;
+.ant-drawer-header {
+  background: var(--color-surface) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  padding: var(--space-6) !important;
 }
 
-.text-right {
-  text-align: right;
+.ant-drawer-body {
+  background: var(--color-surface) !important;
+  padding: var(--space-6) !important;
 }
 
-.flex {
-  display: flex;
+/* Modern tooltip styling */
+.ant-tooltip-inner {
+  background: var(--color-gray-800) !important;
+  color: var(--color-white) !important;
+  border-radius: var(--radius-lg) !important;
+  font-size: var(--text-sm) !important;
+  padding: var(--space-2) var(--space-3) !important;
 }
 
-.flex-col {
-  flex-direction: column;
+.ant-tooltip-arrow::before {
+  background: var(--color-gray-800) !important;
 }
 
-.items-center {
-  align-items: center;
+/* Modern dropdown styling */
+.ant-dropdown {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--color-border-subtle) !important;
 }
 
-.justify-center {
-  justify-content: center;
+.ant-dropdown-menu {
+  background: var(--color-surface) !important;
+  border-radius: var(--radius-xl) !important;
+  padding: var(--space-2) !important;
 }
 
-.justify-between {
-  justify-content: space-between;
+.ant-dropdown-menu-item {
+  border-radius: var(--radius-lg) !important;
+  margin: var(--space-1) !important;
+  padding: var(--space-3) var(--space-4) !important;
+  color: var(--color-text-primary) !important;
+  transition: all var(--transition-fast) !important;
 }
 
-.w-full {
-  width: 100%;
+.ant-dropdown-menu-item:hover {
+  background: var(--color-surface-hover) !important;
+  color: var(--color-text-primary) !important;
 }
 
-.h-full {
-  height: 100%;
+/* Modern switch styling */
+.ant-switch {
+  background: var(--color-gray-300) !important;
+  border-radius: var(--radius-full) !important;
 }
 
-/* Loading states */
-.loading-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
+.ant-switch-checked {
+  background: var(--color-primary-500) !important;
 }
 
-/* Empty states */
-.empty-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  text-align: center;
+/* Modern date picker styling */
+.ant-picker {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-border) !important;
+  background: var(--color-surface) !important;
+  padding: var(--space-3) var(--space-4) !important;
 }
 
-/* Responsive utilities */
-@media (max-width: 768px) {
-  .ant-layout-sider {
-    position: fixed !important;
-    z-index: 1000;
-  }
-  
-  .ant-layout-content {
-    margin-left: 0 !important;
-  }
+.ant-picker:hover {
+  border-color: var(--color-primary-300) !important;
 }
 
-/* Essential dark theme overrides only */
-.dark-theme .ant-layout-content {
-  background-color: #111827 !important;
+.ant-picker-focused {
+  border-color: var(--color-primary-500) !important;
+  box-shadow: 0 0 0 3px var(--color-primary-100) !important;
 }
 
-.light-theme .ant-layout-content {
-  background-color: #f8fafc !important;
+/* Modern upload styling */
+.ant-upload-drag {
+  border-radius: var(--radius-2xl) !important;
+  border: 2px dashed var(--color-border) !important;
+  background: var(--color-surface) !important;
+  transition: all var(--transition-normal) !important;
 }
 
-/* Fix any remaining hardcoded white backgrounds */
-.dark-theme [style*="background-color: #fff"],
-.dark-theme [style*="background-color: #ffffff"],
-.dark-theme [style*="background: #fff"],
-.dark-theme [style*="background: #ffffff"] {
-  background-color: #1f2937 !important;
+.ant-upload-drag:hover {
+  border-color: var(--color-primary-400) !important;
+  background: var(--color-primary-50) !important;
 }
 
-.dark-theme [style*="background-color: #fafafa"] {
-  background-color: #374151 !important;
+.ant-upload-drag.ant-upload-drag-hover {
+  border-color: var(--color-primary-500) !important;
+  background: var(--color-primary-50) !important;
+}
+
+/* Modern spin styling */
+.ant-spin-dot {
+  color: var(--color-primary-500) !important;
+}
+
+/* Modern empty styling */
+.ant-empty {
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-empty-description {
+  color: var(--color-text-tertiary) !important;
+  font-size: var(--text-base) !important;
+}
+
+/* Modern badge styling */
+.ant-badge-count {
+  background: var(--color-primary-500) !important;
+  color: var(--color-white) !important;
+  border-radius: var(--radius-full) !important;
+  font-weight: var(--font-semibold) !important;
+  font-size: var(--text-xs) !important;
+}
+
+/* Modern avatar styling */
+.ant-avatar {
+  border-radius: var(--radius-xl) !important;
+  font-weight: var(--font-semibold) !important;
+}
+
+/* Modern collapse styling */
+.ant-collapse {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+  border-radius: var(--radius-2xl) !important;
+}
+
+.ant-collapse-item {
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+}
+
+.ant-collapse-header {
+  background: var(--color-surface) !important;
+  padding: var(--space-4) var(--space-6) !important;
+  font-weight: var(--font-medium) !important;
+  color: var(--color-text-primary) !important;
+  border-radius: var(--radius-xl) !important;
+}
+
+.ant-collapse-content-box {
+  padding: var(--space-6) !important;
+  background: var(--color-surface) !important;
+}
+
+/* Modern steps styling */
+.ant-steps-item-title {
+  font-size: var(--text-base) !important;
+  font-weight: var(--font-medium) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-steps-item-description {
+  font-size: var(--text-sm) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+/* Modern result styling */
+.ant-result-title {
+  font-size: var(--text-3xl) !important;
+  font-weight: var(--font-bold) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-result-subtitle {
+  font-size: var(--text-base) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+/* Modern breadcrumb styling */
+.ant-breadcrumb {
+  font-size: var(--text-sm) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-breadcrumb-link {
+  color: var(--color-text-secondary) !important;
+  transition: color var(--transition-fast) !important;
+}
+
+.ant-breadcrumb-link:hover {
+  color: var(--color-primary-600) !important;
+}
+
+/* Modern descriptions styling */
+.ant-descriptions {
+  background: var(--color-surface) !important;
+}
+
+.ant-descriptions-item-label {
+  font-weight: var(--font-medium) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+.ant-descriptions-item-content {
+  color: var(--color-text-primary) !important;
+}
+
+/* Modern timeline styling */
+.ant-timeline-item-content {
+  font-size: var(--text-base) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Modern rate styling */
+.ant-rate {
+  color: var(--color-warning-500) !important;
+}
+
+/* Modern slider styling */
+.ant-slider-rail {
+  background: var(--color-gray-200) !important;
+  border-radius: var(--radius-full) !important;
+}
+
+.ant-slider-track {
+  background: var(--color-primary-500) !important;
+  border-radius: var(--radius-full) !important;
+}
+
+.ant-slider-handle {
+  border: 2px solid var(--color-primary-500) !important;
+  background: var(--color-white) !important;
+}
+
+/* Modern notification styling */
+.ant-notification-notice {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+}
+
+/* Modern message styling */
+.ant-message-notice-content {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-lg) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
 }

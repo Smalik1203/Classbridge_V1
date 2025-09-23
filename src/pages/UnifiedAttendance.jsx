@@ -382,322 +382,378 @@ const UnifiedAttendance = () => {
   };
 
   return (
-    <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
+    <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
       <style>
         {`
-          .attendance-row-even { 
-            background-color: #f8fafc !important; 
-          }
-          .attendance-row-odd { 
-            background-color: #ffffff !important; 
-          }
-          .attendance-row-even:hover { 
-            background-color: #f1f5f9 !important; 
-          }
-          .attendance-row-odd:hover { 
-            background-color: #f8fafc !important; 
-          }
-          .ant-table-tbody > tr > td {
-            padding: 6px 12px !important;
-            font-size: 14px !important;
-            line-height: 1.3 !important;
-          }
-          .ant-table-thead > tr > th {
-            padding: 8px 12px !important;
-            font-size: 14px !important;
-            font-weight: 600 !important;
-          }
-          .compact-table .ant-table-tbody > tr {
-            height: 36px !important;
-          }
-          .student-grid {
+          .cb-attendance-student-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            padding: 8px 0;
-          }
-          .student-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 12px;
-            border-radius: 6px;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            font-size: 14px;
-          }
-          .student-item:nth-child(odd) {
-            background: #f8fafc;
-          }
-          .student-item:hover {
-            background: #f1f5f9;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--space-4);
           }
         `}
       </style>
-      <Card style={{ maxWidth: 1000, margin: '0 auto', borderRadius: 12 }}>
-        <Title level={3} style={{ color: '#1e293b' }}>Attendance</Title>
+      
+      {/* Modern Header */}
+      <div className="cb-dashboard-header">
+        <div className="cb-text-center">
+          <h1 className="cb-heading-2 cb-mb-2">
+            ✅ Attendance Management
+          </h1>
+          <p className="cb-text-caption">
+            {isStudent ? 'View your attendance record and patterns' : 'Mark and track student attendance'}
+          </p>
+        </div>
+      </div>
 
+      <div className="cb-card">
+        <div className="cb-card-body">
         {alert && (
-          <Alert
-            type={alert.type}
-            message={alert.message}
-            showIcon
-            closable
-            onClose={() => setAlert(null)}
-            style={{ marginBottom: 16 }}
-          />
+          <div className={`cb-alert cb-alert-${alert.type} cb-mb-6`}>
+            <div className="cb-alert-icon">
+              {alert.type === 'error' ? '⚠️' : alert.type === 'success' ? '✅' : 'ℹ️'}
+            </div>
+            <div className="cb-alert-content">
+              <div>{alert.message}</div>
+            </div>
+          </div>
         )}
 
-        <Tabs activeKey={isStudent ? 'view' : activeTab} onChange={setActiveTab} size="large">
+        <Tabs 
+          activeKey={isStudent ? 'view' : activeTab} 
+          onChange={setActiveTab} 
+          size="large"
+          className="cb-tabs"
+        >
           {!isStudent && (
-            <Tabs.TabPane tab="Mark Attendance" key="mark">
-              <Card 
-                size="small"
-                style={{ marginBottom: 16, border: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}
-              >
-                <Row gutter={16} align="middle">
-                  <Col span={12}>
-                    <div style={{ marginBottom: 8 }}>
-                      <Text strong style={{ color: '#475569' }}>Class</Text>
+            <Tabs.TabPane tab="📝 Mark Attendance" key="mark">
+              {/* Modern Controls */}
+              <div className="cb-card cb-mb-6">
+                <div className="cb-card-body">
+                  <div className="cb-form-row">
+                    <div className="cb-form-group">
+                      <label className="cb-label">Class</label>
+                      {classesLoading ? (
+                        <div className="cb-skeleton" style={{ height: '48px', borderRadius: 'var(--radius-lg)' }}></div>
+                      ) : (
+                        <Select
+                          placeholder="Select Class"
+                          value={selectedClassId}
+                          onChange={setSelectedClassId}
+                          className="cb-input"
+                          size="large"
+                          allowClear
+                        >
+                          {classInstances.map(c => (
+                            <Option key={c.id} value={c.id}>
+                              Grade {c.grade} - Section {c.section}
+                            </Option>
+                          ))}
+                        </Select>
+                      )}
                     </div>
-                    {classesLoading ? (
-                      <Skeleton.Input active style={{ width: '100%', height: 40 }} />
-                    ) : (
-                      <Select
-                        placeholder="Select Class"
-                        value={selectedClassId}
-                        onChange={setSelectedClassId}
+                    
+                    <div className="cb-form-group">
+                      <label className="cb-label">Date</label>
+                      <DatePicker 
+                        value={date}
+                        onChange={setDate}
+                        className="cb-input"
                         style={{ width: '100%' }}
                         size="large"
-                        allowClear
-                      >
-                        {classInstances.map(c => (
-                          <Option key={c.id} value={c.id}>Grade {c.grade} - Section {c.section}</Option>
-                        ))}
-                      </Select>
-                    )}
-                  </Col>
-                  <Col span={12}>
-                    <div style={{ marginBottom: 8 }}>
-                      <Text strong style={{ color: '#475569' }}>Date</Text>
+                        format="DD/MM/YYYY"
+                      />
                     </div>
-                    <DatePicker 
-                      value={date}
-                      onChange={setDate}
-                      style={{ width: '100%' }}
-                      size="large"
-                      format="DD/MM/YYYY"
-                    />
-                  </Col>
-                </Row>
-              </Card>
+                  </div>
+                </div>
+              </div>
 
 
               {selectedClassId && (
-                <Card size="small" style={{ marginBottom: 16 }}>
-                  <div style={{ marginBottom: 12 }}>
-                    <Row justify="space-between" align="middle">
-                      <Col flex="auto">
-                        <Row align="middle" gutter={16}>
-                          <Col>
-                            <Text strong style={{ color: '#475569', fontSize: '15px' }}>
-                              Students ({progressStats.total})
-                            </Text>
-                            {progressStats.total > 0 && (
-                              <Text type="secondary" style={{ fontSize: '12px', marginLeft: 8 }}>
-                                {progressStats.unmarked > 0 
-                                  ? `${progressStats.marked} marked · ${progressStats.unmarked} unmarked`
-                                  : '✅ All marked'
-                                }
-                              </Text>
+                <>
+                  {/* Progress & Bulk Actions */}
+                  <div className="cb-card cb-mb-6">
+                    <div className="cb-card-body">
+                      <div className="cb-flex cb-justify-between cb-items-center cb-mb-4">
+                        <div>
+                          <h4 className="cb-heading-5 cb-mb-2">
+                            Attendance Progress ({progressStats.total} students)
+                          </h4>
+                          <p className="cb-text-caption">
+                            {progressStats.unmarked > 0 
+                              ? `${progressStats.marked} marked • ${progressStats.unmarked} unmarked`
+                              : '✅ All students marked'
+                            }
+                          </p>
+                        </div>
+                        
+                        <div className="cb-flex cb-gap-3">
+                          <button 
+                            className="cb-button cb-button-sm cb-button-success"
+                            onClick={() => markAll('present')}
+                          >
+                            ✅ All Present
+                          </button>
+                          <button 
+                            className="cb-button cb-button-sm cb-button-danger"
+                            onClick={() => markAll('absent')}
+                          >
+                            ❌ All Absent
+                          </button>
+                          <button 
+                            className="cb-button cb-button-sm cb-button-ghost"
+                            onClick={resetAttendance}
+                          >
+                            🔄 Reset
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="cb-progress cb-mb-3">
+                        <div 
+                          className="cb-progress-bar"
+                          style={{ width: `${progressStats.percentage}%` }}
+                        ></div>
+                      </div>
+                      
+                      <div className="cb-flex cb-gap-6">
+                        <div className="cb-flex cb-items-center cb-gap-2">
+                          <div style={{ 
+                            width: '12px', 
+                            height: '12px', 
+                            borderRadius: '50%', 
+                            backgroundColor: 'var(--color-success-500)' 
+                          }}></div>
+                          <span className="cb-text-caption">Present: {progressStats.marked - (attendance ? Object.values(attendance).filter(s => s === 'absent').length : 0)}</span>
+                        </div>
+                        <div className="cb-flex cb-items-center cb-gap-2">
+                          <div style={{ 
+                            width: '12px', 
+                            height: '12px', 
+                            borderRadius: '50%', 
+                            backgroundColor: 'var(--color-error-500)' 
+                          }}></div>
+                          <span className="cb-text-caption">Absent: {attendance ? Object.values(attendance).filter(s => s === 'absent').length : 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Student Attendance Grid */}
+                  <div className="cb-card cb-mb-6">
+                    <div className="cb-card-body">
+                      {studentsLoading ? (
+                        <div className="cb-attendance-student-grid">
+                          {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="cb-skeleton" style={{ height: '60px', borderRadius: 'var(--radius-xl)' }}></div>
+                          ))}
+                        </div>
+                      ) : students.length === 0 ? (
+                        <div className="cb-empty-state">
+                          <div className="cb-empty-icon">👥</div>
+                          <h3 className="cb-empty-title">No students found</h3>
+                          <p className="cb-empty-description">
+                            No students are assigned to this class.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="cb-attendance-grid">
+                          {students.map((student) => (
+                            <div key={student.id} className="cb-attendance-student">
+                              <div>
+                                <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-medium)' }}>
+                                  {student.full_name}
+                                </div>
+                                <div className="cb-text-caption-sm">
+                                  {student.student_code || student.id}
+                                </div>
+                              </div>
+                              
+                              <div className="cb-attendance-toggle">
+                                <button
+                                  className={`cb-attendance-button cb-attendance-present ${
+                                    attendance[student.id] === 'present' ? 'active' : ''
+                                  }`}
+                                  onClick={() => setAttendance(a => ({ ...a, [student.id]: 'present' }))}
+                                  disabled={!canMark}
+                                  title="Mark Present"
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  className={`cb-attendance-button cb-attendance-absent ${
+                                    attendance[student.id] === 'absent' ? 'active' : ''
+                                  }`}
+                                  onClick={() => setAttendance(a => ({ ...a, [student.id]: 'absent' }))}
+                                  disabled={!canMark}
+                                  title="Mark Absent"
+                                >
+                                  ✗
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  {selectedClassId && students.length > 0 && (
+                    <div className="cb-card">
+                      <div className="cb-card-body">
+                        <div className="cb-flex cb-justify-center">
+                          <button
+                            className="cb-button cb-button-primary cb-button-lg"
+                            onClick={handleSubmit}
+                            disabled={!canMark || progressStats.unmarked > 0 || saving}
+                            style={{ minWidth: '200px' }}
+                          >
+                            {saving ? (
+                              <>
+                                <div className="cb-spinner"></div>
+                                <span>Saving...</span>
+                              </>
+                            ) : saveStatus === 'saved' ? (
+                              <>
+                                <span>✅</span>
+                                <span>Saved</span>
+                              </>
+                            ) : saveStatus === 'error' ? (
+                              <>
+                                <span>❌</span>
+                                <span>Failed</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>💾</span>
+                                <span>{hasExistingAttendance ? 'Resubmit Attendance' : 'Save Attendance'}</span>
+                              </>
                             )}
-                          </Col>
-                          <Col>
-                            <Space size="small">
-                              <Button 
-                                onClick={() => markAll('present')}
-                                size="small"
-                                style={{
-                                  backgroundColor: '#22c55e',
-                                  borderColor: '#22c55e',
-                                  color: '#fff',
-                                  fontWeight: '500',
-                                  borderRadius: 4,
-                                  height: 28,
-                                  fontSize: '12px',
-                                  padding: '0 8px'
-                                }}
-                              >
-                                🟢 All Present
-                              </Button>
-                              <Button 
-                                onClick={() => markAll('absent')}
-                                size="small"
-                                style={{
-                                  backgroundColor: '#ef4444',
-                                  borderColor: '#ef4444',
-                                  color: '#fff',
-                                  fontWeight: '500',
-                                  borderRadius: 4,
-                                  height: 28,
-                                  fontSize: '12px',
-                                  padding: '0 8px'
-                                }}
-                              >
-                                🔴 All Absent
-                              </Button>
-                              <Button 
-                                onClick={resetAttendance}
-                                size="small"
-                                style={{
-                                  backgroundColor: '#f1f5f9',
-                                  borderColor: '#e2e8f0',
-                                  color: '#64748b',
-                                  fontWeight: '500',
-                                  borderRadius: 4,
-                                  height: 28,
-                                  fontSize: '12px',
-                                  padding: '0 8px'
-                                }}
-                              >
-                                🔄 Reset
-                              </Button>
-                            </Space>
-                          </Col>
-                        </Row>
-                        {progressStats.total > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <Progress 
-                              percent={progressStats.percentage} 
-                              size="small" 
-                              strokeColor={progressStats.percentage === 100 ? '#22c55e' : '#1890ff'}
-                              showInfo={false}
-                              style={{ width: '200px' }}
-                            />
+                          </button>
+                        </div>
+                        
+                        {progressStats.unmarked > 0 && (
+                          <p className="cb-text-caption cb-text-center cb-mt-3">
+                            Please mark all {progressStats.total} students before saving
+                          </p>
+                        )}
+                        
+                        {showResubmitConfirm && (
+                          <div className="cb-alert cb-alert-warning cb-mt-4">
+                            <div className="cb-alert-icon">⚠️</div>
+                            <div className="cb-alert-content">
+                              <div className="cb-alert-title">Confirm Resubmission</div>
+                              <div>Attendance already exists for this date. Are you sure you want to resubmit?</div>
+                              <div className="cb-flex cb-gap-2 cb-mt-3">
+                                <button 
+                                  className="cb-button cb-button-sm cb-button-primary"
+                                  onClick={handleSubmit}
+                                >
+                                  Yes, Resubmit
+                                </button>
+                                <button 
+                                  className="cb-button cb-button-sm cb-button-secondary"
+                                  onClick={() => setShowResubmitConfirm(false)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )}
-                      </Col>
-                    </Row>
-                  </div>
-                  {renderStudentGrid()}
-                </Card>
-              )}
-
-              {selectedClassId && students.length > 0 && (
-                <div style={{ 
-                  position: 'sticky', 
-                  bottom: 0, 
-                  backgroundColor: '#fff', 
-                  padding: '12px 0', 
-                  borderTop: '1px solid #e2e8f0', 
-                  marginTop: 16 
-                }}>
-                  <Row justify="center">
-                    <Col>
-                      <Button
-                        type="primary"
-                        onClick={handleSubmit}
-                        loading={saving}
-                        disabled={!canMark || progressStats.unmarked > 0}
-                        style={{ 
-                          borderRadius: 6, 
-                          minWidth: 160, 
-                          height: 36, 
-                          fontSize: '14px', 
-                          fontWeight: '600' 
-                        }}
-                      >
-                        {saveStatus === 'saving' && 'Saving...'}
-                        {saveStatus === 'saved' && '✅ Saved'}
-                        {saveStatus === 'error' && '❌ Failed'}
-                        {!saveStatus && (hasExistingAttendance ? 'Resubmit Attendance' : 'Save Attendance')}
-                      </Button>
-                    </Col>
-                  </Row>
-                  {progressStats.unmarked > 0 && (
-                    <div style={{ textAlign: 'center', marginTop: 6 }}>
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {progressStats.unmarked} students unmarked
-                      </Text>
-                    </div>
-                  )}
-                  {showResubmitConfirm && (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      marginTop: 8, 
-                      padding: '8px 12px', 
-                      backgroundColor: '#fff7ed', 
-                      border: '1px solid #fed7aa', 
-                      borderRadius: 6 
-                    }}>
-                      <Text style={{ fontSize: '12px', color: '#ea580c' }}>
-                        Attendance already exists for this date. Are you sure you want to resubmit?
-                      </Text>
-                      <div style={{ marginTop: 6 }}>
-                        <Space size="small">
-                          <Button 
-                            size="small" 
-                            type="primary" 
-                            onClick={handleSubmit}
-                            style={{ fontSize: '11px', height: 24 }}
-                          >
-                            Yes, Resubmit
-                          </Button>
-                          <Button 
-                            size="small" 
-                            onClick={() => setShowResubmitConfirm(false)}
-                            style={{ fontSize: '11px', height: 24 }}
-                          >
-                            Cancel
-                          </Button>
-                        </Space>
                       </div>
                     </div>
                   )}
-                </div>
+                </>
               )}
             </Tabs.TabPane>
           )}
 
-          <Tabs.TabPane tab="View History" key="view">
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Text strong>Date</Text>
-                <DatePicker value={historyDate} onChange={setHistoryDate} style={{ width: '100%' }} />
-              </Col>
-              {!isStudent && (
-                <Col span={12}>
-                  <Text strong>Class</Text>
-                  <Select
-                    placeholder="Select Class"
-                    value={selectedClassId}
-                    onChange={setSelectedClassId}
-                    style={{ width: '100%' }}
-                    allowClear
+          <Tabs.TabPane tab="📊 View History" key="view">
+            <div className="cb-card">
+              <div className="cb-card-body">
+                <div className="cb-form-row cb-mb-6">
+                  <div className="cb-form-group">
+                    <label className="cb-label">Date</label>
+                    <DatePicker 
+                      value={historyDate} 
+                      onChange={setHistoryDate} 
+                      className="cb-input"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  {!isStudent && (
+                    <div className="cb-form-group">
+                      <label className="cb-label">Class</label>
+                      <Select
+                        placeholder="Select Class"
+                        value={selectedClassId}
+                        onChange={setSelectedClassId}
+                        className="cb-input"
+                        style={{ width: '100%' }}
+                        allowClear
+                      >
+                        {classInstances.map(c => (
+                          <Option key={c.id} value={c.id}>
+                            Grade {c.grade} - Section {c.section}
+                          </Option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="cb-flex cb-justify-center cb-mb-6">
+                  <button 
+                    className="cb-button cb-button-primary"
+                    onClick={fetchHistory} 
+                    disabled={!historyDate || !selectedClassId} 
                   >
-                    {classInstances.map(c => (
-                      <Option key={c.id} value={c.id}>Grade {c.grade} - Section {c.section}</Option>
-                    ))}
-                  </Select>
-                </Col>
-              )}
-            </Row>
-            <div style={{ marginTop: 12 }}>
-              <Button type="primary" onClick={fetchHistory} disabled={!historyDate || !selectedClassId} loading={historyLoading}>
-                {historyLoading ? 'Loading...' : 'Fetch History'}
-              </Button>
-            </div>
+                    {historyLoading ? (
+                      <>
+                        <div className="cb-spinner"></div>
+                        <span>Loading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🔍</span>
+                        <span>Fetch History</span>
+                      </>
+                    )}
+                  </button>
+                </div>
 
-            {!historyDate || !selectedClassId ? (
-              <Empty description="Select date and class to view attendance history" style={{ marginTop: 24 }} />
-            ) : historyData.length === 0 && !historyLoading ? (
-              <Empty description="No attendance records found for the selected date and class" style={{ marginTop: 24 }} />
-            ) : (
-              <Table columns={historyColumns} dataSource={historyData} style={{ marginTop: 16 }} />
-            )}
+                {!historyDate || !selectedClassId ? (
+                  <div className="cb-empty-state">
+                    <div className="cb-empty-icon">📅</div>
+                    <h3 className="cb-empty-title">Select Date and Class</h3>
+                    <p className="cb-empty-description">
+                      Choose a date and class to view attendance history
+                    </p>
+                  </div>
+                ) : historyData.length === 0 && !historyLoading ? (
+                  <div className="cb-empty-state">
+                    <div className="cb-empty-icon">📊</div>
+                    <h3 className="cb-empty-title">No Records Found</h3>
+                    <p className="cb-empty-description">
+                      No attendance records found for the selected date and class
+                    </p>
+                  </div>
+                ) : (
+                  <Table 
+                    columns={historyColumns} 
+                    dataSource={historyData} 
+                    loading={historyLoading}
+                    pagination={{ pageSize: 10, hideOnSinglePage: true }}
+                    className="cb-table"
+                  />
+                )}
+              </div>
+            </div>
           </Tabs.TabPane>
         </Tabs>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

@@ -33,6 +33,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
 
   const userName = user?.user_metadata?.full_name || 'User';
   const userRole = user?.app_metadata?.role || 'user';
+  const schoolName = user?.user_metadata?.school_name || '';
 
   const handleLogout = async () => {
     try {
@@ -43,178 +44,251 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
     }
   };
 
-  const getMenuItems = () => {
-    const allItems = [
+  const getNavigationGroups = () => {
+    const allGroups = [
       {
-        key: '/',
-        icon: <HomeOutlined />,
-        label: 'Home',
-        roles: ['cb_admin', 'superadmin', 'admin', 'student']
+        title: 'Overview',
+        items: [
+          { key: '/', label: 'Dashboard', icon: '🏠', roles: ['cb_admin', 'superadmin', 'admin', 'student'] }
+        ]
       },
       {
-        key: '/add-schools',
-        icon: <BankOutlined />,
-        label: 'Manage Schools',
-        roles: ['cb_admin']
+        title: 'Platform',
+        items: [
+          { key: '/add-schools', label: 'Schools', icon: '🏢', roles: ['cb_admin'] },
+          { key: '/add-super-admin', label: 'Super Admins', icon: '👑', roles: ['cb_admin'] }
+        ]
       },
       {
-        key: '/add-super-admin',
-        icon: <BankOutlined />,
-        label: 'Super Admin',
-        roles: ['cb_admin']
+        title: 'School Setup',
+        items: [
+          { key: '/school-setup', label: 'Setup Guide', icon: '🚀', roles: ['superadmin'] },
+          { key: '/add-admin', label: 'Admins', icon: '👨‍💼', roles: ['superadmin'] },
+          { key: '/add-student', label: 'Students', icon: '👨‍🎓', roles: ['superadmin', 'admin'] },
+          { key: '/add-specific-class', label: 'Classes', icon: '🏫', roles: ['superadmin'] },
+          { key: '/add-subjects', label: 'Subjects', icon: '📚', roles: ['superadmin', 'admin'] }
+        ]
       },
       {
-        key: '/school-setup',
-        icon: <SettingOutlined />,
-        label: 'School Setup',
-        roles: ['superadmin']
+        title: 'Academics',
+        items: [
+          { key: '/timetable', label: 'Timetable', icon: '📅', roles: ['superadmin', 'admin', 'student'] },
+          { key: '/syllabus', label: 'Syllabus', icon: '📖', roles: ['superadmin', 'admin', 'student'] },
+          { key: '/learning-resources', label: 'Resources', icon: '🎥', roles: ['superadmin', 'admin', 'student'] },
+          { key: '/attendance', label: 'Attendance', icon: '✅', roles: ['superadmin', 'admin', 'student'] }
+        ]
       },
       {
-        key: '/attendance',
-        icon: <CalendarOutlined />,
-        label: 'Attendance',
-        roles: ['superadmin', 'admin', 'student']
+        title: 'Assessment',
+        items: [
+          { key: '/test-management', label: 'Manage Tests', icon: '📝', roles: ['superadmin', 'admin'] },
+          { key: '/take-tests', label: 'Take Tests', icon: '✏️', roles: ['student'] },
+          { key: '/results', label: 'Results', icon: '🏆', roles: ['superadmin', 'admin', 'student'] },
+          { key: '/assessments', label: 'Assessments', icon: '📊', roles: ['superadmin', 'admin', 'student'] }
+        ]
       },
       {
-        key: '/analytics',
-        icon: <BarChartOutlined />,
-        label: 'Analytics',
-        roles: ['superadmin', 'admin']
+        title: 'Finance',
+        items: [
+          { key: '/fees', label: 'Fees', icon: '💰', roles: ['superadmin', 'admin', 'student'] }
+        ]
       },
       {
-        key: '/results',
-        icon: <TrophyOutlined />,
-        label: 'Results',
-        roles: ['superadmin', 'admin', 'student']
-      },
-      {
-        key: '/fees',
-        icon: <DollarOutlined />,
-        label: 'Fees',
-        roles: ['superadmin', 'admin', 'student']
-      },
-      {
-        key: '/add-subjects',
-        icon: <DollarOutlined />,
-        label: 'Subjects',
-        roles: ['superadmin', 'admin']
-      },
-      {
-        key: '/timetable',
-        icon: <DollarOutlined />,
-        label: 'Timetable',
-        roles: ['superadmin', 'admin', 'student']
-      },
-      {
-        key: '/syllabus',
-        icon: <DollarOutlined />,
-        label: 'Syllabus',
-        roles: ['superadmin', 'admin']
-      },
-      {
-        key: '/learning-resources',
-        icon: <BookOutlined />,
-        label: 'Learning Resources',
-        roles: ['superadmin', 'admin', 'student']
-      },
-      {
-        key: '/test-management',
-        icon: <FileTextOutlined />,
-        label: 'Test Management',
-        roles: ['superadmin', 'admin']
-      },
-      {
-        key: '/take-tests',
-        icon: <QuestionCircleOutlined />,
-        label: 'Take Tests',
-        roles: ['student']
-      },
+        title: 'Analytics',
+        items: [
+          { key: '/analytics', label: 'Analytics', icon: '📈', roles: ['superadmin', 'admin'] }
+        ]
+      }
     ];
 
-    const processItem = (item) => {
-      const baseItem = {
-        key: item.key,
-        icon: item.icon,
-        label: item.label
-      };
-
-      if (item.children) {
-        // Handle submenu items
-        const filteredChildren = item.children
-          .filter(child => child.roles.includes(userRole))
-          .map(child => ({
-            key: child.key,
-            icon: child.icon,
-            label: child.label,
-            onClick: () => navigate(child.key)
-          }));
-        
-        if (filteredChildren.length > 0) {
-          return {
-            ...baseItem,
-            children: filteredChildren
-          };
-        }
-        return null;
-      } else {
-        // Handle regular menu items
-        return {
-          ...baseItem,
-          onClick: () => navigate(item.key)
-        };
-      }
-    };
-
-    return allItems
-      .filter(item => item.roles.includes(userRole))
-      .map(processItem)
-      .filter(Boolean);
+    return allGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter(item => item.roles.includes(userRole))
+      }))
+      .filter(group => group.items.length > 0);
   };
 
-  const userMenuItems = [
-    {
-      key: 'profile',
-      icon: <SettingOutlined />,
-      label: 'Profile'
-    },
-    {
-      type: 'divider'
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Sign Out',
-      onClick: handleLogout
-    }
-  ];
+  const navigationGroups = getNavigationGroups();
 
   return (
-    <Sider
-      width={280}
-      collapsed={collapsed}
-      collapsedWidth={48}
-      style={{
-        height: '100vh',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        background: antdTheme.token.colorBgContainer,
-        borderRight: `1px solid ${antdTheme.token.colorBorder}`,
-        boxShadow: antdTheme.token.boxShadowSecondary
-      }}
-    >
-      {/* Logo Section */}
-      <div style={{ 
-        padding: collapsed ? '12px 8px' : antdTheme.token.paddingLG,
-        borderBottom: `1px solid ${antdTheme.token.colorBorder}`,
-        height: collapsed ? '60px' : '80px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        background: antdTheme.token.colorBgContainer
-      }}>
-        {!collapsed && (
+    <div className={`cb-sidebar ${collapsed ? 'cb-sidebar-collapsed' : ''}`}>
+      {/* Header */}
+      <div className="cb-sidebar-header">
+        {!collapsed ? (
+          <div className="cb-sidebar-brand">
+            <span style={{ fontSize: 'var(--text-2xl)' }}>🎓</span>
+            <div>
+              <div style={{ 
+                fontSize: 'var(--text-xl)', 
+                fontWeight: 'var(--font-bold)',
+                color: 'var(--color-text-brand)',
+                lineHeight: 'var(--leading-tight)'
+              }}>
+                ClassBridge
+              </div>
+              {schoolName && (
+                <div style={{ 
+                  fontSize: 'var(--text-xs)', 
+                  color: 'var(--color-text-tertiary)',
+                  fontWeight: 'var(--font-medium)',
+                  marginTop: 'var(--space-1)'
+                }}>
+                  {schoolName}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="cb-sidebar-brand">
+            <span style={{ fontSize: 'var(--text-xl)' }}>🎓</span>
+          </div>
+        )}
+        
+        <button 
+          className="cb-button cb-button-ghost cb-button-sm"
+          onClick={() => onCollapse(!collapsed)}
+          style={{ 
+            padding: 'var(--space-2)',
+            borderRadius: 'var(--radius-lg)'
+          }}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? '→' : '←'}
+        </button>
+      </div>
+
+      {/* User Profile */}
+      {!collapsed && (
+        <div style={{ 
+          padding: 'var(--space-4) var(--space-6)',
+          borderBottom: '1px solid var(--color-border-subtle)'
+        }}>
+          <div className="cb-flex cb-items-center cb-gap-3">
+            <div style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: 'var(--radius-xl)',
+              background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--color-white)',
+              fontSize: 'var(--text-base)',
+              fontWeight: 'var(--font-semibold)',
+              boxShadow: 'var(--shadow-md)'
+            }}>
+              {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ 
+                fontSize: 'var(--text-base)',
+                fontWeight: 'var(--font-semibold)',
+                color: 'var(--color-text-primary)',
+                marginBottom: 'var(--space-1)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {userName}
+              </div>
+              <div className={`cb-role-indicator cb-role-${userRole}`}>
+                {userRole.replace('_', ' ')}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="cb-sidebar-nav">
+        {navigationGroups.map((group, groupIndex) => (
+          <div key={groupIndex} className="cb-nav-group">
+            {!collapsed && (
+              <div className="cb-nav-group-title">
+                {group.title}
+              </div>
+            )}
+            
+            {group.items.map((item) => (
+              <a
+                key={item.key}
+                href={item.key}
+                className={`cb-nav-item ${location.pathname === item.key ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(item.key);
+                }}
+                title={collapsed ? item.label : undefined}
+              >
+                <span className="cb-nav-icon">
+                  {item.icon}
+                </span>
+                {!collapsed && (
+                  <span>{item.label}</span>
+                )}
+              </a>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="cb-sidebar-footer">
+        {/* Theme Toggle */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: collapsed ? 'center' : 'space-between',
+          marginBottom: 'var(--space-3)',
+          padding: 'var(--space-2)',
+          background: 'var(--color-surface-hover)',
+          borderRadius: 'var(--radius-lg)'
+        }}>
+          {!collapsed && (
+            <span style={{ 
+              fontSize: 'var(--text-sm)',
+              color: 'var(--color-text-secondary)',
+              fontWeight: 'var(--font-medium)'
+            }}>
+              {isDarkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
+            </span>
+          )}
+          <button
+            className="cb-button cb-button-ghost cb-button-sm"
+            onClick={toggleTheme}
+            title={collapsed ? (isDarkMode ? 'Switch to Light' : 'Switch to Dark') : undefined}
+            style={{ 
+              padding: 'var(--space-2)',
+              borderRadius: 'var(--radius-md)'
+            }}
+          >
+            {isDarkMode ? '☀️' : '🌙'}
+          </button>
+        </div>
+
+        {/* Logout */}
+        <button
+          className="cb-button cb-button-ghost"
+          onClick={handleLogout}
+          style={{ 
+            width: '100%',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            color: 'var(--color-error-500)',
+            padding: 'var(--space-3)',
+            borderRadius: 'var(--radius-lg)'
+          }}
+          title={collapsed ? 'Sign Out' : undefined}
+        >
+          <span>🚪</span>
+          {!collapsed && <span>Sign Out</span>}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default AppSidebar;
           <div>
             <Text strong style={{ fontSize: '20px', color: antdTheme.token.colorPrimary, fontWeight: 700 }}>
               ClassBridge

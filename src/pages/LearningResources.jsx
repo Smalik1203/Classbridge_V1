@@ -714,84 +714,321 @@ const LearningResources = () => {
   };
 
   return (
-    <ErrorBoundary>
-      <Content style={{ 
-        padding: antdTheme.token.paddingLG, 
-        background: antdTheme.token.colorBgLayout, 
-        minHeight: '100vh' 
-      }}>
+    <div className="cb-container cb-section">
       <RowHoverStyle />
-      {/* Header Section */}
-      <div style={{ marginBottom: antdTheme.token.marginLG }}>
-        <Row justify="space-between" align="middle">
-          <Col>
-            <Title level={2} style={{ 
-              margin: 0, 
-              color: antdTheme.token.colorTextHeading, 
-              fontWeight: 600 
-            }}>
-              Learning Resources
-            </Title>
-            <Text type="secondary" style={{ fontSize: antdTheme.token.fontSizeLG }}>
+      
+      {/* Modern Header */}
+      <div className="cb-dashboard-header">
+        <div className="cb-flex cb-justify-between cb-items-start">
+          <div>
+            <h1 className="cb-heading-2 cb-mb-2">
+              📚 Learning Resources
+            </h1>
+            <p className="cb-text-caption">
               Access educational materials, videos, documents, and interactive quizzes
-            </Text>
-          </Col>
+            </p>
+          </div>
+          
           {canEdit && (
-            <Col>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
+            <div className="cb-dashboard-actions">
+              <button 
+                className="cb-button cb-button-primary"
                 onClick={() => {
                   setEditingResource(null);
                   form.resetFields();
                   setModalVisible(true);
                 }}
-                style={{ 
-                  background: antdTheme.token.colorPrimary, 
-                  borderColor: antdTheme.token.colorPrimary,
-                  borderRadius: antdTheme.token.borderRadius,
-                  fontWeight: 500
-                }}
               >
-                Add Resource
-              </Button>
-            </Col>
+                <span>➕</span>
+                <span>Add Resource</span>
+              </button>
+            </div>
           )}
-        </Row>
+        </div>
       </div>
 
-        {/* Filters and Resources */}
-        <SubjectFilter 
-          subjects={subjects}
-          selectedSubject={selectedSubject}
-          onSubjectChange={(value) => handleFilterChange('subject', value)}
-          selectedClass={selectedClass}
-          classes={classes}
-          isStudent={isStudent}
-          onClassChange={handleClassChange}
+      {/* Modern Search */}
+      <div className="cb-search-container">
+        <input
+          type="text"
+          placeholder="Search resources, subjects, or topics..."
+          className="cb-search-input"
+          value={searchText}
+          onChange={(e) => handleSearch(e.target.value)}
         />
-        <ClassDetailView
-          selectedType={selectedType}
-          onTypeChange={(k) => handleFilterChange('type', k)}
-          renderResourceListItem={renderResourceListItem}
-          getResourcesByType={getResourcesByType}
-          getSortedResources={getSortedResources}
-        />
+        <span className="cb-search-icon">🔍</span>
+      </div>
+
+      {/* Modern Filters */}
+      <div className="cb-filter-bar">
+        <div className="cb-text-overline">Filters</div>
+        
+        {/* Type Filter Chips */}
+        <div className="cb-filter-chips">
+          {[
+            { key: 'all', label: 'All Resources', icon: '📚' },
+            { key: 'video', label: 'Videos', icon: '🎥' },
+            { key: 'pdf', label: 'Documents', icon: '📄' },
+            { key: 'quiz', label: 'Quizzes', icon: '❓' }
+          ].map(type => (
+            <button
+              key={type.key}
+              className={`cb-chip ${selectedType === type.key ? 'active' : ''}`}
+              onClick={() => handleFilterChange('type', type.key)}
+            >
+              <span>{type.icon}</span>
+              <span>{type.label}</span>
+              <span className="cb-badge cb-badge-neutral cb-badge-sm">
+                {getResourcesByType(type.key).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Additional Filters */}
+        <div className="cb-flex cb-gap-4 cb-items-center">
+          {!isStudent && (
+            <div className="cb-form-group" style={{ margin: 0 }}>
+              <select
+                className="cb-input"
+                style={{ width: '200px' }}
+                value={selectedClass}
+                onChange={(e) => handleFilterChange('class', e.target.value)}
+              >
+                <option value="all">All Classes</option>
+                {classes.map(cls => (
+                  <option key={cls.id} value={cls.id}>
+                    Grade {cls.grade} - {cls.section}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          <div className="cb-form-group" style={{ margin: 0 }}>
+            <select
+              className="cb-input"
+              style={{ width: '200px' }}
+              value={selectedSubject}
+              onChange={(e) => handleFilterChange('subject', e.target.value)}
+            >
+              <option value="all">All Subjects</option>
+              {subjects.map(subject => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.subject_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* View Toggle */}
+          <div className="cb-flex cb-gap-1" style={{ marginLeft: 'auto' }}>
+            <button
+              className={`cb-button cb-button-sm ${viewMode === 'grid' ? 'cb-button-primary' : 'cb-button-ghost'}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+            >
+              ⊞
+            </button>
+            <button
+              className={`cb-button cb-button-sm ${viewMode === 'list' ? 'cb-button-primary' : 'cb-button-ghost'}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              ☰
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Content Area */}
+      {loading ? (
+        <div className="cb-grid cb-grid-auto">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="cb-skeleton" style={{ 
+              height: viewMode === 'grid' ? '320px' : '100px',
+              borderRadius: 'var(--radius-2xl)' 
+            }}></div>
+          ))}
+        </div>
+      ) : resources.length === 0 ? (
+        <div className="cb-empty-state">
+          <div className="cb-empty-icon">📚</div>
+          <h3 className="cb-empty-title">
+            {searchText ? 'No resources found' : 'No resources yet'}
+          </h3>
+          <p className="cb-empty-description">
+            {searchText 
+              ? `No resources match "${searchText}". Try adjusting your search or filters.`
+              : canEdit 
+                ? 'Start building your resource library by adding videos, documents, and quizzes.'
+                : 'Your teachers haven\'t added any resources yet. Check back soon!'
+            }
+          </p>
+          {canEdit && !searchText && (
+            <button 
+              className="cb-button cb-button-primary cb-button-lg"
+              onClick={() => {
+                setEditingResource(null);
+                form.resetFields();
+                setModalVisible(true);
+              }}
+            >
+              <span>➕</span>
+              <span>Add First Resource</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Results Summary */}
+          <div className="cb-flex cb-justify-between cb-items-center cb-mb-6">
+            <div className="cb-text-caption">
+              Showing {resources.length} resources
+              {searchText && ` for "${searchText}"`}
+            </div>
+            <div className="cb-flex cb-gap-2 cb-items-center">
+              <span className="cb-text-caption-sm">Sort by:</span>
+              <select 
+                className="cb-input" 
+                style={{ width: '140px', padding: 'var(--space-2) var(--space-3)' }}
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="recent">Most Recent</option>
+                <option value="alphabetical">Alphabetical</option>
+                <option value="popular">Most Popular</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Resource Display */}
+          {viewMode === 'grid' ? (
+            <div className="cb-grid cb-grid-auto">
+              {getSortedResources(resources).map(renderResourceCard)}
+            </div>
+          ) : (
+            <div className="cb-list">
+              {getSortedResources(resources).map(renderResourceListItem)}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalCount > pageSize && (
+            <div className="cb-flex cb-justify-center cb-mt-8">
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={totalCount}
+                onChange={handlePageChange}
+                showSizeChanger
+                showQuickJumper
+                showTotal={(total, range) => 
+                  `${range[0]}-${range[1]} of ${total} resources`
+                }
+                style={{
+                  '& .ant-pagination-item': {
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid var(--color-border)',
+                  },
+                  '& .ant-pagination-item-active': {
+                    background: 'var(--color-primary-500)',
+                    borderColor: 'var(--color-primary-500)',
+                  }
+                }}
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Enhanced Add/Edit Resource Modal */}
+      <Modal
+        title={
+          <div className="cb-flex cb-items-center cb-gap-2">
+            <span style={{ fontSize: 'var(--text-lg)' }}>
+              {editingResource ? '✏️' : '➕'}
+            </span>
+            <span>{editingResource ? 'Edit Resource' : 'Add New Resource'}</span>
+          </div>
+        }
+        open={modalVisible}
+        onCancel={() => {
+          setModalVisible(false);
+          setEditingResource(null);
+          form.resetFields();
+        }}
+        footer={null}
+        width={700}
+        className="cb-modal"
 
       {/* In-app Preview Modal for Videos & PDFs */}
       <Modal
-        title={previewResource ? (
-          <Space>
-            {previewResource.resource_type === 'video' ? <PlayCircleOutlined /> : <FilePdfOutlined />}
-            {previewResource.title}
-          </Space>
-        ) : 'Preview'}
+        title={
+          previewResource ? (
+            <div className="cb-flex cb-items-center cb-gap-2">
+              <span>
+                {previewResource.resource_type === 'video' ? '🎥' : '📄'}
+              </span>
+              <span>{previewResource.title}</span>
+            </div>
+          ) : 'Preview'
+        }
         open={previewVisible}
         destroyOnClose
         onCancel={() => { setPreviewVisible(false); setPreviewResource(null); }}
         footer={[
           previewResource?.resource_type === 'pdf' && (
-            <Button key="download" icon={<DownloadOutlined />} onClick={() => window.open(previewResource.content_url, '_blank')}>
+            <button 
+              key="download" 
+              className="cb-button cb-button-secondary"
+              onClick={() => window.open(previewResource.content_url, '_blank')}
+            >
+              <span>📥</span>
+              <span>Download</span>
+            </button>
+          ),
+          <button 
+            key="external"
+            className="cb-button cb-button-secondary"
+            onClick={() => window.open(previewResource.content_url, '_blank')}
+          >
+            <span>🔗</span>
+            <span>Open External</span>
+          </button>,
+          <button 
+            key="close" 
+            className="cb-button cb-button-ghost"
+            onClick={() => { setPreviewVisible(false); setPreviewResource(null); }}
+          >
+            Close
+          </button>
+        ].filter(Boolean)}
+        centered
+        width="min(1200px, 96vw)"
+        style={{ top: 12, maxWidth: '96vw' }}
+        bodyStyle={{ padding: 0, height: 'calc(100dvh - 160px)' }}
+        className="cb-modal"
+      >
+        {previewResource && (
+          previewResource.resource_type === 'video' ? (
+            <VideoPlayer url={previewResource.content_url} title={previewResource.title} />
+          ) : (
+            <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+              <iframe
+                src={`${previewResource.content_url}#toolbar=0&navpanes=0&scrollbar=1`}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+                title={previewResource.title}
+              />
+            </div>
+          )
+        )}
+      </Modal>
+    </div>
+  );
+};
+
+export default LearningResources;
               Download
             </Button>
           ),
@@ -839,23 +1076,239 @@ const LearningResources = () => {
             resource_type: 'video'
           }}
         >
-          <Form.Item
-            name="title"
-            label="Resource Title"
-            rules={[{ required: true, message: 'Please enter a title' }]}
+        <div className="cb-modal-body">
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            className="cb-form"
+            initialValues={{
+              resource_type: 'video'
+            }}
           >
-            <Input placeholder="Enter resource title" />
-          </Form.Item>
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Basic Information</h4>
+              
+              <div className="cb-form-group">
+                <label className="cb-label cb-label-required">Resource Title</label>
+                <Form.Item
+                  name="title"
+                  rules={[{ required: true, message: 'Please enter a title' }]}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input 
+                    className="cb-input"
+                    placeholder="Enter resource title" 
+                  />
+                </Form.Item>
+              </div>
 
-          <Form.Item
-            name="description"
-            label="Description"
-            rules={[{ required: true, message: 'Please enter a description' }]}
-          >
-            <Input.TextArea 
-              rows={3} 
-              placeholder="Enter resource description" 
-            />
+              <div className="cb-form-group">
+                <label className="cb-label cb-label-required">Description</label>
+                <Form.Item
+                  name="description"
+                  rules={[{ required: true, message: 'Please enter a description' }]}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Input.TextArea 
+                    className="cb-input cb-textarea"
+                    rows={3} 
+                    placeholder="Enter resource description" 
+                  />
+                </Form.Item>
+              </div>
+
+              <div className="cb-form-group">
+                <label className="cb-label cb-label-required">Resource Type</label>
+                <Form.Item
+                  name="resource_type"
+                  rules={[{ required: true, message: 'Please select a resource type' }]}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Select 
+                    className="cb-input"
+                    placeholder="Select resource type"
+                  >
+                    <Option value="video">🎥 Video</Option>
+                    <Option value="pdf">📄 PDF Document</Option>
+                    <Option value="quiz">❓ Interactive Quiz</Option>
+                  </Select>
+                </Form.Item>
+              </div>
+            </div>
+
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Assignment</h4>
+              
+              <div className="cb-form-row">
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Subject</label>
+                  <Form.Item
+                    name="subject_id"
+                    rules={[{ required: true, message: 'Please select a subject' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select 
+                      className="cb-input"
+                      placeholder="Select subject" 
+                      loading={subjects.length === 0}
+                    >
+                      {subjects.length === 0 ? (
+                        <Option disabled value="">No subjects available</Option>
+                      ) : (
+                        subjects.map(subject => (
+                          <Option key={subject.id} value={subject.id}>
+                            {subject.subject_name}
+                          </Option>
+                        ))
+                      )}
+                    </Select>
+                  </Form.Item>
+                </div>
+
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Class</label>
+                  <Form.Item
+                    name="class_instance_id"
+                    rules={[{ required: true, message: 'Please select a class' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select 
+                      className="cb-input"
+                      placeholder="Select class" 
+                      loading={classes.length === 0}
+                    >
+                      {classes.length === 0 ? (
+                        <Option disabled value="">No classes available</Option>
+                      ) : (
+                        classes.map(cls => (
+                          <Option key={cls.id} value={cls.id}>
+                            Grade {cls.grade} - {cls.section}
+                          </Option>
+                        ))
+                      )}
+                    </Select>
+                  </Form.Item>
+                </div>
+              </div>
+            </div>
+
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Content Source</h4>
+              
+              <div className="cb-flex cb-gap-3 cb-mb-4">
+                <button 
+                  type="button"
+                  className={`cb-button ${!useFileUpload ? 'cb-button-primary' : 'cb-button-secondary'}`}
+                  onClick={() => setUseFileUpload(false)}
+                >
+                  🔗 Use URL
+                </button>
+                <button 
+                  type="button"
+                  className={`cb-button ${useFileUpload ? 'cb-button-primary' : 'cb-button-secondary'}`}
+                  onClick={() => setUseFileUpload(true)}
+                >
+                  📤 Upload File
+                </button>
+              </div>
+
+              {!useFileUpload ? (
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Content URL</label>
+                  <Form.Item
+                    name="content_url"
+                    rules={[{ required: true, message: 'Please enter content URL' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Input 
+                      className="cb-input"
+                      placeholder="Enter URL to video, PDF, or quiz content" 
+                    />
+                  </Form.Item>
+                </div>
+              ) : (
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Upload File</label>
+                  <input
+                    type="file"
+                    accept="video/*,application/pdf"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="cb-input"
+                    style={{ 
+                      padding: 'var(--space-3)',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <div className="cb-help-text">
+                    Supported: Videos (mp4 etc.), PDFs. File will be stored in Supabase Storage.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="cb-flex cb-justify-end cb-gap-3">
+              <button 
+                type="button"
+                className="cb-button cb-button-secondary"
+                onClick={() => {
+                  setModalVisible(false);
+                  setEditingResource(null);
+                  form.resetFields();
+                }}
+              >
+                Cancel
+              </button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={uploading}
+                className="cb-button cb-button-primary"
+              >
+                <span>{editingResource ? '💾' : '✨'}</span>
+                <span>{editingResource ? 'Update Resource' : 'Create Resource'}</span>
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </Modal>
+
+      {/* Enhanced Resource Display */}
+      <div className="cb-card">
+        <div className="cb-card-body">
+          {loading ? (
+            <div className={viewMode === 'grid' ? 'cb-grid cb-grid-auto' : 'cb-list'}>
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="cb-skeleton" style={{ 
+                  height: viewMode === 'grid' ? '280px' : '80px',
+                  borderRadius: 'var(--radius-xl)' 
+                }}></div>
+              ))}
+            </div>
+          ) : getSortedResources(getResourcesByType(selectedType)).length === 0 ? (
+            <div className="cb-empty-state">
+              <div className="cb-empty-icon">
+                {selectedType === 'video' ? '🎥' : 
+                 selectedType === 'pdf' ? '📄' : 
+                 selectedType === 'quiz' ? '❓' : '📚'}
+              </div>
+              <h3 className="cb-empty-title">
+                No {selectedType === 'all' ? 'resources' : selectedType + 's'} found
+              </h3>
+              <p className="cb-empty-description">
+                Try adjusting your filters or check back later for new content.
+              </p>
+            </div>
+          ) : (
+            <div className={viewMode === 'grid' ? 'cb-grid cb-grid-auto' : 'cb-list'}>
+              {getSortedResources(getResourcesByType(selectedType)).map(resource => 
+                viewMode === 'grid' ? renderResourceCard(resource) : renderResourceListItem(resource)
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
           </Form.Item>
 
           <Form.Item

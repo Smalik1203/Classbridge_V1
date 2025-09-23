@@ -38,28 +38,170 @@ const Login = () => {
     }
   };
 
+  const getWelcomeMessage = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
-    <Layout style={{ 
+    <div style={{ 
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      background: 'linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-700) 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 'var(--space-6)',
+      position: 'relative'
     }}>
-      <Content style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        padding: '24px'
+      {/* Background Pattern */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: `
+          radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)
+        `,
+        pointerEvents: 'none'
+      }}></div>
+
+      {/* Login Card */}
+      <div className="cb-card cb-glass" style={{ 
+        width: '100%',
+        maxWidth: '440px',
+        position: 'relative',
+        zIndex: 1
       }}>
-        <Card
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            borderRadius: '12px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-            border: '1px solid #e2e8f0',
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-          }}
-          bodyStyle={{ padding: '40px' }}
+        <div className="cb-card-body cb-card-body-lg">
+          {/* Header */}
+          <div className="cb-text-center cb-mb-8">
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: 'var(--radius-2xl)',
+              background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto var(--space-6)',
+              fontSize: 'var(--text-3xl)',
+              boxShadow: 'var(--shadow-lg)',
+              color: 'var(--color-white)'
+            }}>
+              🎓
+            </div>
+            <h1 className="cb-heading-2 cb-mb-2">
+              {getWelcomeMessage()}
+            </h1>
+            <p className="cb-text-caption">
+              Sign in to your ClassBridge account to continue
+            </p>
+          </div>
+
+          {/* Login Form */}
+          <Form
+            name="login"
+            onFinish={handleLogin}
+            layout="vertical"
+            size="large"
+            className="cb-form"
+          >
+            <div className="cb-form-group">
+              <label className="cb-label cb-label-required">Email Address</label>
+              <Form.Item
+                name="email"
+                rules={[
+                  { required: true, message: 'Please enter your email!' },
+                  { type: 'email', message: 'Please enter a valid email!' }
+                ]}
+                style={{ marginBottom: 0 }}
+              >
+                <div className="cb-input-group">
+                  <span className="cb-input-icon">📧</span>
+                  <Input
+                    className="cb-input cb-input-with-icon"
+                    placeholder="Enter your email"
+                  />
+                </div>
+              </Form.Item>
+            </div>
+
+            <div className="cb-form-group">
+              <label className="cb-label cb-label-required">Password</label>
+              <Form.Item
+                name="password"
+                rules={[
+                  { required: true, message: 'Please enter your password!' }
+                ]}
+                style={{ marginBottom: 0 }}
+              >
+                <div className="cb-input-group">
+                  <span className="cb-input-icon">🔒</span>
+                  <Input.Password
+                    className="cb-input cb-input-with-icon"
+                    placeholder="Enter your password"
+                  />
+                </div>
+              </Form.Item>
+            </div>
+
+            {/* Error Alert */}
+            {error && (
+              <div className="cb-alert cb-alert-error">
+                <div className="cb-alert-icon">⚠️</div>
+                <div className="cb-alert-content">
+                  <div className="cb-alert-title">Sign In Failed</div>
+                  <div>{error}</div>
+                </div>
+              </div>
+            )}
+
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              className="cb-button cb-button-primary cb-button-lg"
+              style={{ width: '100%', marginBottom: 'var(--space-6)' }}
+            >
+              {loading ? (
+                <>
+                  <div className="cb-spinner"></div>
+                  <span>Signing In...</span>
+                </>
+              ) : (
+                <>
+                  <span>🚀</span>
+                  <span>Sign In</span>
+                </>
+              )}
+            </Button>
+          </Form>
+
+          {/* Footer */}
+          <div className="cb-text-center">
+            <p className="cb-text-caption-sm">
+              Don't have an account?{' '}
+              <span style={{ 
+                color: 'var(--color-primary-600)', 
+                fontWeight: 'var(--font-medium)' 
+              }}>
+                Contact your administrator
+              </span>
+            </p>
+            <div className="cb-mt-4">
+              <p className="cb-text-caption-sm" style={{ color: 'var(--color-text-quaternary)' }}>
+                🔒 Secure login powered by ClassBridge
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Login;
         >
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>

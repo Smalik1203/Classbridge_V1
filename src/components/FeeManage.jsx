@@ -515,63 +515,253 @@ export default function FeeManage() {
     );
   }
 
-  return (
-    <Page
-      title="Fee Management"
-      extra={
-        <Space>
-          <Select
-            placeholder="Select Class"
-            value={classId}
-            onChange={setClassId}
-            style={{ width: 300 }}
-            options={classes}
-          />
-          <Tooltip title="Edit one plan and apply it to every student in the selected class">
-            <Button
-              icon={<TeamOutlined />}
-              type="primary"
+    <div className="cb-container cb-section">
+      {/* Modern Header */}
+      <div className="cb-dashboard-header">
+        <div className="cb-flex cb-justify-between cb-items-start">
+          <div>
+            <h1 className="cb-heading-2 cb-mb-2">
+              💰 Fee Management
+            </h1>
+            <p className="cb-text-caption">
+              Manage student fee plans and track payment progress
+            </p>
+          </div>
+          
+          <div className="cb-dashboard-actions">
+            <select
+              className="cb-input"
+              style={{ width: '250px' }}
+              value={classId || ''}
+              onChange={(e) => setClassId(e.target.value || null)}
+            >
+              <option value="">Select Class</option>
+              {classes.map(cls => (
+                <option key={cls.value} value={cls.value}>
+                  {cls.label}
+                </option>
+              ))}
+            </select>
+            <button
+              className="cb-button cb-button-primary"
               disabled={!classId || !canWrite}
               onClick={openClassEditor}
+              title="Edit one plan and apply it to every student in the selected class"
             >
-              Class Plan
-            </Button>
-          </Tooltip>
+              <span>👥</span>
+              <span>Class Plan</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
-        </Space>
-      }
-    >
       {rlsHint && (
-        <Alert
-          message="No students found"
-          description="You may not have permission to view students in this class. Please contact your administrator."
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
+        <div className="cb-alert cb-alert-info cb-mb-6">
+          <div className="cb-alert-icon">ℹ️</div>
+          <div className="cb-alert-content">
+            <div className="cb-alert-title">No students found</div>
+            <div>You may not have permission to view students in this class. Please contact your administrator.</div>
+          </div>
+        </div>
       )}
 
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={rows}
-          loading={loading}
-          pagination={false}
-          locale={{
-            emptyText: (
-              <EmptyState
-                title="No students found"
-                description={
-                  classId
-                    ? "No students are assigned to this class."
-                    : "Please select a class to view students."
-                }
-              />
-            )
-          }}
-        />
-      </Card>
+      <div className="cb-card">
+        <div className="cb-card-body">
+          {!classId ? (
+            <div className="cb-empty-state">
+              <div className="cb-empty-icon">🏫</div>
+              <h3 className="cb-empty-title">Select a Class</h3>
+              <p className="cb-empty-description">
+                Choose a class from the dropdown above to view and manage student fee plans.
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="cb-grid cb-grid-auto">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="cb-skeleton" style={{ 
+                  height: '120px',
+                  borderRadius: 'var(--radius-xl)' 
+                }}></div>
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="cb-empty-state">
+              <div className="cb-empty-icon">👥</div>
+              <h3 className="cb-empty-title">No students found</h3>
+              <p className="cb-empty-description">
+                No students are assigned to this class.
+              </p>
+            </div>
+          ) : (
+            <div className="cb-list">
+              {rows.map(row => (
+                <div key={row.key} className="cb-list-item">
+                  <div className="cb-list-item-content">
+                    <div className="cb-list-item-title">{row.student_name}</div>
+                    <div className="cb-list-item-subtitle">{row.student_code}</div>
+                  </div>
+                  <div className="cb-flex cb-items-center cb-gap-4">
+                    <div className="cb-text-center">
+                      <div className="cb-text-body-sm" style={{ fontWeight: 'var(--font-semibold)' }}>
+                        {fmtINR(row.total_paise)}
+                      </div>
+                      <div className="cb-text-caption-sm">Total Fee</div>
+                    </div>
+                    <button
+                      className="cb-button cb-button-primary cb-button-sm"
+                      onClick={() => openEditor(row)}
+                      disabled={!canWrite}
+                    >
+                      <span>✏️</span>
+                      <span>Edit Plan</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
+      {/* Enhanced Student Drawer Editor */}
+      <Modal
+        title={
+          <div className="cb-flex cb-items-center cb-gap-2">
+            <span>✏️</span>
+            <span>Edit Fee Plan - {drawer.student?.name ?? ""}</span>
+          </div>
+        }
+        open={drawer.open}
+        onCancel={() => setDrawer({ open: false, student: null, planId: null, items: [] })}
+        footer={null}
+        width={600}
+        className="cb-modal"
+      >
+        <div className="cb-modal-body">
+          <div className="cb-form">
+            <div className="cb-flex cb-justify-center cb-mb-6">
+              <button 
+                className="cb-button cb-button-secondary"
+                onClick={() => addItem(setDrawer)}
+              >
+                <span>➕</span>
+                <span>Add Component</span>
+              </button>
+            </div>
+
+            {drawer.items.length === 0 ? (
+              <div className="cb-empty-state">
+                <div className="cb-empty-icon">💰</div>
+                <h3 className="cb-empty-title">No components added</h3>
+                <p className="cb-empty-description">
+                  Add fee components to create a plan for this student.
+                </p>
+              </div>
+            ) : (
+              <div className="cb-list">
+                {drawer.items.map((item, index) => (
+                  <div key={index} className="cb-list-item">
+                    <div className="cb-flex cb-gap-4 cb-items-center" style={{ width: '100%' }}>
+                      <div style={{ flex: 1 }}>
+                        <Select
+                          placeholder="Select component"
+                          value={item.component_type_id}
+                          onChange={(value) => updateItem(drawer, setDrawer, index, 'component_type_id', value)}
+                          className="cb-input"
+                          style={{ width: '100%' }}
+                        >
+                          {catalog.map(c => (
+                            <Option key={c.id} value={c.id}>{c.name}</Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div style={{ width: '150px' }}>
+                        <InputNumber
+                          placeholder="Amount"
+                          value={item.amount_inr}
+                          onChange={(value) => updateItem(drawer, setDrawer, index, 'amount_inr', parseINR(value))}
+                          formatter={(value) => `₹ ${value ?? 0}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={(value) => parseINR(value)}
+                          className="cb-input"
+                          style={{ width: '100%' }}
+                          min={0}
+                        />
+                      </div>
+                      <button
+                        className="cb-button cb-button-sm cb-button-danger"
+                        onClick={() => removeItem(setDrawer, index)}
+                        disabled={drawer.items.length <= 1}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="cb-flex cb-justify-end cb-gap-3 cb-mt-6">
+              <button 
+                className="cb-button cb-button-secondary"
+                onClick={() => setDrawer({ open: false, student: null, planId: null, items: [] })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="cb-button cb-button-primary"
+                onClick={savePlan} 
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <div className="cb-spinner"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>💾</span>
+                    <span>Save Plan</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Enhanced Class Plan Drawer */}
+      <Modal
+        title={
+          <div className="cb-flex cb-items-center cb-gap-2">
+            <span>👥</span>
+            <span>Class Plan — Apply to Entire Class</span>
+          </div>
+        }
+        open={classDrawer.open}
+        onCancel={() => setClassDrawer({ open: false, items: [] })}
+        footer={null}
+        width={700}
+        className="cb-modal"
+      >
+        <div className="cb-modal-body">
+          <div className="cb-alert cb-alert-warning cb-mb-6">
+            <div className="cb-alert-icon">⚠️</div>
+            <div className="cb-alert-content">
+              <div className="cb-alert-title">Bulk Update Warning</div>
+              <div>Applying the class plan replaces each student's current fee items with the items below. Plans will be created for students who don't have one.</div>
+            </div>
+          </div>
+
+          <div className="cb-form">
+            <div className="cb-flex cb-justify-center cb-mb-6">
+              <button 
+                className="cb-button cb-button-secondary"
+                onClick={() => addItem(setClassDrawer)}
+              >
+                <span>➕</span>
+                <span>Add Component</span>
+              </button>
+            </div>
       {/* Student Drawer Editor */}
       <Drawer
         title={`Edit Fee Plan - ${drawer.student?.name ?? ""}`}
@@ -734,8 +924,97 @@ export default function FeeManage() {
         </Text>
       </Drawer>
 
+            {classDrawer.items.length === 0 ? (
+              <div className="cb-empty-state">
+                <div className="cb-empty-icon">💰</div>
+                <h3 className="cb-empty-title">No components added</h3>
+                <p className="cb-empty-description">
+                  Add fee components to create a class-wide plan.
+                </p>
+              </div>
+            ) : (
+              <div className="cb-list">
+                {classDrawer.items.map((item, index) => (
+                  <div key={index} className="cb-list-item">
+                    <div className="cb-flex cb-gap-4 cb-items-center" style={{ width: '100%' }}>
+                      <div style={{ flex: 1 }}>
+                        <Select
+                          placeholder="Select component"
+                          value={item.component_type_id}
+                          onChange={(value) => updateItem(classDrawer, setClassDrawer, index, 'component_type_id', value)}
+                          className="cb-input"
+                          style={{ width: '100%' }}
+                        >
+                          {catalog.map(c => (
+                            <Option key={c.id} value={c.id}>{c.name}</Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div style={{ width: '150px' }}>
+                        <InputNumber
+                          placeholder="Amount"
+                          value={item.amount_inr}
+                          onChange={(value) => updateItem(classDrawer, setClassDrawer, index, 'amount_inr', parseINR(value))}
+                          formatter={(value) => `₹ ${value ?? 0}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={(value) => parseINR(value)}
+                          className="cb-input"
+                          style={{ width: '100%' }}
+                          min={0}
+                        />
+                      </div>
+                      <button
+                        className="cb-button cb-button-sm cb-button-danger"
+                        onClick={() => removeItem(setClassDrawer, index)}
+                        disabled={classDrawer.items.length <= 1}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
+            <div className="cb-text-caption cb-mt-4 cb-p-4" style={{
+              background: 'var(--color-gray-50)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--color-border-subtle)'
+            }}>
+              💡 Tip: Components with default amounts (if defined) are pre-loaded. You can still add, remove, or change them here.
+            </div>
       
     </Page>
+  );
+}
+
+            <div className="cb-flex cb-justify-end cb-gap-3 cb-mt-6">
+              <button 
+                className="cb-button cb-button-secondary"
+                onClick={() => setClassDrawer({ open: false, items: [] })}
+              >
+                Cancel
+              </button>
+              <button
+                className="cb-button cb-button-primary"
+                onClick={applyClassPlanToAll}
+                disabled={savingClass || classDrawer.items.length === 0}
+              >
+                {savingClass ? (
+                  <>
+                    <div className="cb-spinner"></div>
+                    <span>Applying...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>⚡</span>
+                    <span>Apply to Whole Class</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+    </div>
   );
 }

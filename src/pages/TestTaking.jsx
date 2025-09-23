@@ -341,9 +341,485 @@ export default function TestTaking() {
     return (
       <>
         {contextHolder}
-        <div style={{ padding: 24, minHeight: '100vh', background: antdTheme.token.colorBgLayout }}>
-          <Card style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
+          {/* Modern Test Header */}
+          <div className="cb-card cb-mb-6">
+            <div className="cb-card-body">
+              <div className="cb-flex cb-justify-between cb-items-center cb-mb-4">
+                <div>
+                  <h1 className="cb-heading-3 cb-mb-2">{currentTest.title}</h1>
+                  <div className="cb-flex cb-gap-3 cb-items-center">
+                    <span className={`cb-badge cb-badge-${typeColor(currentTest.test_type)}`}>
+                      {(currentTest.test_type || '').replace('_', ' ')}
+                    </span>
+                    <span className="cb-text-caption">{currentTest.subjects?.subject_name}</span>
+                    <span className="cb-text-caption">
+                      Grade {currentTest.class_instances?.grade} {currentTest.class_instances?.section}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="cb-flex cb-items-center cb-gap-4">
+                  {timeRemaining > 0 && (
+                    <div className="cb-flex cb-items-center cb-gap-2">
+                      <span style={{ fontSize: 'var(--text-lg)' }}>⏰</span>
+                      <span style={{ 
+                        fontSize: timeRemaining <= 10 ? 'var(--text-lg)' : 'var(--text-base)',
+                        fontWeight: 'var(--font-bold)',
+                        color: timeRemaining <= 10 ? 'var(--color-error-500)' : 
+                               timeRemaining <= 30 ? 'var(--color-warning-500)' : 
+                               'var(--color-text-primary)',
+                        animation: timeRemaining <= 10 ? 'pulse 1s infinite' : undefined
+                      }}>
+                        {formatTime(timeRemaining)}
+                        {timeRemaining <= 10 && ' - Auto-submitting soon!'}
+                      </span>
+                    </div>
+                  )}
+                  <button className="cb-button cb-button-danger" onClick={exitTest}>
+                    Exit Test
+                  </button>
+                </div>
+              </div>
+
+              {/* Enhanced Progress Bar */}
+              <div>
+                <div className="cb-progress cb-mb-2">
+                  <div 
+                    className="cb-progress-bar"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+                <div className="cb-flex cb-justify-between cb-items-center">
+                  <span className="cb-text-caption">
+                    Question {currentQuestionIndex + 1} of {questions.length}
+                  </span>
+                  <span className="cb-text-caption">{progress}% Complete</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Enhanced Results screen
+  if (showResults && testResults) {
+    return (
+      <>
+        {contextHolder}
+        <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
+          <div className="cb-card" style={{ maxWidth: '720px', margin: '0 auto' }}>
+            <div className="cb-card-body cb-text-center">
+              <div style={{ fontSize: '4rem', marginBottom: 'var(--space-6)' }}>🎉</div>
+              <h1 className="cb-heading-2 cb-mb-4">Test Completed!</h1>
+              
+              <div className="cb-kpi-grid" style={{ maxWidth: '400px', margin: '0 auto var(--space-8)' }}>
+                <div className="cb-stat-card">
+                  <div className="cb-stat-value">
+                    {testResults.earned_points !== null ? testResults.earned_points : (testResults.score || 0)}
+                  </div>
+                  <div className="cb-stat-label">Correct Answers</div>
+                </div>
+                <div className="cb-stat-card">
+                  <div className="cb-stat-value">
+                    {testResults.total_points !== null ? testResults.total_points : (testResults.test?.test_questions?.length || 0)}
+                  </div>
+                  <div className="cb-stat-label">Total Questions</div>
+                </div>
+              </div>
+              
+              <div className="cb-flex cb-justify-center cb-gap-4">
+                <button 
+                  className="cb-button cb-button-secondary"
+                  onClick={() => {
+                    setSelectedAttempt(testResults);
+                    setReviewModalVisible(true);
+                    setShowResults(false);
+                  }}
+                >
+                  <span>👁️</span>
+                  <span>Review Test</span>
+                </button>
+                <button 
+                  className="cb-button cb-button-primary"
+                  onClick={() => { setShowResults(false); loadData(); }}
+                >
+                  <span>📋</span>
+                  <span>Back to Tests</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Enhanced Default: list of tests + history
+  return (
+    <>
+      <style>
+        {`
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+          }
+        `}
+      </style>
+      {contextHolder}
+      <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
+        {/* Modern Header */}
+        <div className="cb-dashboard-header">
+          <div className="cb-text-center">
+            <h1 className="cb-heading-2 cb-mb-2">
+              📝 Take Tests
+            </h1>
+            <p className="cb-text-caption">
+              Complete assigned tests and track your progress
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="cb-grid cb-grid-2">
+            <div className="cb-skeleton" style={{ height: '400px', borderRadius: 'var(--radius-2xl)' }}></div>
+            <div className="cb-skeleton" style={{ height: '400px', borderRadius: 'var(--radius-2xl)' }}></div>
+          </div>
+        ) : (
+          <div className="cb-grid cb-grid-2">
+            {/* Available Tests */}
+            <div className="cb-card">
+              <div className="cb-card-header">
+                <div className="cb-flex cb-items-center cb-gap-2">
+                  <span style={{ fontSize: 'var(--text-lg)' }}>📋</span>
+                  <h3 className="cb-heading-4">Available Tests</h3>
+                  <span className="cb-badge cb-badge-primary cb-badge-sm">
+                    {availableTests.length}
+                  </span>
+                </div>
+              </div>
+              <div className="cb-card-body">
+                {availableTests.length === 0 ? (
+                  <div className="cb-empty-state">
+                    <div className="cb-empty-icon">📝</div>
+                    <h3 className="cb-empty-title">No tests available</h3>
+                    <p className="cb-empty-description">
+                      Check back later for new assignments from your teachers.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="cb-list">
+                    {availableTests.map(t => (
+                      <div key={t.id} className="cb-list-item">
+                        <div className="cb-list-item-content">
+                          <div className="cb-flex cb-items-center cb-gap-3 cb-mb-2">
+                            <h4 className="cb-list-item-title">{t.title}</h4>
+                            <span className={`cb-badge cb-badge-${typeColor(t.test_type)} cb-badge-sm`}>
+                              {t.test_type?.replace('_', ' ') || 'Test'}
+                            </span>
+                            {t.allow_reattempts && (
+                              <span className="cb-badge cb-badge-success cb-badge-sm">
+                                Reattempt Allowed
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="cb-list-item-subtitle cb-mb-3">
+                            {t.subjects?.subject_name} • Grade {t.class_instances?.grade} {t.class_instances?.section}
+                          </div>
+
+                          {t.description && (
+                            <p className="cb-text-caption cb-mb-3">
+                              {t.description}
+                            </p>
+                          )}
+
+                          {t.syllabus_chapters && (
+                            <div className="cb-badge cb-badge-neutral cb-badge-sm cb-mb-3">
+                              📚 Chapter {t.syllabus_chapters.chapter_no}: {t.syllabus_chapters.title}
+                            </div>
+                          )}
+
+                          <div className="cb-flex cb-gap-4 cb-items-center">
+                            <div className="cb-flex cb-items-center cb-gap-1">
+                              <span>📖</span>
+                              <span className="cb-text-caption-sm">
+                                {t.test_questions?.length || 0} questions
+                              </span>
+                            </div>
+                            {t.time_limit_seconds && (
+                              <div className="cb-flex cb-items-center cb-gap-1">
+                                <span>⏱️</span>
+                                <span className="cb-text-caption-sm">
+                                  {Math.floor(t.time_limit_seconds / 60)} minutes
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="cb-list-item-actions">
+                          <button 
+                            className="cb-button cb-button-primary"
+                            onClick={() => handleStart(t)} 
+                            disabled={testLoading}
+                          >
+                            {testLoading ? (
+                              <>
+                                <div className="cb-spinner"></div>
+                                <span>Loading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>▶️</span>
+                                <span>{isTestCompleted(t.id) ? 'Restart' : 'Start'}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Test History */}
+            <div className="cb-card">
+              <div className="cb-card-header">
+                <div className="cb-flex cb-items-center cb-gap-2">
+                  <span style={{ fontSize: 'var(--text-lg)' }}>🏆</span>
+                  <h3 className="cb-heading-4">Test History</h3>
+                  <span className="cb-badge cb-badge-success cb-badge-sm">
+                    {testHistory.length}
+                  </span>
+                </div>
+              </div>
+              <div className="cb-card-body">
+                {testHistory.length === 0 ? (
+                  <div className="cb-empty-state">
+                    <div className="cb-empty-icon">📊</div>
+                    <h3 className="cb-empty-title">No completed tests</h3>
+                    <p className="cb-empty-description">
+                      Your completed tests will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="cb-list">
+                    {testHistory.map(a => {
+                      const questions = a.test?.test_questions || [];
+                      let calculatedScore = 0;
+                      
+                      questions.forEach((question, index) => {
+                        const userAnswer = a.answers?.[question.id];
+                        let correct = false;
+                        
+                        if (question.question_type === 'mcq' || question.question_type === 'multiple_choice') {
+                          if (question.correct_index !== null && question.correct_index !== undefined) {
+                            const correctOption = question.options?.[question.correct_index];
+                            correct = (userAnswer === correctOption) || (userAnswer === question.correct_index);
+                          } else if (question.correct_text) {
+                            correct = String(userAnswer || '').trim().toLowerCase() === String(question.correct_text).trim().toLowerCase();
+                          }
+                        } else {
+                          if (question.correct_text) {
+                            correct = String(userAnswer || '').trim().toLowerCase() === String(question.correct_text).trim().toLowerCase();
+                          }
+                        }
+                        
+                        if (correct) calculatedScore++;
+                      });
+                      
+                      const displayScore = a.earned_points !== null ? a.earned_points : (a.score || calculatedScore);
+                      const totalQuestions = a.total_points !== null ? a.total_points : questions.length;
+                      
+                      return (
+                        <div key={a.id} className="cb-list-item">
+                          <div className="cb-list-item-content">
+                            <div className="cb-flex cb-items-center cb-gap-3 cb-mb-2">
+                              <h4 className="cb-list-item-title">{a.test?.title}</h4>
+                              <span className={`cb-badge ${displayScore >= totalQuestions * 0.7 ? 'cb-badge-success' : 'cb-badge-error'} cb-badge-sm`}>
+                                {displayScore}/{totalQuestions}
+                              </span>
+                            </div>
+                            
+                            <div className="cb-list-item-subtitle cb-mb-2">
+                              {a.test?.subjects?.subject_name}
+                            </div>
+
+                            {a.test?.syllabus_chapters && (
+                              <div className="cb-badge cb-badge-neutral cb-badge-sm">
+                                📚 Chapter {a.test.syllabus_chapters.chapter_no}: {a.test.syllabus_chapters.title}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="cb-list-item-actions">
+                            <button 
+                              className="cb-button cb-button-sm cb-button-secondary"
+                              onClick={() => handleReviewTest(a)}
+                            >
+                              <span>👁️</span>
+                              <span>Review</span>
+                            </button>
+                            {user?.role && ['admin', 'superadmin'].includes(user.role) && (
+                              <button 
+                                className="cb-button cb-button-sm cb-button-primary"
+                                loading={reattempting}
+                                onClick={() => handleReattemptTest(a)}
+                              >
+                                <span>🔄</span>
+                                <span>Allow Reattempt</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Test Review Modal */}
+      <TestReviewModal
+        visible={reviewModalVisible}
+        testAttempt={selectedAttempt}
+        onClose={() => {
+          setReviewModalVisible(false);
+          setSelectedAttempt(null);
+        }}
+      />
+    </>
+  );
+};
+
+          {/* Modern Question Card */}
+          <div className="cb-card cb-mb-6">
+            <div className="cb-card-body">
+              {curQ ? (
+                <>
+                  <div className="cb-mb-6">
+                    <h2 className="cb-heading-4 cb-mb-3">{curQ.question_text}</h2>
+                    <div className="cb-flex cb-gap-3 cb-items-center">
+                      <span className="cb-badge cb-badge-primary cb-badge-sm">
+                        {(curQ.question_type || '').replace('_', ' ')}
+                      </span>
+                      <span className="cb-text-caption">
+                        {curQ.points || 1} point{(curQ.points || 1) !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="cb-mb-8">
+                    {curQ.question_type === 'multiple_choice' || curQ.question_type === 'mcq' ? (
+                      <div className="cb-flex cb-flex-col cb-gap-3">
+                        {(curQ.options || []).map((opt, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className={`cb-button ${answers[curQ.id] === opt ? 'cb-button-primary' : 'cb-button-secondary'}`}
+                            onClick={() => handleAnswerChange(curQ.id, opt)}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: 'var(--space-4) var(--space-6)',
+                              justifyContent: 'flex-start',
+                              minHeight: '56px'
+                            }}
+                          >
+                            <span style={{ 
+                              marginRight: 'var(--space-3)',
+                              fontWeight: 'var(--font-bold)',
+                              minWidth: '24px'
+                            }}>
+                              {String.fromCharCode(65 + idx)}.
+                            </span>
+                            <span>{opt}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : curQ.question_type === 'one_word' ? (
+                      <div className="cb-form-group">
+                        <Input 
+                          value={answers[curQ.id] || ''} 
+                          onChange={(e) => handleAnswerChange(curQ.id, e.target.value)} 
+                          placeholder="Type your answer"
+                          className="cb-input"
+                          style={{ maxWidth: '480px', fontSize: 'var(--text-lg)', padding: 'var(--space-4)' }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="cb-form-group">
+                        <Input.TextArea 
+                          rows={8} 
+                          value={answers[curQ.id] || ''} 
+                          onChange={(e) => handleAnswerChange(curQ.id, e.target.value)} 
+                          placeholder="Type your detailed answer"
+                          className="cb-input cb-textarea"
+                          style={{ fontSize: 'var(--text-base)' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="cb-flex cb-justify-between cb-items-center">
+                    <button 
+                      className="cb-button cb-button-secondary"
+                      onClick={prevQuestion} 
+                      disabled={currentQuestionIndex === 0}
+                    >
+                      <span>←</span>
+                      <span>Previous</span>
+                    </button>
+                    
+                    <div className="cb-flex cb-gap-3">
+                      {currentQuestionIndex === questions.length - 1 ? (
+                        <button 
+                          className="cb-button cb-button-success cb-button-lg"
+                          onClick={submitConfirm} 
+                          disabled={submitting}
+                        >
+                          {submitting ? (
+                            <>
+                              <div className="cb-spinner"></div>
+                              <span>Submitting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>✅</span>
+                              <span>Submit Test</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <button 
+                          className="cb-button cb-button-primary"
+                          onClick={nextQuestion}
+                        >
+                          <span>Next</span>
+                          <span>→</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="cb-empty-state">
+                  <div className="cb-empty-icon">❓</div>
+                  <h3 className="cb-empty-title">No Question Available</h3>
+                  <p className="cb-empty-description">
+                    Question data could not be loaded. Please contact your teacher.
+                  </p>
+                </div>
+              )}
+            </div>
               <div>
                 <Title level={3} style={{ margin: 0 }}>{currentTest.title}</Title>
                 <Space>
