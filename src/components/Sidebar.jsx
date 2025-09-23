@@ -1,455 +1,496 @@
-import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Card, Form, Input, Button, Select, message, Typography, Space, Row, Col, Table, Tag, Modal, Popconfirm } from 'antd';
+import { UserAddOutlined, MailOutlined, LockOutlined, PhoneOutlined, UserOutlined, IdcardOutlined, BookOutlined } from '@ant-design/icons';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '../AuthProvider';
-import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../config/supabaseClient';
-import { Layout, Menu, Avatar, Typography, Button, Dropdown, Space, Switch, Tooltip } from 'antd';
-import {
-  HomeOutlined,
-  CalendarOutlined,
-  TrophyOutlined,
-  DollarOutlined,
-  SettingOutlined,
-  LogoutOutlined,
-  BankOutlined,
-  BarChartOutlined,
-  BulbOutlined,
-  BulbFilled,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  BookOutlined,
-  FileTextOutlined,
-  QuestionCircleOutlined
-} from '@ant-design/icons';
 
-const { Sider } = Layout;
-const { Text } = Typography;
+const { Title, Text } = Typography;
+const { Option } = Select;
 
-const AppSidebar = ({ collapsed, onCollapse }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
+const AddStudent = () => {
   const { user } = useAuth();
-  const { isDarkMode, toggleTheme, theme: antdTheme } = useTheme();
+  
+  // Try both locations for school_code
+  const school_code = user?.school_code || user?.user_metadata?.school_code;
+  const super_admin_code = user?.super_admin_code || user?.user_metadata?.super_admin_code;
+  
+  const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
+  const [classInstances, setClassInstances] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [studentList, setStudentList] = useState([]);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  
+  // Filter states
+  const [selectedClass, setSelectedClass] = useState('');
 
-  const userName = user?.user_metadata?.full_name || 'User';
-  const userRole = user?.app_metadata?.role || 'user';
-  const schoolName = user?.user_metadata?.school_name || '';
+  const fetchStudents = async () => {
+    setStudentLoading(true);
+    const { data, error } = await supabase
+      .from('student')
+      .select(`
+        id, 
+        full_name, 
+        email, 
+        phone, 
+        student_code, 
+        class_instance_id,
+        class_instances!inner(grade, section)
+      `)
+      .eq('school_code', school_code);
 
-  const handleLogout = async () => {
+    if (error) {
+      message.error('Failed to load students');
+    } else {
+      setStudentList(data || []);
+    }
+    setStudentLoading(false);
+  };
+
+  useEffect(() => {
+    const fetchClassInstances = async () => {
+      const { data, error } = await supabase
+        .from('class_instances')
+        .select(`
+          id,
+          class:classes (grade, section),
+          academic_years:academic_years (year_start, year_end)
+        `)
+        .eq('school_code', school_code);
+
+      if (error) {
+        console.error('Class instances error:', error);
+        message.error('Failed to load classes: ' + error.message);
+      } else {
+        setClassInstances(data || []);
+      }
+    };
+
+    if (school_code && super_admin_code) {
+      fetchClassInstances();
+      fetchStudents();
+    }
+  }, [school_code, super_admin_code]);
+
+  const handleSubmit = async (values) => {
+    setLoading(true);
     try {
-      await supabase.auth.signOut();
-      navigate('/login');
-    } catch (error) {
-      console.error('Error logging out:', error);
+      const sessionResult = await supabase.auth.getSession();
+      const token = sessionResult.data.session?.access_token;
+
+      if (!token) {
+        message.error('Not authenticated. Please log in.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/create-student', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          full_name: values.full_name,
+          email: values.email,
+          password: values.password,
+          phone: values.phone,
+          student_code: values.student_code,
+          class_instance_id: values.class_instance_id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        message.error(result.error || `Failed to create student. Status: ${response.status}`);
+      } else {
+        message.success('Student created successfully!');
+        form.resetFields();
+        fetchStudents();
+      }
+    } catch (err) {
+      message.error('Unexpected error: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getNavigationGroups = () => {
-    const allGroups = [
-      {
-        title: 'Overview',
-        items: [
-          { key: '/', label: 'Dashboard', icon: '🏠', roles: ['cb_admin', 'superadmin', 'admin', 'student'] }
-        ]
-      },
-      {
-        title: 'Platform',
-        items: [
-          { key: '/add-schools', label: 'Schools', icon: '🏢', roles: ['cb_admin'] },
-          { key: '/add-super-admin', label: 'Super Admins', icon: '👑', roles: ['cb_admin'] }
-        ]
-      },
-      {
-        title: 'School Setup',
-        items: [
-          { key: '/school-setup', label: 'Setup Guide', icon: '🚀', roles: ['superadmin'] },
-          { key: '/add-admin', label: 'Admins', icon: '👨‍💼', roles: ['superadmin'] },
-          { key: '/add-student', label: 'Students', icon: '👨‍🎓', roles: ['superadmin', 'admin'] },
-          { key: '/add-specific-class', label: 'Classes', icon: '🏫', roles: ['superadmin'] },
-          { key: '/add-subjects', label: 'Subjects', icon: '📚', roles: ['superadmin', 'admin'] }
-        ]
-      },
-      {
-        title: 'Academics',
-        items: [
-          { key: '/timetable', label: 'Timetable', icon: '📅', roles: ['superadmin', 'admin', 'student'] },
-          { key: '/syllabus', label: 'Syllabus', icon: '📖', roles: ['superadmin', 'admin', 'student'] },
-          { key: '/learning-resources', label: 'Resources', icon: '🎥', roles: ['superadmin', 'admin', 'student'] },
-          { key: '/attendance', label: 'Attendance', icon: '✅', roles: ['superadmin', 'admin', 'student'] }
-        ]
-      },
-      {
-        title: 'Assessment',
-        items: [
-          { key: '/test-management', label: 'Manage Tests', icon: '📝', roles: ['superadmin', 'admin'] },
-          { key: '/take-tests', label: 'Take Tests', icon: '✏️', roles: ['student'] },
-          { key: '/results', label: 'Results', icon: '🏆', roles: ['superadmin', 'admin', 'student'] },
-          { key: '/assessments', label: 'Assessments', icon: '📊', roles: ['superadmin', 'admin', 'student'] }
-        ]
-      },
-      {
-        title: 'Finance',
-        items: [
-          { key: '/fees', label: 'Fees', icon: '💰', roles: ['superadmin', 'admin', 'student'] }
-        ]
-      },
-      {
-        title: 'Analytics',
-        items: [
-          { key: '/analytics', label: 'Analytics', icon: '📈', roles: ['superadmin', 'admin'] }
-        ]
-      }
-    ];
-
-    return allGroups
-      .map(group => ({
-        ...group,
-        items: group.items.filter(item => item.roles.includes(userRole))
-      }))
-      .filter(group => group.items.length > 0);
+  const handleEdit = (record) => {
+    setEditingStudent(record);
+    editForm.setFieldsValue(record);
+    setEditModalVisible(true);
   };
 
-  const navigationGroups = getNavigationGroups();
+  const handleEditSave = async () => {
+    const values = await editForm.validateFields();
+
+    const { data: currentStudent, error: fetchError } = await supabase
+      .from('student')
+      .select('*')
+      .eq('id', editingStudent.id)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current student:', fetchError);
+      message.error('Failed to fetch student data: ' + fetchError.message);
+      return;
+    }
+
+    if (!currentStudent) {
+      message.error('Student not found');
+      return;
+    }
+
+    const isDataDifferent = 
+      currentStudent.class_instance_id !== values.class_instance_id ||
+      currentStudent.full_name !== values.full_name ||
+      currentStudent.phone !== values.phone ||
+      currentStudent.student_code !== values.student_code;
+
+    if (!isDataDifferent) {
+      message.info('No changes detected. The data is identical to the current values.');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('student')
+      .update({
+        full_name: values.full_name,
+        phone: values.phone,
+        student_code: values.student_code,
+        class_instance_id: values.class_instance_id,
+      })
+      .eq('id', editingStudent.id)
+      .select();
+
+    if (error) {
+      message.error('Update failed: ' + error.message);
+    } else {
+      if (data && data.length > 0) {
+        message.success('Student updated successfully');
+        setEditModalVisible(false);
+        setEditingStudent(null);
+        fetchStudents();
+      } else {
+        message.warning('No rows were updated. The data might be the same or you may not have permission.');
+      }
+    }
+  };
+
+  const handleDelete = async (user_id) => {
+    const sessionResult = await supabase.auth.getSession();
+    const token = sessionResult.data.session?.access_token;
+
+    if (!token) {
+      message.error('Not authenticated. Please log in.');
+      return;
+    }
+
+    const res = await fetch(
+      'https://mvvzqouqxrtyzuzqbeud.supabase.co/functions/v1/delete-student',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ student_id: user_id }),
+      }
+    );
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      message.error(result.error || 'Failed to delete student');
+    } else {
+      message.success('Student deleted successfully');
+      fetchStudents();
+    }
+  };
+
+  // Get unique classes for filters
+  const uniqueClasses = [...new Set(classInstances.map(ci => `${ci.class.grade}-${ci.class.section}`))].sort();
+
+  // Filter students based on class filter only (search is handled by table)
+  const filteredStudents = studentList.filter(student => {
+    const matchesClass = !selectedClass || 
+      `${student.class_instances?.grade}-${student.class_instances?.section}` === selectedClass;
+
+    return matchesClass;
+  });
+
+  const columns = [
+    { 
+      title: 'Full Name', 
+      dataIndex: 'full_name', 
+      key: 'full_name',
+      sorter: (a, b) => a.full_name.localeCompare(b.full_name),
+      filterable: true,
+      filterSearch: true,
+      onFilter: (value, record) => 
+        record.full_name?.toLowerCase().includes(value.toLowerCase()) ||
+        record.email?.toLowerCase().includes(value.toLowerCase()) ||
+        record.student_code?.toLowerCase().includes(value.toLowerCase()) ||
+        String(record.phone || '').includes(value)
+    },
+    { 
+      title: 'Email', 
+      dataIndex: 'email', 
+      key: 'email',
+      sorter: (a, b) => a.email.localeCompare(b.email)
+    },
+    { 
+      title: 'Phone', 
+      dataIndex: 'phone', 
+      key: 'phone'
+    },
+    { 
+      title: 'Student Code', 
+      dataIndex: 'student_code', 
+      key: 'student_code',
+      sorter: (a, b) => a.student_code.localeCompare(b.student_code)
+    },
+    { 
+      title: 'Class', 
+      key: 'class',
+      render: (_, record) => (
+        <span>
+          Grade {record.class_instances?.grade} - {record.class_instances?.section}
+        </span>
+      ),
+      sorter: (a, b) => {
+        const aClass = `${a.class_instances?.grade}-${a.class_instances?.section}`;
+        const bClass = `${b.class_instances?.grade}-${b.class_instances?.section}`;
+        return aClass.localeCompare(bClass);
+      }
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role) => <Tag color="green">{role || 'student'}</Tag>,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Button icon={<Pencil size={16} />} onClick={() => handleEdit(record)} type="link" />
+          <Popconfirm
+            title="Are you sure to delete this student?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button icon={<Trash2 size={16} />} type="link" danger />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
-    <div className={`cb-sidebar ${collapsed ? 'cb-sidebar-collapsed' : ''}`}>
-      {/* Header */}
-      <div className="cb-sidebar-header">
-        {!collapsed ? (
-          <div className="cb-sidebar-brand">
-            <span style={{ fontSize: 'var(--text-2xl)' }}>🎓</span>
-            <div>
-              <div style={{ 
-                fontSize: 'var(--text-xl)', 
-                fontWeight: 'var(--font-bold)',
-                color: 'var(--color-text-brand)',
-                lineHeight: 'var(--leading-tight)'
-              }}>
-                ClassBridge
-              </div>
-              {schoolName && (
-                <div style={{ 
-                  fontSize: 'var(--text-xs)', 
-                  color: 'var(--color-text-tertiary)',
-                  fontWeight: 'var(--font-medium)',
-                  marginTop: 'var(--space-1)'
-                }}>
-                  {schoolName}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="cb-sidebar-brand">
-            <span style={{ fontSize: 'var(--text-xl)' }}>🎓</span>
-          </div>
-        )}
-        
-        <button 
-          className="cb-button cb-button-ghost cb-button-sm"
-          onClick={() => onCollapse(!collapsed)}
-          style={{ 
-            padding: 'var(--space-2)',
-            borderRadius: 'var(--radius-lg)'
-          }}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? '→' : '←'}
-        </button>
-      </div>
-
-      {/* User Profile */}
-      {!collapsed && (
-        <div style={{ 
-          padding: 'var(--space-4) var(--space-6)',
-          borderBottom: '1px solid var(--color-border-subtle)'
-        }}>
-          <div className="cb-flex cb-items-center cb-gap-3">
-            <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-xl)',
-              background: 'linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--color-white)',
-              fontSize: 'var(--text-base)',
-              fontWeight: 'var(--font-semibold)',
-              boxShadow: 'var(--shadow-md)'
-            }}>
-              {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ 
-                fontSize: 'var(--text-base)',
-                fontWeight: 'var(--font-semibold)',
-                color: 'var(--color-text-primary)',
-                marginBottom: 'var(--space-1)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}>
-                {userName}
-              </div>
-              <div className={`cb-role-indicator cb-role-${userRole}`}>
-                {userRole.replace('_', ' ')}
-              </div>
-            </div>
-          </div>
+    <div className="cb-container cb-section" style={{ minHeight: '100vh' }}>
+      {/* Modern Header */}
+      <div className="cb-dashboard-header">
+        <div className="cb-text-center">
+          <h1 className="cb-heading-2 cb-mb-2">
+            👨‍🎓 Add New Student
+          </h1>
+          <p className="cb-text-caption">
+            Enroll students into your classes and manage their information
+          </p>
         </div>
-      )}
-
-      {/* Navigation */}
-      <div className="cb-sidebar-nav">
-        {navigationGroups.map((group, groupIndex) => (
-          <div key={groupIndex} className="cb-nav-group">
-            {!collapsed && (
-              <div className="cb-nav-group-title">
-                {group.title}
-              </div>
-            )}
-            
-            {group.items.map((item) => (
-              <a
-                key={item.key}
-                href={item.key}
-                className={`cb-nav-item ${location.pathname === item.key ? 'active' : ''}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(item.key);
-                }}
-                title={collapsed ? item.label : undefined}
-              >
-                <span className="cb-nav-icon">
-                  {item.icon}
-                </span>
-                {!collapsed && (
-                  <span>{item.label}</span>
-                )}
-              </a>
-            ))}
-          </div>
-        ))}
       </div>
 
-      {/* Footer */}
-      <div className="cb-sidebar-footer">
-        {/* Theme Toggle */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: collapsed ? 'center' : 'space-between',
-          marginBottom: 'var(--space-3)',
-          padding: 'var(--space-2)',
-          background: 'var(--color-surface-hover)',
-          borderRadius: 'var(--radius-lg)'
-        }}>
-          {!collapsed && (
-            <span style={{ 
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-secondary)',
-              fontWeight: 'var(--font-medium)'
-            }}>
-              {isDarkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
-            </span>
-          )}
-          <button
-            className="cb-button cb-button-ghost cb-button-sm"
-            onClick={toggleTheme}
-            title={collapsed ? (isDarkMode ? 'Switch to Light' : 'Switch to Dark') : undefined}
-            style={{ 
-              padding: 'var(--space-2)',
-              borderRadius: 'var(--radius-md)'
+      {/* Modern Form Card */}
+      <div className="cb-card cb-mb-8">
+        <div className="cb-card-header">
+          <h3 className="cb-heading-4">Student Information</h3>
+          <p className="cb-text-caption">Enter the student's details below</p>
+        </div>
+        <div className="cb-card-body">
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            className="cb-form"
+            size="large"
+            initialValues={{
+              student_code: 'S'
             }}
           >
-            {isDarkMode ? '☀️' : '🌙'}
-          </button>
-        </div>
-
-        {/* Logout */}
-        <button
-          className="cb-button cb-button-ghost"
-          onClick={handleLogout}
-          style={{ 
-            width: '100%',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            color: 'var(--color-error-500)',
-            padding: 'var(--space-3)',
-            borderRadius: 'var(--radius-lg)'
-          }}
-          title={collapsed ? 'Sign Out' : undefined}
+            <div className="cb-form-section">
+              <h4 className="cb-form-section-title">Personal Information</h4>
+              
+              <div className="cb-form-row">
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Full Name</label>
+                  <Form.Item
+                    name="full_name"
+                    rules={[{ required: true, message: 'Please enter full name' }]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <div className="cb-input-group">
+                      <span className="cb-input-icon">👤</span>
+                      <Input
+                        className="cb-input cb-input-with-icon"
+                        placeholder="Enter student's full name"
+                      />
+                    </div>
+                  </Form.Item>
+                </div>
+                
+                <div className="cb-form-group">
+                  <label className="cb-label cb-label-required">Email Address</label>
+                  <Form.Item
+                    name="email"
+                    rules={[
+                      { required: true, message: 'Please enter email' },
+                      { type: 'email', message: 'Please enter a valid email' }
         >
-          <span>🚪</span>
-          {!collapsed && <span>Sign Out</span>}
-        </button>
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            size="large"
+            initialValues={{
+              student_code: 'S'
+            }}
+          >
+            <Row gutter={[16, 0]}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="full_name"
+                  label="Full Name"
+                  rules={[{ required: true, message: 'Please enter full name' }]}
+                >
+                  <Input
+                    prefix={<UserOutlined />}
+                    placeholder="Enter student's full name"
+                  />
+                </Form.Item>
+              </Col>
+              
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="email"
+                  label="Email Address"
+                  rules={[
+                    { required: true, message: 'Please enter email' },
+                    { type: 'email', message: 'Please enter a valid email' }
+                  ]}
+                >
+                  <Input
+                    prefix={<MailOutlined />}
+                    placeholder="Enter email address"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="password"
+                  label="Password"
+                  rules={[
+                    { required: true, message: 'Please enter password' },
+                    { min: 6, message: 'Password must be at least 6 characters' }
+                  ]}
+                >
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder="Enter password"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="phone"
+                  label="Phone Number"
+                  rules={[
+                    { required: true, message: 'Please enter phone number' },
+                    { pattern: /^[0-9+\-\s()]+$/, message: 'Please enter a valid phone number' }
+                  ]}
+                >
+                  <Input
+                    prefix={<PhoneOutlined />}
+                    placeholder="Enter phone number"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="student_code"
+                  label="Student Code"
+                  rules={[{ required: true, message: 'Please enter student code' }]}
+                >
+                  <Input
+                    prefix={<IdcardOutlined />}
+                    placeholder="Enter student code"
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="class_instance_id"
+                  label="Class"
+                  rules={[{ required: true, message: 'Please select a class' }]}
+                >
+                  <Select
+                    placeholder="Select class"
+                    showSearch
+                    optionFilterProp="children"
+                    suffixIcon={<BookOutlined />}
+                  >
+                    {classInstances.map((instance) => (
+                      <Option key={instance.id} value={instance.id}>
+                        Grade {instance.class.grade} - {instance.class.section} | 
+                        AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item>
+              <Space>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  size="large"
+                  style={{
+                    background: '#6366f1',
+                    borderColor: '#6366f1',
+                    borderRadius: '8px',
+                    fontWeight: 500
+                  }}
+                >
+                  {loading ? 'Adding Student...' : 'Add Student'}
+                </Button>
+                <Button
+                  size="large"
+                {classInstances.map((instance) => (
+                  <Option key={instance.id} value={instance.id}>
+                    Grade {instance.class.grade} - {instance.class.section} | 
+                    AY {instance.academic_years.year_start} - {instance.academic_years.year_end}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Form>
+        </Modal>
       </div>
     </div>
   );
 };
 
-export default AppSidebar;
-          <div>
-            <Text strong style={{ fontSize: '20px', color: antdTheme.token.colorPrimary, fontWeight: 700 }}>
-              ClassBridge
-            </Text>
-            <br />
-            <Text style={{ fontSize: '12px', color: antdTheme.token.colorTextSecondary, fontWeight: 500 }}>
-              Education Management
-            </Text>
-          </div>
-        )}
-        {collapsed && (
-          <Tooltip title="ClassBridge" placement="right">
-            <Text strong style={{ fontSize: '16px', color: antdTheme.token.colorPrimary, fontWeight: 700 }}>
-              CB
-            </Text>
-          </Tooltip>
-        )}
-        <Tooltip title={collapsed ? "Expand sidebar" : "Collapse sidebar"} placement="right">
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => onCollapse(!collapsed)}
-            style={{
-              color: antdTheme.token.colorTextSecondary,
-              border: 'none',
-              background: 'transparent',
-              padding: collapsed ? '4px' : '8px'
-            }}
-          />
-        </Tooltip>
-      </div>
-
-      {/* User Profile Section */}
-      <div style={{ 
-        padding: collapsed ? '12px 8px' : antdTheme.token.paddingLG,
-        borderBottom: `1px solid ${antdTheme.token.colorBorder}`,
-        background: antdTheme.token.colorBgContainer
-      }}>
-        {!collapsed ? (
-          <Dropdown menu={{ items: userMenuItems }} placement="topRight" trigger={['click']}>
-            <div style={{ cursor: 'pointer' }}>
-              <Space align="center">
-                <Avatar 
-                  size={36} 
-                  style={{ 
-                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                    fontWeight: 600,
-                    fontSize: '14px'
-                  }}
-                >
-                  {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
-                </Avatar>
-                <div>
-                  <Text strong style={{ display: 'block', fontSize: '14px', color: antdTheme.token.colorText, fontWeight: 600 }}>
-                    {userName}
-                  </Text>
-                </div>
-              </Space>
-            </div>
-          </Dropdown>
-        ) : (
-          <Tooltip title={`${userName} (${userRole})`} placement="right">
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <Avatar 
-                size={32} 
-                style={{ 
-                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                  fontWeight: 600,
-                  fontSize: '12px'
-                }}
-              >
-                {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
-              </Avatar>
-            </div>
-          </Tooltip>
-        )}
-      </div>
-
-      {/* Navigation Menu */}
-      <div style={{ 
-        flex: 1, 
-        background: antdTheme.token.colorBgContainer,
-        padding: '8px 0',
-        overflow: 'auto',
-        maxHeight: 'calc(100vh - 280px)' // Account for header, user profile, theme toggle, and logout sections
-      }}>
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={getMenuItems()}
-          style={{ 
-            border: 'none',
-            background: antdTheme.token.colorBgContainer
-          }}
-          theme={isDarkMode ? 'dark' : 'light'}
-        />
-      </div>
-
-      {/* Theme Toggle Section */}
-      <div style={{
-        padding: collapsed ? '8px' : antdTheme.token.padding,
-        borderTop: `1px solid ${antdTheme.token.colorBorder}`,
-        background: antdTheme.token.colorBgContainer,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between'
-      }}>
-        {!collapsed && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: antdTheme.token.marginXS }}>
-            {isDarkMode ? (
-              <BulbFilled style={{ color: '#fbbf24', fontSize: '14px' }} />
-            ) : (
-              <BulbOutlined style={{ color: antdTheme.token.colorTextSecondary, fontSize: '14px' }} />
-            )}
-            <Text style={{ 
-              fontSize: antdTheme.token.fontSizeSM, 
-              color: antdTheme.token.colorTextSecondary,
-              fontWeight: 500
-            }}>
-              {isDarkMode ? 'Dark' : 'Light'} Mode
-            </Text>
-          </div>
-        )}
-        <Tooltip title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} mode`} placement="right">
-          <Switch
-            checked={isDarkMode}
-            onChange={toggleTheme}
-            size="small"
-          />
-        </Tooltip>
-      </div>
-
-      {/* Bottom Section with Logout */}
-      <div style={{
-        padding: collapsed ? '8px' : antdTheme.token.padding,
-        borderTop: `1px solid ${antdTheme.token.colorBorder}`,
-        background: antdTheme.token.colorBgContainer
-      }}>
-        <Tooltip title="Sign Out" placement="right">
-          <Button
-            type="text"
-            icon={<LogoutOutlined />}
-            onClick={handleLogout}
-            style={{ 
-              width: '100%',
-              height: collapsed ? '32px' : '36px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              color: antdTheme.token.colorError,
-              fontWeight: 500,
-              background: 'transparent',
-              border: 'none'
-            }}
-          >
-            {!collapsed && 'Sign Out'}
-          </Button>
-        </Tooltip>
-      </div>
-    </Sider>
-  );
-};
-
-export default AppSidebar;
+export default AddStudent;
