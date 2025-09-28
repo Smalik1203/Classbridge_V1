@@ -312,9 +312,49 @@ const LearningResources = () => {
       
       console.log('Form values:', values);
       console.log('User data:', user);
+      console.log('User metadata locations:', {
+        raw_app_meta_data: user?.raw_app_meta_data,
+        app_metadata: user?.app_metadata,
+        raw_user_meta_data: user?.raw_user_meta_data,
+        user_metadata: user?.user_metadata
+      });
+      
+      // Check user role
+      const userRole = getUserRole(user);
+      console.log('User role:', userRole);
+      
+      // Only allow admins and superadmins to add learning resources
+      if (!userRole || !['admin', 'superadmin', 'cb_admin'].includes(userRole)) {
+        message.error('You do not have permission to add learning resources.');
+        return;
+      }
       
       // Validate required fields
-      const schoolCode = getSchoolCode(user);
+      let schoolCode = getSchoolCode(user);
+      console.log('Extracted school code:', schoolCode);
+      
+      // If school code not found in metadata, try to get it from database
+      if (!schoolCode) {
+        console.log('School code not found in metadata, trying database lookup...');
+        try {
+          // Try to get school code from users table
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('school_code')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          if (userError) {
+            console.error('Error fetching user data:', userError);
+          } else if (userData?.school_code) {
+            schoolCode = userData.school_code;
+            console.log('Found school code in database:', schoolCode);
+          }
+        } catch (dbError) {
+          console.error('Database lookup error:', dbError);
+        }
+      }
+      
       if (!schoolCode) {
         message.error('User school information not found. Please contact administrator.');
         return;
@@ -784,6 +824,21 @@ const LearningResources = () => {
           )}
         </Row>
       </div>
+      
+      {/* Temporary Debug Info */}
+      <Card style={{ marginBottom: 16, backgroundColor: '#f0f0f0' }}>
+        <Title level={5}>Debug Information</Title>
+        <div style={{ fontSize: '12px', fontFamily: 'monospace' }}>
+          <div><strong>User ID:</strong> {user?.id}</div>
+          <div><strong>User Email:</strong> {user?.email}</div>
+          <div><strong>User Role (from metadata):</strong> {getUserRole(user) || 'Not found'}</div>
+          <div><strong>School Code (from metadata):</strong> {getSchoolCode(user) || 'Not found'}</div>
+          <div><strong>Raw App Meta Data:</strong> {JSON.stringify(user?.raw_app_meta_data, null, 2)}</div>
+          <div><strong>App Meta Data:</strong> {JSON.stringify(user?.app_metadata, null, 2)}</div>
+          <div><strong>Raw User Meta Data:</strong> {JSON.stringify(user?.raw_user_meta_data, null, 2)}</div>
+          <div><strong>User Meta Data:</strong> {JSON.stringify(user?.user_metadata, null, 2)}</div>
+        </div>
+      </Card>
 
         {/* Filters and Resources */}
         <SubjectFilter 
