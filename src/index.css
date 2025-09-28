@@ -1,0 +1,1490 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Table zebra striping */
+.table-row-light {
+  background-color: transparent !important;
+}
+
+.table-row-dark {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.table-row-light:hover,
+.table-row-dark:hover {
+  background-color: rgba(24, 144, 255, 0.05) !important;
+}
+
+/* Ensure proper layout structure */
+#root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar for better UX */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Dark theme scrollbar */
+.dark-theme ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Focus management for accessibility */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* Ensure proper text rendering */
+.ant-typography {
+  text-rendering: optimizeLegibility;
+}
+
+/* ===== TYPOGRAPHY CONSISTENCY SYSTEM ===== */
+
+/* Global font consistency */
+body, 
+.ant-typography,
+.ant-btn,
+.ant-input,
+.ant-select,
+.ant-table,
+.ant-card,
+.ant-form,
+.ant-menu,
+.ant-dropdown {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Consistent font sizes across all components */
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5,
+.ant-typography h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Page titles */
+.ant-typography h1 {
+  font-size: 24px !important;
+  font-weight: 600 !important;
+}
+
+.ant-typography h2 {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+}
+
+.ant-typography h3 {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+}
+
+.ant-typography h4 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.ant-typography h5 {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.ant-typography h6 {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+/* Body text consistency */
+.ant-typography {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+}
+
+/* Button text consistency */
+.ant-btn {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+}
+
+.ant-btn-lg {
+  font-size: 14px !important;
+}
+
+.ant-btn-sm {
+  font-size: 12px !important;
+}
+
+/* Input and form consistency */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+}
+
+/* Table consistency */
+.ant-table {
+  font-size: 13px !important;
+}
+
+.ant-table-thead > tr > th {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #666 !important;
+}
+
+.ant-table-tbody > tr > td {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+/* Card titles */
+.ant-card-head-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Menu consistency */
+.ant-menu-item,
+.ant-menu-submenu-title {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+}
+
+/* Tag consistency */
+.ant-tag {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+}
+
+/* Tooltip consistency */
+.ant-tooltip-inner {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+/* Modal consistency */
+.ant-modal-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.ant-modal-body {
+  font-size: 14px !important;
+}
+
+/* Form labels */
+.ant-form-item-label > label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+/* Select dropdown */
+.ant-select-item {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+}
+
+/* Breadcrumb */
+.ant-breadcrumb {
+  font-size: 13px !important;
+}
+
+.ant-breadcrumb-link {
+  font-weight: 400 !important;
+}
+
+/* Pagination */
+.ant-pagination-item,
+.ant-pagination-prev,
+.ant-pagination-next {
+  font-size: 13px !important;
+}
+
+/* Steps */
+.ant-steps-item-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-steps-item-description {
+  font-size: 12px !important;
+}
+
+/* Tabs */
+.ant-tabs-tab {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+/* Alert */
+.ant-alert-message {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-alert-description {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+/* Message */
+.ant-message {
+  font-size: 14px !important;
+}
+
+/* Notification */
+.ant-notification-notice-message {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-notification-notice-description {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+/* Drawer */
+.ant-drawer-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.ant-drawer-body {
+  font-size: 14px !important;
+}
+
+/* Popover */
+.ant-popover-inner-content {
+  font-size: 13px !important;
+}
+
+/* Dropdown */
+.ant-dropdown-menu-item {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+}
+
+/* Calendar */
+.ant-picker-calendar-date-content {
+  font-size: 13px !important;
+}
+
+/* Progress */
+.ant-progress-text {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* Rate */
+.ant-rate {
+  font-size: 16px !important;
+}
+
+/* Slider */
+.ant-slider-mark-text {
+  font-size: 12px !important;
+}
+
+/* Switch */
+.ant-switch-inner {
+  font-size: 12px !important;
+}
+
+/* Transfer */
+.ant-transfer-list-header {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+/* Tree */
+.ant-tree-title {
+  font-size: 14px !important;
+}
+
+/* Upload */
+.ant-upload-list-item-name {
+  font-size: 13px !important;
+}
+
+/* Timeline */
+.ant-timeline-item-content {
+  font-size: 14px !important;
+}
+
+/* Anchor */
+.ant-anchor-link-title {
+  font-size: 14px !important;
+}
+
+/* BackTop */
+.ant-back-top {
+  font-size: 16px !important;
+}
+
+/* Affix */
+.ant-affix {
+  font-size: 14px !important;
+}
+
+/* Anchor */
+.ant-anchor-link-title {
+  font-size: 14px !important;
+}
+
+/* Avatar */
+.ant-avatar-string {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+/* Badge */
+.ant-badge-count {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+/* Carousel */
+.ant-carousel .slick-slide {
+  font-size: 14px !important;
+}
+
+/* Collapse */
+.ant-collapse-header {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-collapse-content-box {
+  font-size: 13px !important;
+}
+
+/* Descriptions */
+.ant-descriptions-item-label {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-descriptions-item-content {
+  font-size: 14px !important;
+}
+
+/* Empty */
+.ant-empty-description {
+  font-size: 14px !important;
+}
+
+/* List */
+.ant-list-item-meta-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-list-item-meta-description {
+  font-size: 13px !important;
+}
+
+/* PageHeader */
+.ant-page-header-heading-title {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+}
+
+.ant-page-header-heading-sub-title {
+  font-size: 14px !important;
+}
+
+/* Result */
+.ant-result-title {
+  font-size: 24px !important;
+  font-weight: 600 !important;
+}
+
+.ant-result-subtitle {
+  font-size: 14px !important;
+}
+
+/* Skeleton */
+.ant-skeleton-title,
+.ant-skeleton-paragraph > li {
+  font-size: 14px !important;
+}
+
+/* Statistic */
+.ant-statistic-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-statistic-content {
+  font-size: 24px !important;
+  font-weight: 600 !important;
+}
+
+/* Typography specific overrides */
+.ant-typography.ant-typography-secondary {
+  font-size: 13px !important;
+  color: #8c8c8c !important;
+}
+
+.ant-typography.ant-typography-success {
+  font-size: 14px !important;
+  color: #52c41a !important;
+}
+
+.ant-typography.ant-typography-warning {
+  font-size: 14px !important;
+  color: #faad14 !important;
+}
+
+.ant-typography.ant-typography-danger {
+  font-size: 14px !important;
+  color: #ff4d4f !important;
+}
+
+/* Custom utility classes for common patterns */
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+/* Loading states */
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+/* Empty states */
+.empty-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+/* Enhanced Responsive Design System */
+@media (max-width: 1200px) {
+  .ant-layout-content {
+    padding: 16px !important;
+  }
+  
+  .enhanced-card {
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ant-layout-sider {
+    position: fixed !important;
+    z-index: 1000;
+  }
+  
+  .ant-layout-content {
+    margin-left: 0 !important;
+    padding: 12px !important;
+  }
+  
+  .enhanced-card {
+    margin-bottom: 12px;
+  }
+  
+  .ant-card-head {
+    padding: 12px 16px !important;
+  }
+  
+  .ant-card-body {
+    padding: 16px !important;
+  }
+  
+  .ant-statistic-title {
+    font-size: 12px !important;
+  }
+  
+  .ant-statistic-content {
+    font-size: 20px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .ant-layout-content {
+    padding: 8px !important;
+  }
+  
+  .enhanced-card {
+    margin-bottom: 8px;
+  }
+  
+  .ant-card-head {
+    padding: 8px 12px !important;
+  }
+  
+  .ant-card-body {
+    padding: 12px !important;
+  }
+  
+  .ant-statistic-title {
+    font-size: 11px !important;
+  }
+  
+  .ant-statistic-content {
+    font-size: 18px !important;
+  }
+  
+  .ant-btn {
+    height: 32px !important;
+    font-size: 12px !important;
+  }
+}
+
+/* Enhanced Component Styles */
+.enhanced-card {
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.enhanced-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.chart-container {
+  transition: all 0.2s ease;
+}
+
+.chart-container:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Enhanced Data Visualization Styles */
+.recharts-wrapper {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.recharts-cartesian-axis-tick-value {
+  font-size: 12px !important;
+  fill: #6b7280 !important;
+}
+
+.recharts-legend-item-text {
+  font-size: 13px !important;
+  color: #374151 !important;
+}
+
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+/* Enhanced Button Styles */
+.ant-btn {
+  transition: all 0.2s ease !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+  border: none !important;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #3730a3 0%, #6d28d9 100%) !important;
+}
+
+/* Enhanced Table Styles */
+.ant-table {
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.ant-table-thead > tr > th {
+  background: #f8fafc !important;
+  border-bottom: 2px solid #e5e7eb !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #f1f5f9 !important;
+}
+
+/* Enhanced Form Styles - Fixed Double Border Issue */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number,
+.ant-textarea {
+  border-radius: 6px !important;
+  border: 1px solid #d1d5db !important;
+  transition: all 0.2s ease !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.ant-input:focus,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused,
+.ant-input-number:focus,
+.ant-textarea:focus {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+  outline: none !important;
+}
+
+/* Fix for input affix wrapper double border */
+.ant-input-affix-wrapper {
+  border: 1px solid #d1d5db !important;
+}
+
+.ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
+  border-color: #4f46e5 !important;
+  box-shadow: none !important;
+}
+
+.ant-input-affix-wrapper-focused {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+}
+
+/* Fix for select component */
+.ant-select:not(.ant-select-disabled):hover .ant-select-selector {
+  border-color: #4f46e5 !important;
+  box-shadow: none !important;
+}
+
+.ant-select-focused:not(.ant-select-disabled).ant-select:not(.ant-select-customize-input) .ant-select-selector {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+}
+
+/* Fix for date picker */
+.ant-picker:hover,
+.ant-picker-focused {
+  border-color: #4f46e5 !important;
+}
+
+.ant-picker-focused {
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+}
+
+/* Remove any conflicting borders */
+.ant-input-affix-wrapper .ant-input {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.ant-input-affix-wrapper .ant-input:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Essential dark theme overrides */
+.dark-theme .ant-layout-content {
+  background-color: #111827 !important;
+}
+
+.light-theme .ant-layout-content {
+  background-color: #f8fafc !important;
+}
+
+.dark-theme .enhanced-card {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+.dark-theme .chart-container {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+.dark-theme .ant-table-thead > tr > th {
+  background: #374151 !important;
+  border-bottom-color: #4b5563 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark-theme .ant-table-tbody > tr:hover > td {
+  background: #374151 !important;
+}
+
+/* Dark theme form elements */
+.dark-theme .ant-input,
+.dark-theme .ant-input-affix-wrapper,
+.dark-theme .ant-select-selector,
+.dark-theme .ant-picker,
+.dark-theme .ant-input-number,
+.dark-theme .ant-textarea {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark-theme .ant-input::placeholder,
+.dark-theme .ant-input-affix-wrapper .ant-input::placeholder {
+  color: #9ca3af !important;
+}
+
+.dark-theme .ant-input:focus,
+.dark-theme .ant-input-affix-wrapper:focus,
+.dark-theme .ant-input-affix-wrapper-focused,
+.dark-theme .ant-select-focused .ant-select-selector,
+.dark-theme .ant-picker-focused,
+.dark-theme .ant-input-number:focus,
+.dark-theme .ant-textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+}
+
+.dark-theme .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
+  border-color: #6366f1 !important;
+}
+
+.dark-theme .ant-select:not(.ant-select-disabled):hover .ant-select-selector {
+  border-color: #6366f1 !important;
+}
+
+.dark-theme .ant-picker:hover {
+  border-color: #6366f1 !important;
+}
+
+/* Fix any remaining hardcoded white backgrounds */
+.dark-theme [style*="background-color: #fff"],
+.dark-theme [style*="background-color: #ffffff"],
+.dark-theme [style*="background: #fff"],
+.dark-theme [style*="background: #ffffff"] {
+  background-color: #1f2937 !important;
+}
+
+.dark-theme [style*="background-color: #fafafa"] {
+  background-color: #374151 !important;
+}
+
+/* ===== GLOBAL TEXT WRAPPING AND RESPONSIVE FIXES ===== */
+
+/* Global text wrapping and overflow handling */
+* {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  hyphens: auto !important;
+}
+
+/* Ensure all text elements handle wrapping properly */
+.ant-typography,
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5,
+.ant-typography h6,
+.ant-typography p,
+.ant-typography span,
+.ant-typography div,
+.ant-btn,
+.ant-input,
+.ant-select,
+.ant-table,
+.ant-card,
+.ant-form,
+.ant-menu,
+.ant-dropdown,
+.ant-tag,
+.ant-tooltip,
+.ant-modal,
+.ant-drawer,
+.ant-popover,
+.ant-alert,
+.ant-message,
+.ant-notification,
+.ant-breadcrumb,
+.ant-pagination,
+.ant-steps,
+.ant-tabs,
+.ant-collapse,
+.ant-descriptions,
+.ant-list,
+.ant-page-header,
+.ant-result,
+.ant-skeleton,
+.ant-statistic,
+.ant-timeline,
+.ant-anchor,
+.ant-avatar,
+.ant-badge,
+.ant-carousel,
+.ant-upload,
+.ant-tree,
+.ant-transfer,
+.ant-rate,
+.ant-slider,
+.ant-switch,
+.ant-calendar,
+.ant-progress {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  hyphens: auto !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Specific fixes for common text wrapping issues */
+
+/* Table cell text wrapping */
+.ant-table-tbody > tr > td,
+.ant-table-thead > tr > th {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 200px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Card titles and content */
+.ant-card-head-title,
+.ant-card-body,
+.ant-card-meta-title,
+.ant-card-meta-description {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Form labels and help text */
+.ant-form-item-label > label,
+.ant-form-item-explain,
+.ant-form-item-extra {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Button text */
+.ant-btn {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+}
+
+/* Input and select text */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector,
+.ant-picker,
+.ant-textarea {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+/* Menu items */
+.ant-menu-item,
+.ant-menu-submenu-title {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 100% !important;
+}
+
+/* Tag text */
+.ant-tag {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 100% !important;
+  display: inline-block !important;
+}
+
+/* Tooltip content */
+.ant-tooltip-inner {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 300px !important;
+}
+
+/* Modal content */
+.ant-modal-title,
+.ant-modal-body,
+.ant-modal-footer {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Drawer content */
+.ant-drawer-title,
+.ant-drawer-body,
+.ant-drawer-footer {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Alert content */
+.ant-alert-message,
+.ant-alert-description {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Message and notification content */
+.ant-message,
+.ant-notification-notice-message,
+.ant-notification-notice-description {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Breadcrumb links */
+.ant-breadcrumb-link,
+.ant-breadcrumb-separator {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Pagination items */
+.ant-pagination-item,
+.ant-pagination-prev,
+.ant-pagination-next,
+.ant-pagination-jump-prev,
+.ant-pagination-jump-next {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+}
+
+/* Steps content */
+.ant-steps-item-title,
+.ant-steps-item-description {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Tabs content */
+.ant-tabs-tab {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Collapse headers and content */
+.ant-collapse-header,
+.ant-collapse-content-box {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Descriptions */
+.ant-descriptions-item-label,
+.ant-descriptions-item-content {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* List items */
+.ant-list-item-meta-title,
+.ant-list-item-meta-description,
+.ant-list-item-content {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Page header */
+.ant-page-header-heading-title,
+.ant-page-header-heading-sub-title {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Result content */
+.ant-result-title,
+.ant-result-subtitle {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Skeleton content */
+.ant-skeleton-title,
+.ant-skeleton-paragraph > li {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Statistic content */
+.ant-statistic-title,
+.ant-statistic-content {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Timeline content */
+.ant-timeline-item-content {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Anchor links */
+.ant-anchor-link-title {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Avatar text */
+.ant-avatar-string {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Badge text */
+.ant-badge-count {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+}
+
+/* Carousel content */
+.ant-carousel .slick-slide {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Upload content */
+.ant-upload-list-item-name {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Tree content */
+.ant-tree-title {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Transfer content */
+.ant-transfer-list-header {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Rate content */
+.ant-rate {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+}
+
+/* Slider content */
+.ant-slider-mark-text {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+}
+
+/* Switch content */
+.ant-switch-inner {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+}
+
+/* Calendar content */
+.ant-picker-calendar-date-content {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* Progress content */
+.ant-progress-text {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: nowrap !important;
+}
+
+/* ===== RESPONSIVE CONTAINER FIXES ===== */
+
+/* Global container width fixes */
+.ant-layout-content {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Fix for common container classes */
+.max-w-3xl,
+.max-w-4xl,
+.max-w-5xl,
+.max-w-6xl,
+.max-w-7xl {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Responsive breakpoint fixes */
+@media (max-width: 1400px) {
+  .max-w-7xl {
+    max-width: 1200px !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  .max-w-6xl {
+    max-width: 1000px !important;
+  }
+}
+
+@media (max-width: 1000px) {
+  .max-w-5xl {
+    max-width: 800px !important;
+  }
+}
+
+@media (max-width: 800px) {
+  .max-w-4xl {
+    max-width: 600px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .max-w-3xl {
+    max-width: 100% !important;
+  }
+}
+
+/* ===== FLEXBOX AND LAYOUT FIXES ===== */
+
+/* Ensure flex containers handle text wrapping */
+.ant-row,
+.ant-col,
+.flex,
+.flex-col {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+}
+
+/* Fix for common layout issues */
+.ant-space,
+.ant-space-item {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+}
+
+/* ===== SPECIFIC COMPONENT FIXES ===== */
+
+/* Fix for form item labels that might overflow */
+.ant-form-item-label {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 100% !important;
+}
+
+/* Fix for table headers that might be too long */
+.ant-table-thead > tr > th {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 200px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Fix for card headers */
+.ant-card-head {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+}
+
+/* Fix for modal headers */
+.ant-modal-header {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+}
+
+/* Fix for drawer headers */
+.ant-drawer-header {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+}
+
+/* ===== DARK THEME TEXT WRAPPING FIXES ===== */
+
+.dark-theme * {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  hyphens: auto !important;
+}
+
+.dark-theme .ant-table-tbody > tr > td,
+.dark-theme .ant-table-thead > tr > th {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  max-width: 200px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.dark-theme .ant-card-head-title,
+.dark-theme .ant-card-body {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+.dark-theme .ant-form-item-label > label {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+/* ===== UTILITY CLASSES FOR TEXT WRAPPING ===== */
+
+.text-wrap {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+.text-nowrap {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.text-break {
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+.text-truncate {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* ===== RESPONSIVE TEXT SIZING ===== */
+
+@media (max-width: 768px) {
+  .ant-typography h1 {
+    font-size: 20px !important;
+  }
+  
+  .ant-typography h2 {
+    font-size: 18px !important;
+  }
+  
+  .ant-typography h3 {
+    font-size: 16px !important;
+  }
+  
+  .ant-typography h4 {
+    font-size: 14px !important;
+  }
+  
+  .ant-typography h5 {
+    font-size: 13px !important;
+  }
+  
+  .ant-typography h6 {
+    font-size: 12px !important;
+  }
+  
+  .ant-typography {
+    font-size: 13px !important;
+  }
+  
+  .ant-btn {
+    font-size: 12px !important;
+  }
+  
+  .ant-input,
+  .ant-select,
+  .ant-picker {
+    font-size: 13px !important;
+  }
+  
+  .ant-table {
+    font-size: 12px !important;
+  }
+  
+  .ant-card-head-title {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .ant-typography h1 {
+    font-size: 18px !important;
+  }
+  
+  .ant-typography h2 {
+    font-size: 16px !important;
+  }
+  
+  .ant-typography h3 {
+    font-size: 14px !important;
+  }
+  
+  .ant-typography h4 {
+    font-size: 13px !important;
+  }
+  
+  .ant-typography h5 {
+    font-size: 12px !important;
+  }
+  
+  .ant-typography h6 {
+    font-size: 11px !important;
+  }
+  
+  .ant-typography {
+    font-size: 12px !important;
+  }
+  
+  .ant-btn {
+    font-size: 11px !important;
+  }
+  
+  .ant-input,
+  .ant-select,
+  .ant-picker {
+    font-size: 12px !important;
+  }
+  
+  .ant-table {
+    font-size: 11px !important;
+  }
+  
+  .ant-card-head-title {
+    font-size: 13px !important;
+  }
+}
