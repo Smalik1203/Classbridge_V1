@@ -33,6 +33,7 @@ import {
   BarChartOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
+import { getSchoolCode, getUserRole, getFullName } from '../utils/metadata';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -107,9 +108,9 @@ const Assessments = () => {
 
   // Get user role and school context
   const currentUser = {
-    role: user?.raw_app_meta_data?.role || user?.app_metadata?.role || user?.raw_user_meta_data?.role || user?.user_metadata?.role || 'student',
-    name: user?.user_metadata?.full_name || 'User',
-    schoolCode: user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.raw_user_meta_data?.school_code || user?.user_metadata?.school_code
+    role: getUserRole(user) || 'student',
+    name: getFullName(user) || 'User',
+    schoolCode: getSchoolCode(user)
   };
 
   // Supabase queries

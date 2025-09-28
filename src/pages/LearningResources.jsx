@@ -42,7 +42,7 @@ import {
 } from '@ant-design/icons';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
-import { getSchoolCode, getUserRole } from '../utils/metadata';
+import { getSchoolCode, getUserRole, getStudentCode } from '../utils/metadata';
 import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../config/supabaseClient';
 import { 
@@ -190,7 +190,7 @@ const LearningResources = () => {
       if (!isStudent || !user) return;
       const schoolCode = getSchoolCode(user);
       if (!schoolCode) return;
-      const studentCode = user?.user_metadata?.student_code;
+      const studentCode = getStudentCode(user);
       let base = supabase.from('student').select('class_instance_id, school_code, student_code, email').eq('school_code', schoolCode);
       const { data, error } = await (studentCode
         ? base.eq('student_code', studentCode)
@@ -314,7 +314,8 @@ const LearningResources = () => {
       console.log('User data:', user);
       
       // Validate required fields
-      if (!user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.raw_user_meta_data?.school_code || user?.user_metadata?.school_code) {
+      const schoolCode = getSchoolCode(user);
+      if (!schoolCode) {
         message.error('User school information not found. Please contact administrator.');
         return;
       }
@@ -332,7 +333,7 @@ const LearningResources = () => {
       let contentUrl = values.content_url;
       if (useFileUpload && selectedFile) {
         const fileExt = selectedFile.name.split('.').pop();
-        const filePath = `${user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.raw_user_meta_data?.school_code || user?.user_metadata?.school_code}/${values.class_instance_id}/${values.subject_id}/${Date.now()}.${fileExt}`;
+        const filePath = `${schoolCode}/${values.class_instance_id}/${values.subject_id}/${Date.now()}.${fileExt}`;
         const bucket = STORAGE_BUCKET;
 
         const { error: uploadError } = await supabase

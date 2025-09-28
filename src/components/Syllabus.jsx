@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
+import { getSchoolCode, getUserRole } from '../utils/metadata';
 import * as XLSX from 'xlsx';
 import EmptyState from '../ui/EmptyState';
 
@@ -30,9 +31,9 @@ export default function SyllabusPage() {
   const [msg, ctx] = message.useMessage();
   const { user } = useAuth();
 
-  // Comprehensive user data extraction (checking all possible locations)
-  const school_code = user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.raw_user_meta_data?.school_code || user?.user_metadata?.school_code;
-  const role = user?.raw_app_meta_data?.role || user?.app_metadata?.role || user?.raw_user_meta_data?.role || user?.user_metadata?.role;
+  // Use centralized metadata utilities
+  const school_code = getSchoolCode(user);
+  const role = getUserRole(user);
 
   // Query params
   const params = new URLSearchParams(window.location.search);

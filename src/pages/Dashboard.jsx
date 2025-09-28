@@ -22,6 +22,7 @@ import { useAuth } from '../AuthProvider';
 import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { getSchoolCode } from '../utils/metadata';
 import { Page, EnhancedCard, designTokens } from '../ui';
 import EmptyState from '../ui/EmptyState';
 
@@ -85,8 +86,8 @@ const Dashboard = () => {
   };
 
   const fetchSchoolSpecificData = async () => {
-    // Comprehensive user data extraction (checking all possible locations)
-    const schoolCode = user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.raw_user_meta_data?.school_code || user?.user_metadata?.school_code;
+    // Use centralized metadata utility
+    const schoolCode = getSchoolCode(user);
     if (!schoolCode) return;
 
     try {

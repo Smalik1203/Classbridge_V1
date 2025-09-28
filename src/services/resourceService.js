@@ -1,5 +1,6 @@
 // src/services/resourceService.js
 import { supabase } from '../config/supabaseClient.js';
+import { getSchoolCode } from '../utils/metadata.js';
 
 /**
  * Get learning resources with filtering and pagination
@@ -214,8 +215,8 @@ export const getStudentResources = async (studentId, filters = {}) => {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
     
-    // Comprehensive user data extraction (checking all possible locations)
-    const schoolCode = userData.user?.raw_app_meta_data?.school_code || userData.user?.app_metadata?.school_code || userData.user?.raw_user_meta_data?.school_code || userData.user?.user_metadata?.school_code;
+    // Use centralized metadata utility
+    const schoolCode = getSchoolCode(userData.user);
     if (!schoolCode) {
       return { data: [], count: 0 };
     }

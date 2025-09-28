@@ -33,14 +33,15 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
 import * as XLSX from 'xlsx';
+import { getSchoolCode, getSuperAdminCode } from '../utils/metadata';
 
 const { Title } = Typography;
 
 const AddAdmin = () => {
   const { user } = useAuth();
-  // Use raw_app_meta_data for school_code (where the actual data is stored)
-  const school_code = user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.user_metadata?.school_code;
-  const super_admin_code = user?.raw_app_meta_data?.super_admin_code || user?.app_metadata?.super_admin_code || user?.user_metadata?.super_admin_code;
+  // Use centralized metadata utilities
+  const school_code = getSchoolCode(user);
+  const super_admin_code = getSuperAdminCode(user);
   
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();

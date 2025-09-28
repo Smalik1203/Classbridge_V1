@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
 import EmptyState from '../ui/EmptyState';
+import { getSchoolCode, getUserRole } from '../utils/metadata';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -17,9 +18,9 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
   const { user } = useAuth();
   const [form] = Form.useForm();
 
-  // Comprehensive user data extraction (checking all possible locations)
-  const role = user?.raw_app_meta_data?.role || user?.app_metadata?.role || user?.raw_user_meta_data?.role || user?.user_metadata?.role;
-  const schoolCode = user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.raw_user_meta_data?.school_code || user?.user_metadata?.school_code;
+  // Use centralized metadata utilities
+  const role = getUserRole(user);
+  const schoolCode = getSchoolCode(user);
   // use auth.uid(); if no user, disallow writes
   const createdBy = user?.id || null;
 

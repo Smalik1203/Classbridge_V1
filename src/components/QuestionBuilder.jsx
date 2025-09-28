@@ -31,6 +31,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
 import { useTheme } from '../contexts/ThemeContext';
+import { getSchoolCode } from '../utils/metadata';
 import { 
   getQuestionsForTest, 
   createQuestion, 
@@ -59,8 +60,8 @@ const QuestionBuilder = ({ visible, test, onClose, onChange }) => {
   const [questionType, setQuestionType] = useState('mcq');
   const [importModalVisible, setImportModalVisible] = useState(false);
 
-  // Comprehensive user data extraction (checking all possible locations)
-  const schoolCode = user?.raw_app_meta_data?.school_code || user?.app_metadata?.school_code || user?.raw_user_meta_data?.school_code || user?.user_metadata?.school_code;
+  // Use centralized metadata utility
+  const schoolCode = getSchoolCode(user);
 
   // Load available tests when modal opens
   useEffect(() => {

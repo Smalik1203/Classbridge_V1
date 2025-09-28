@@ -7,6 +7,7 @@ import { supabase } from '../config/supabaseClient';
 import ManageTab from '../components/timetable/ManageTab.jsx';
 import ViewTab from '../components/timetable/ViewTab.jsx';
 import EmptyState from '../ui/EmptyState';
+import { getSchoolCode, getUserRole } from '../utils/metadata';
 
 const { Text } = Typography;
 
@@ -52,8 +53,8 @@ export default function Timetable() {
           if (userErr) throw userErr;
           meRow = {
             id: auth.user.id,
-            role: userRow?.role || auth.user.raw_app_meta_data?.role || auth.user.app_metadata?.role || auth.user.raw_user_meta_data?.role || auth.user.user_metadata?.role || null,
-            school_code: userRow?.school_code || auth.user.raw_app_meta_data?.school_code || auth.user.app_metadata?.school_code || auth.user.raw_user_meta_data?.school_code || auth.user.user_metadata?.school_code || null,
+            role: userRow?.role || getUserRole(auth.user) || null,
+            school_code: userRow?.school_code || getSchoolCode(auth.user) || null,
           };
         }
         if (!meRow?.school_code) throw new Error('No school context found for your account');
