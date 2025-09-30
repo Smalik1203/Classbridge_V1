@@ -221,7 +221,6 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
     }
 
     const allowsReattempts = testData?.allow_reattempts === true;
-    console.log('startTestAttempt: testId=', testId, 'allowsReattempts=', allowsReattempts);
 
     // Check existing attempts first (avoid duplicates)
     try {
@@ -237,14 +236,11 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
         console.warn('startTestAttempt: existing lookup warning', attemptsErr);
       } else if (attempts && attempts.length > 0) {
         const latest = attempts[0];
-        console.log('startTestAttempt: found existing attempt', latest.id, 'status=', latest.status);
         
         // Resume if not completed/abandoned, OR if reattempts are allowed and latest is completed
         if (latest.status !== 'completed' && latest.status !== 'abandoned') {
-          console.log('startTestAttempt: resuming existing in-progress attempt');
           return latest;
         } else if (allowsReattempts && latest.status === 'completed') {
-          console.log('startTestAttempt: resetting completed attempt for reattempt');
           // Reset the completed attempt to in_progress for reattempt
           const { data: resetAttempt, error: resetError } = await supabase
             .from('test_attempts')
@@ -265,11 +261,9 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
             console.warn('startTestAttempt: reset attempt warning', resetError);
             // If reset fails, create a new attempt
           } else {
-            console.log('startTestAttempt: successfully reset attempt for reattempt');
             return resetAttempt;
           }
         } else {
-          console.log('startTestAttempt: cannot reuse attempt, creating new one');
         }
       }
     } catch (err) {
@@ -325,7 +319,6 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
  */
 export async function saveTestAnswer(attemptId, questionId, answer, studentId) {
   try {
-    console.log('saveTestAnswer called:', { attemptId, questionId, answer, studentId });
     if (!attemptId) throw new Error('attemptId required');
 
     // fetch existing answers (single)
@@ -338,7 +331,6 @@ export async function saveTestAnswer(attemptId, questionId, answer, studentId) {
     if (getErr) throw getErr;
     if (!attempt) throw new Error('Attempt not found');
 
-    console.log('Current attempt answers:', attempt.answers);
 
     // optional: enforce student ownership
     if (studentId && attempt.student_id !== studentId) {
@@ -346,7 +338,6 @@ export async function saveTestAnswer(attemptId, questionId, answer, studentId) {
     }
 
     const updated = { ...(attempt.answers || {}), [questionId]: answer };
-    console.log('Updated answers object:', updated);
 
     const { data, error } = await supabase
       .from('test_attempts')
@@ -356,7 +347,6 @@ export async function saveTestAnswer(attemptId, questionId, answer, studentId) {
       .single();
 
     if (error) throw error;
-    console.log('Answer saved to database:', data);
     return data;
   } catch (err) {
     console.error('saveTestAnswer fatal', err);
@@ -371,7 +361,6 @@ export async function saveTestAnswer(attemptId, questionId, answer, studentId) {
 export async function submitTestAttempt(attemptId, answers, studentId) {
   try {
     if (!attemptId) throw new Error('attemptId required');
-    console.log('submitTestAttempt: attemptId=', attemptId, 'studentId=', studentId);
 
     // Fetch attempt and its test questions
     const { data: attemptRow, error: attemptErr } = await supabase
@@ -383,7 +372,6 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
     if (attemptErr) throw attemptErr;
     if (!attemptRow) throw new Error('Attempt not found');
 
-    console.log('submitTestAttempt: found attempt', attemptRow.id, 'status=', attemptRow.status);
 
     if (studentId && attemptRow.student_id !== studentId) {
       throw new Error('Not authorized to submit this attempt');
@@ -406,8 +394,6 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
     if (!testData) throw new Error('Associated test not found');
 
     const questions = testData.test_questions || [];
-    console.log('submitTestAttempt: fetched questions:', questions.length, 'questions');
-    console.log('submitTestAttempt: questions data:', questions);
 
     // Calculate correct answers
     const totalQuestions = questions.length;
@@ -417,14 +403,6 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
       const studentAns = answers ? answers[q.id] : undefined;
       let correct = false;
       
-      console.log('Processing question:', {
-        id: q.id,
-        question_type: q.question_type,
-        correct_index: q.correct_index,
-        correct_text: q.correct_text,
-        student_answer: studentAns,
-        options: q.options
-      });
       
       if (q.question_type === 'mcq' || q.question_type === 'multiple_choice') {
         if (q.correct_index !== null && q.correct_index !== undefined && q.options && q.options.length > q.correct_index) {
@@ -432,53 +410,27 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
           const correctOptionText = q.options[q.correct_index];
           // Compare student answer with the correct option text
           correct = String(studentAns || '').trim().toLowerCase() === String(correctOptionText || '').trim().toLowerCase();
-          console.log('MCQ with correct_index:', { 
-            studentAns, 
-            correct_index: q.correct_index, 
-            correctOptionText,
-            correct 
-          });
         } else if (q.correct_text) {
           correct = String(studentAns || '').trim().toLowerCase() === String(q.correct_text).trim().toLowerCase();
-          console.log('MCQ with correct_text:', { studentAns, correct_text: q.correct_text, correct });
         } else {
-          console.log('MCQ with no correct answer data');
         }
       } else {
         // text based: compare with correct_text if available
         if (q.correct_text) {
           correct = String(studentAns || '').trim().toLowerCase() === String(q.correct_text).trim().toLowerCase();
-          console.log('Text question:', { studentAns, correct_text: q.correct_text, correct });
         } else {
           // cannot auto-grade; skip counting as correct
           correct = false;
-          console.log('Text question with no correct answer data');
         }
       }
       
       if (correct) correctAnswers++;
-      console.log('Question result:', { questionId: q.id, correct, correctAnswers });
     }
     
     // Ensure values are non-negative
     const validCorrectAnswers = Math.max(0, correctAnswers);
     const validTotalQuestions = Math.max(0, totalQuestions);
     
-    console.log('Score calculation:', { 
-      totalQuestions,
-      correctAnswers,
-      validCorrectAnswers,
-      validTotalQuestions,
-      answers: answers,
-      questions: questions.map(q => ({
-        id: q.id,
-        question_text: q.question_text,
-        question_type: q.question_type,
-        correct_index: q.correct_index,
-        correct_text: q.correct_text,
-        student_answer: answers[q.id]
-      }))
-    });
 
     // First check the current status of the attempt
     const { data: currentAttempt, error: checkError } = await supabase
@@ -496,7 +448,6 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
       throw new Error('Attempt not found');
     }
 
-    console.log('Current attempt data:', currentAttempt);
 
     // Only update if the attempt is in progress
     if (currentAttempt.status !== 'in_progress') {
@@ -513,12 +464,6 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
       completed_at: new Date().toISOString()
     };
     
-    console.log('Attempting update with values:', {
-      attemptId,
-      updateData,
-      correct_answers: validCorrectAnswers,
-      total_questions: validTotalQuestions
-    });
     
     const { data: updated, error: updateErr } = await supabase
       .from('test_attempts')
@@ -537,8 +482,6 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
       throw updateErr;
     }
 
-    console.log('Update successful:', updated);
-    console.log('Stored score in database:', updated?.score);
     return updated;
   } catch (err) {
     console.error('submitTestAttempt fatal', err);
@@ -626,8 +569,6 @@ export async function getTestHistory(studentId, schoolCode, userEmail, studentCo
 
     if (error) throw error;
     
-    console.log('Test history data:', attempts);
-    console.log('First attempt details:', attempts?.[0]);
     
     return attempts || [];
   } catch (err) {

@@ -120,10 +120,10 @@ function AppContent() {
               <Route path="/attendance" element={<PrivateRoute allowedRoles={routeAccess.attendance}><Attendance /></PrivateRoute>} />
               <Route path="/fees" element={<PrivateRoute allowedRoles={routeAccess.fees}><Fees /></PrivateRoute>} />
               <Route path="/analytics" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
-              <Route path="/analytics/daily-trends" element={<PrivateRoute allowedRoles={routeAccess.analytics}><DailyTrendsAnalytics /></PrivateRoute>} />
-              <Route path="/analytics/student-performance" element={<PrivateRoute allowedRoles={routeAccess.analytics}><StudentPerformanceAnalytics /></PrivateRoute>} />
-              <Route path="/analytics/class-comparison" element={<PrivateRoute allowedRoles={routeAccess.analytics}><ClassComparisonAnalytics /></PrivateRoute>} />
-              <Route path="/analytics/status-distribution" element={<PrivateRoute allowedRoles={routeAccess.analytics}><StatusDistributionAnalytics /></PrivateRoute>} />
+              <Route path="/analytics/daily-trends" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
+              <Route path="/analytics/student-performance" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
+              <Route path="/analytics/class-comparison" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
+              <Route path="/analytics/status-distribution" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
               <Route path="/timetable" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Timetable /></PrivateRoute>} />
               <Route path="/syllabus" element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
               <Route path="/learning-resources" element={<PrivateRoute allowedRoles={routeAccess.learningResources}><LearningResources /></PrivateRoute>} />

@@ -18,7 +18,6 @@ export const chapterService = {
       }
 
       if (!syllabus) {
-        console.log('No syllabus found for class-subject pair');
         return [];
       }
 

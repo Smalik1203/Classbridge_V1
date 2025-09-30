@@ -25,7 +25,6 @@ const DatabaseDebugger = () => {
 
     for (const tableName of tablesToCheck) {
       try {
-        console.log(`Checking table: ${tableName}`);
         const { data, error, count } = await supabase
           .from(tableName)
           .select('*', { count: 'exact' })

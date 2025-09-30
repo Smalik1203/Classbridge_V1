@@ -41,7 +41,8 @@ const Login = () => {
   return (
     <Layout style={{ 
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%)',
+      position: 'relative'
     }}>
       <Content style={{ 
         display: 'flex', 
@@ -49,72 +50,117 @@ const Login = () => {
         alignItems: 'center',
         padding: '24px'
       }}>
-        <Card
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            borderRadius: '12px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-            border: '1px solid #e2e8f0',
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-          }}
-          bodyStyle={{ padding: '40px' }}
-        >
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <Avatar
-              size={64}
-              style={{
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                marginBottom: '16px',
-                fontWeight: 600
-              }}
-              icon={<BookOutlined />}
-            />
-            <Title level={2} style={{ margin: 0, color: '#1e293b', fontWeight: 600 }}>
-              Welcome Back
-            </Title>
-            <Text style={{ fontSize: '16px', color: '#64748b' }}>
-              Sign in to your ClassBridge account
-            </Text>
+        <div style={{ position: 'relative' }}>
+          {/* Floating Logo */}
+          <div style={{
+            position: 'absolute',
+            top: '-40px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 32px rgba(59, 130, 246, 0.3)',
+            zIndex: 2
+          }}>
+            <BookOutlined style={{ fontSize: '28px', color: 'white' }} />
           </div>
 
-          {/* Login Form */}
-          <Form
-            name="login"
-            onFinish={handleLogin}
-            layout="vertical"
-            size="large"
+          <Card
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              borderRadius: '20px',
+              boxShadow: '0 20px 40px -12px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+            }}
+            bodyStyle={{ padding: '48px 40px' }}
           >
-            <Form.Item
-              name="email"
-              label="Email Address"
-              rules={[
-                { required: true, message: 'Please enter your email!' },
-                { type: 'email', message: 'Please enter a valid email!' }
-              ]}
-            >
-              <Input
-                prefix={<MailOutlined />}
-                placeholder="Enter your email"
-                style={{ borderRadius: '8px' }}
-              />
-            </Form.Item>
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: '40px', marginTop: '16px' }}>
+              <Title level={2} style={{ 
+                margin: 0, 
+                color: '#1e293b', 
+                fontWeight: 700, 
+                fontSize: '26px',
+                letterSpacing: '-0.025em'
+              }}>
+                Sign in to ClassBridge
+              </Title>
+              <Text style={{ 
+                fontSize: '15px', 
+                color: '#64748b', 
+                marginTop: '8px'
+              }}>
+                Welcome back
+              </Text>
+            </div>
 
-            <Form.Item
-              name="password"
-              label="Password"
-              rules={[
-                { required: true, message: 'Please enter your password!' }
-              ]}
+            {/* Login Form */}
+            <Form
+              name="login"
+              onFinish={handleLogin}
+              layout="vertical"
+              size="middle"
             >
-              <Input.Password
-                prefix={<LockOutlined />}
-                placeholder="Enter your password"
-                style={{ borderRadius: '8px' }}
-              />
-            </Form.Item>
+              <Form.Item
+                name="email"
+                label={<span style={{ fontWeight: 500, color: '#374151', fontSize: '14px' }}>Email Address</span>}
+                rules={[
+                  { required: true, message: 'Please enter your email!' },
+                  { type: 'email', message: 'Please enter a valid email!' }
+                ]}
+                style={{ marginBottom: '20px' }}
+              >
+                <Input
+                  prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
+                  placeholder="Enter your email"
+                  style={{ 
+                    borderRadius: '12px',
+                    height: '48px',
+                    border: '1px solid #e5e7eb',
+                    fontSize: '15px'
+                  }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="password"
+                label={<span style={{ fontWeight: 500, color: '#374151', fontSize: '14px' }}>Password</span>}
+                rules={[
+                  { required: true, message: 'Please enter your password!' }
+                ]}
+                style={{ marginBottom: '16px' }}
+              >
+                <Input.Password
+                  prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
+                  placeholder="Enter your password"
+                  style={{ 
+                    borderRadius: '12px',
+                    height: '48px',
+                    border: '1px solid #e5e7eb',
+                    fontSize: '15px'
+                  }}
+                />
+              </Form.Item>
+
+              {/* Forgot Password Link */}
+              <div style={{ textAlign: 'right', marginBottom: '24px' }}>
+                <Text style={{ 
+                  color: '#6b7280', 
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}>
+                  Forgot password?
+                </Text>
+              </div>
 
             {/* Error Alert */}
             {error && (
@@ -131,46 +177,48 @@ const Login = () => {
               </Form.Item>
             )}
 
-            <Form.Item>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-                icon={<LoginOutlined />}
-                size="middle"
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  background: '#6366f1',
-                  borderColor: '#6366f1',
-                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
-                }}
-              >
-                {loading ? 'Signing In...' : 'Sign In'}
-              </Button>
-            </Form.Item>
-          </Form>
+              <Form.Item style={{ marginBottom: '32px' }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  size="large"
+                  style={{
+                    width: '100%',
+                    height: '52px',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    border: 'none',
+                    boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.3)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = 'translateY(-1px)';
+                    e.target.style.boxShadow = '0 6px 20px 0 rgba(59, 130, 246, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 4px 14px 0 rgba(59, 130, 246, 0.3)';
+                  }}
+                >
+                  {loading ? 'Signing In...' : 'Sign In'}
+                </Button>
+              </Form.Item>
+            </Form>
 
-          {/* Footer */}
-          <div style={{ textAlign: 'center', marginTop: '24px' }}>
-            <Text style={{ color: '#64748b' }}>
-              Don't have an account?{' '}
-              <Text style={{ color: '#6366f1', fontWeight: '500' }}>
-                Contact your administrator
+            {/* Footer */}
+            <div style={{ textAlign: 'center', marginTop: '20px' }}>
+              <Text style={{ color: '#64748b', fontSize: '14px' }}>
+                Don't have an account?{' '}
+                <Text style={{ color: '#3b82f6', fontWeight: '500', cursor: 'pointer' }}>
+                  Contact administrator
+                </Text>
               </Text>
-            </Text>
-          </div>
-
-          {/* Additional Info */}
-          <div style={{ textAlign: 'center', marginTop: '16px' }}>
-            <Text style={{ fontSize: '12px', color: '#94a3b8' }}>
-              Secure login powered by ClassBridge
-            </Text>
-          </div>
-        </Card>
+            </div>
+          </Card>
+        </div>
       </Content>
     </Layout>
   );

@@ -16,6 +16,7 @@ import { useAuth } from '../AuthProvider';
 import { getSchoolCode, getUserRole } from '../utils/metadata';
 import * as XLSX from 'xlsx';
 import EmptyState from '../ui/EmptyState';
+import { useErrorHandler } from '../hooks/useErrorHandler.jsx';
 
 const { Title, Text } = Typography;
 
@@ -30,6 +31,7 @@ function byText(field) {
 export default function SyllabusPage() {
   const [msg, ctx] = message.useMessage();
   const { user } = useAuth();
+  const { showError, showSuccess } = useErrorHandler();
 
   // Use centralized metadata utilities
   const school_code = getSchoolCode(user);
@@ -106,7 +108,13 @@ export default function SyllabusPage() {
         setSubjects(subs || []);
         setClassInstances(cis || []);
       } catch (e) {
-        setError(e?.message || 'Failed to initialize');
+        showError(e, {
+          useNotification: true,
+          context: {
+            resource: 'syllabus data',
+            item: 'initialization'
+          }
+        });
       } finally {
         setLoading(false);
       }
@@ -137,7 +145,7 @@ export default function SyllabusPage() {
         throw new Error('Please select both subject and class before loading syllabus');
       }
       
-      // First ensure syllabus exists
+      // First check if syllabus exists
       const { data: syl, error: se } = await supabase
         .from('syllabi')
         .select('id, subject_id, class_instance_id')
@@ -149,50 +157,109 @@ export default function SyllabusPage() {
       if (se) throw se;
       
       if (!syl) {
-        // Create syllabus if it doesn't exist
-        const { data: newSyl, error: createErr } = await supabase
-          .from('syllabi')
-          .insert({
-            school_code: school_code,
-            subject_id: subjectId,
-            class_instance_id: classInstanceId,
-            created_by: user.id
-          })
-          .select('id, subject_id, class_instance_id')
-          .single();
+        // Syllabus doesn't exist - show confirmation dialog
+        const subjectName = getSelectedSubjectName();
+        const className = getSelectedClassName();
         
-        if (createErr) {
-          if (createErr.code === '23505') {
-            // Race condition - reload
-            const { data: existing } = await supabase
-              .from('syllabi')
-              .select('id, subject_id, class_instance_id')
-              .eq('school_code', school_code)
-              .eq('subject_id', subjectId)
-              .eq('class_instance_id', classInstanceId)
-              .single();
-            setSyllabus(existing);
-          } else throw createErr;
-        } else {
-          setSyllabus(newSyl);
-          notification.success({
-            message: 'Syllabus Created',
-            description: 'New syllabus structure created for this subject and class.',
-            placement: 'topRight'
+        return new Promise((resolve) => {
+          Modal.confirm({
+            title: 'Syllabus Not Found',
+            content: (
+              <div>
+                <p>No syllabus exists for <strong>{subjectName}</strong> in <strong>{className}</strong>.</p>
+                <p>Would you like to create a new syllabus structure for this subject and class?</p>
+              </div>
+            ),
+            okText: 'Create Syllabus',
+            cancelText: 'Cancel',
+            onOk: async () => {
+              try {
+                // Create syllabus after user confirmation
+                const { data: newSyl, error: createErr } = await supabase
+                  .from('syllabi')
+                  .insert({
+                    school_code: school_code,
+                    subject_id: subjectId,
+                    class_instance_id: classInstanceId,
+                    created_by: user.id
+                  })
+                  .select('id, subject_id, class_instance_id')
+                  .single();
+                
+                if (createErr) {
+                  if (createErr.code === '23505') {
+                    // Race condition - reload
+                    const { data: existing } = await supabase
+                      .from('syllabi')
+                      .select('id, subject_id, class_instance_id')
+                      .eq('school_code', school_code)
+                      .eq('subject_id', subjectId)
+                      .eq('class_instance_id', classInstanceId)
+                      .single();
+                    setSyllabus(existing);
+                  } else throw createErr;
+                } else {
+                  setSyllabus(newSyl);
+                  notification.success({
+                    message: 'Syllabus Created',
+                    description: 'New syllabus structure created for this subject and class.',
+                    placement: 'topRight'
+                  });
+                }
+                
+                // Continue with loading chapters
+                await loadChaptersForSyllabus(newSyl?.id || existing?.id);
+                resolve();
+              } catch (error) {
+                showError(error, {
+                  useNotification: true,
+                  context: {
+                    item: 'syllabus',
+                    resource: 'syllabus structure'
+                  }
+                });
+                setBusy(false);
+                resolve();
+              }
+            },
+            onCancel: () => {
+              setBusy(false);
+              resolve();
+            }
           });
-        }
+        });
       } else {
         setSyllabus(syl);
+        // Load chapters for existing syllabus
+        await loadChaptersForSyllabus(syl.id);
       }
+    } catch (e) {
+      showError(e, {
+        useNotification: true,
+        context: {
+          item: 'syllabus',
+          resource: 'syllabus data'
+        }
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      // Load chapters with topics
+  // Helper function to load chapters for a given syllabus ID
+  const loadChaptersForSyllabus = async (syllabusId) => {
+    try {
+      if (!syllabusId) {
+        throw new Error('Unable to determine syllabus ID');
+      }
+      
       const { data: chaps, error: chErr } = await supabase
         .from('syllabus_chapters')
         .select(`
           id, chapter_no, title, description, ref_code,
           syllabus_topics(id, topic_no, title, description, ref_code)
         `)
-        .eq('syllabus_id', syl?.id)
+        .eq('syllabus_id', syllabusId)
         .order('chapter_no', { ascending: true });
       
       if (chErr) throw chErr;
@@ -207,9 +274,12 @@ export default function SyllabusPage() {
       
       // Keep chapters collapsed by default - users can expand as needed
     } catch (e) {
-      setError(e?.message || 'Failed to load syllabus');
-    } finally {
-      setBusy(false);
+      showError(e, {
+        context: {
+          item: 'chapters',
+          resource: 'syllabus chapters'
+        }
+      });
     }
   };
 

@@ -52,6 +52,7 @@ import {
   updateLearningResource, 
   deleteLearningResource 
 } from '../services/resourceService';
+import { useErrorHandler } from '../hooks/useErrorHandler.jsx';
 import VideoResource from '../components/resources/VideoResource';
 import PDFResource from '../components/resources/PDFResource';
 import QuizResource from '../components/resources/QuizResource';
@@ -72,6 +73,7 @@ const LearningResources = () => {
   const { user } = useAuth();
   const { theme: antdTheme } = useTheme();
   const [form] = Form.useForm();
+  const { showError, showSuccess } = useErrorHandler();
 
   // State management
   const [resources, setResources] = useState([]);
@@ -127,7 +129,12 @@ const LearningResources = () => {
       setSubjects(data || []);
     } catch (error) {
       console.error('Error loading subjects:', error);
-      message.error('Failed to load subjects');
+      showError(error, {
+        context: {
+          item: 'subjects',
+          resource: 'subject data'
+        }
+      });
     } finally {
       setSubjectsLoading(false);
     }
@@ -148,7 +155,12 @@ const LearningResources = () => {
       setClasses(data || []);
     } catch (error) {
       console.error('Error loading classes:', error);
-      message.error('Failed to load classes');
+      showError(error, {
+        context: {
+          item: 'classes',
+          resource: 'class data'
+        }
+      });
     } finally {
       setClassesLoading(false);
     }
@@ -226,8 +238,6 @@ const LearningResources = () => {
         return;
       }
 
-      console.log('Loading resources for user:', user);
-
       const filters = {
         page: currentPage,
         limit: pageSize,
@@ -238,8 +248,6 @@ const LearningResources = () => {
         school_code: schoolCode,
       };
 
-      console.log('Filters:', filters);
-
       let result;
       if (isStudent) {
         result = await getStudentResources(user.id, filters);
@@ -247,7 +255,6 @@ const LearningResources = () => {
         result = await getLearningResources(filters);
       }
 
-      console.log('Resources loaded:', result);
       setResources(result?.data || []);
       setTotalCount(result?.count || 0);
     } catch (error) {
@@ -310,18 +317,17 @@ const LearningResources = () => {
     try {
       setUploading(true);
       
-      console.log('Form values:', values);
-      console.log('User data:', user);
-      
       // Validate required fields
       const schoolCode = getSchoolCode(user);
       if (!schoolCode) {
         message.error('User school information not found. Please contact administrator.');
+        loadResources(); // Refresh data even on error
         return;
       }
       
       if (!values.subject_id || !values.class_instance_id) {
         message.error('Please select both subject and class');
+        loadResources(); // Refresh data even on error
         return;
       }
 
@@ -368,8 +374,6 @@ const LearningResources = () => {
         uploaded_by: user.id
       };
 
-      console.log('Resource data to be saved:', resourceData);
-
       if (editingResource) {
         await updateLearningResource(editingResource.id, resourceData);
         message.success('Resource updated successfully');
@@ -386,7 +390,15 @@ const LearningResources = () => {
       loadResources();
     } catch (error) {
       console.error('Error saving resource:', error);
-      message.error(`Failed to save resource: ${error.message}`);
+      showError(error, {
+        useNotification: true,
+        context: {
+          item: 'resource',
+          resource: 'learning resource',
+          action: 'save'
+        }
+      });
+      loadResources(); // Refresh data even on error
     } finally {
       setUploading(false);
     }
@@ -407,7 +419,13 @@ const LearningResources = () => {
           loadResources();
         } catch (error) {
           console.error('Error deleting resource:', error);
-          message.error('Failed to delete resource');
+          showError(error, {
+            context: {
+              item: 'resource',
+              resource: 'learning resource',
+              action: 'delete'
+            }
+          });
         }
       }
     });
@@ -443,7 +461,6 @@ const LearningResources = () => {
 
     switch (resource.resource_type) {
       case 'video':
-        console.log('Rendering VideoResource for:', resource);
         return <VideoResource key={resource.id} {...commonProps} />;
       case 'pdf':
         return <PDFResource key={resource.id} {...commonProps} />;

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Card, Table, Tag, Typography, Space, Button, Popconfirm,
-  message, Drawer, Form, Select, Input, InputNumber, Empty, Modal, DatePicker, Checkbox, Radio, Tooltip, Row, Col
+  message, Drawer, Form, Select, Input, InputNumber, Empty, Modal, DatePicker, Checkbox, Radio, Tooltip, Row, Col, App
 } from 'antd';
 import {
   ClockCircleOutlined, BookOutlined, TeamOutlined, EditOutlined,
@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import { supabase } from '../../config/supabaseClient';
 import { getUserRole, getSchoolCode } from '../../utils/metadata';
 import EmptyState from '../../ui/EmptyState';
+import { useErrorHandler } from '../../hooks/useErrorHandler.jsx';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -111,6 +112,7 @@ export default function ManageTab({
   refreshDay,              // () => void
 }) {
   const [msg, ctx] = message.useMessage();
+  const { showError, showSuccess } = useErrorHandler();
   const dateStr = useMemo(() => date.format('YYYY-MM-DD'), [date]);
 
   // me (for created_by/school_code)
@@ -316,7 +318,6 @@ export default function ManageTab({
         }
         
         setLocalSyllabusContentMap(allContentMap);
-        // console.log('Loaded syllabus content for all subjects:', allContentMap);
       } catch (error) {
         console.error('Error loading all syllabus content:', error);
       }
@@ -564,7 +565,6 @@ export default function ManageTab({
       }
       
       // Debug: Log what we're saving
-      // console.log('Saving payload:', payload);
 
       setDrawerBusy(true);
       if (editing?.id) {
@@ -588,7 +588,12 @@ export default function ManageTab({
       refreshDay?.();
     } catch (e) {
       if (e?.errorFields) return; // form validation errors already displayed
-      msg.error(e?.message || 'Save failed');
+      showError(e, {
+        context: {
+          item: 'timetable slot',
+          resource: 'timetable entry'
+        }
+      });
     } finally { setDrawerBusy(false); }
   };
 
@@ -596,9 +601,17 @@ export default function ManageTab({
     try {
       const { error } = await supabase.from('timetable_slots').delete().eq('id', row.id);
       if (error) throw error;
-      message.success('Deleted');
+      showSuccess('Timetable slot deleted');
       refreshDay?.();
-    } catch (e) { message.error(e?.message || 'Delete failed'); }
+    } catch (e) { 
+      showError(e, {
+        context: {
+          item: 'timetable slot',
+          resource: 'timetable entry'
+        }
+      });
+      refreshDay?.(); // Refresh data even on error
+    }
   };
 
   /** ---------- Copy From Date ---------- **/
@@ -696,7 +709,46 @@ export default function ManageTab({
     } catch (e) {
       if (e?.errorFields) return;
       msg.error(e?.message || 'Copy failed');
+      refreshDay?.(); // Refresh data even on error
     } finally { setCopyBusy(false); }
+  };
+
+  /** ---------- Reset Functionality ---------- **/
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  
+  const resetTimetable = async () => {
+    setResetModalVisible(true);
+  };
+
+  const handleResetConfirm = async () => {
+    try {
+      setResetLoading(true);
+      
+      // Delete all slots for this date and class
+      const { error } = await supabase
+        .from('timetable_slots')
+        .delete()
+        .eq('class_instance_id', classId)
+        .eq('class_date', dateStr);
+      
+      if (error) throw error;
+      
+      showSuccess('Timetable reset successfully');
+      setResetModalVisible(false);
+      refreshDay?.();
+    } catch (error) {
+      showError(error, {
+        useNotification: true,
+        showDetails: true,
+        context: {
+          item: 'timetable',
+          resource: 'timetable slots'
+        }
+      });
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   /** ---------- Batch Entry ---------- **/
@@ -765,7 +817,7 @@ export default function ManageTab({
 
       const slots = [];
       let currentTime = startTime;
-      let periodNumber = 1;
+      let slotNumber = 1; // Sequential slot number for database ordering
 
       for (let i = 0; i < periodsCount; i++) {
         // Add period
@@ -776,7 +828,7 @@ export default function ManageTab({
           school_code: me.school_code,
           class_instance_id: classId,
           class_date: dateStr,
-          period_number: periodNumber,
+          period_number: slotNumber, // Use slot number for database ordering
           slot_type: 'period',
           name: null,
           start_time: periodStart,
@@ -796,7 +848,7 @@ export default function ManageTab({
         slots.push(periodSlot);
 
         currentTime += periodDuration;
-        periodNumber++;
+        slotNumber++; // Increment slot number for next slot
 
         // Add break if needed
         if (breakAfterPeriods.includes(i + 1) && i < periodsCount - 1) {
@@ -807,7 +859,7 @@ export default function ManageTab({
             school_code: me.school_code,
             class_instance_id: classId,
             class_date: dateStr,
-            period_number: periodNumber,
+            period_number: slotNumber, // Use slot number for database ordering
             slot_type: 'break',
             name: i === 2 ? 'Lunch Break' : 'Break',
             start_time: breakStart,
@@ -827,7 +879,7 @@ export default function ManageTab({
           slots.push(breakSlot);
 
           currentTime += breakDuration;
-          periodNumber++;
+          slotNumber++; // Increment slot number for next slot
         }
       }
 
@@ -837,13 +889,16 @@ export default function ManageTab({
       
       if (error) throw error;
 
-      msg.success(`Created ${slots.length} slots (${periodsCount} periods + ${breakAfterPeriods.length} breaks)`);
+      const actualPeriods = slots.filter(s => s.slot_type === 'period').length;
+      const actualBreaks = slots.filter(s => s.slot_type === 'break').length;
+      msg.success(`Created ${slots.length} slots (${actualPeriods} periods + ${actualBreaks} breaks)`);
       setBatchModal({ visible: false, loading: false });
       refreshDay?.();
     } catch (e) {
       if (e?.errorFields) return;
       msg.error(e?.message || 'Batch creation failed');
       setBatchModal({ visible: true, loading: false });
+      refreshDay?.(); // Refresh data even on error
     }
   };
 
@@ -852,11 +907,13 @@ export default function ManageTab({
     {
       title: 'Slot', key: 'slot', width: 180,
       responsive: ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'],
-      render: (_, r) => {
+      render: (_, r, index) => {
         if (r.slot_type === 'break') {
           return <Tag color="gold">{r.name || 'Break'}</Tag>;
         }
-        return <Text strong>Period #{r.period_number}</Text>;
+        // Calculate actual period number by counting only periods before this one
+        const actualPeriodNumber = rows.slice(0, index + 1).filter(slot => slot.slot_type === 'period').length;
+        return <Text strong>Period #{actualPeriodNumber}</Text>;
       }
     },
     {
@@ -1072,6 +1129,20 @@ export default function ManageTab({
                 style={{ fontSize: '14px', height: '40px' }}
               >
                 Quick Generate
+              </Button>
+            </Tooltip>
+            <Tooltip title="Clear all periods and breaks for this date">
+              <Button 
+                type="default" 
+                danger
+                icon={<DeleteOutlined />} 
+                onClick={resetTimetable} 
+                size="middle"
+                style={{ fontSize: '14px', height: '40px' }}
+                disabled={rows.length === 0 || resetLoading}
+                loading={resetLoading}
+              >
+                Reset
               </Button>
             </Tooltip>
             <Tooltip title="Copy timetable from another date">
@@ -1522,6 +1593,26 @@ export default function ManageTab({
             </div>
           </Space>
         </Form>
+      </Modal>
+
+      {/* Reset Confirmation Modal */}
+      <Modal
+        title="Reset Timetable"
+        open={resetModalVisible}
+        onCancel={() => setResetModalVisible(false)}
+        onOk={handleResetConfirm}
+        okText="Reset Timetable"
+        cancelText="Cancel"
+        okButtonProps={{ danger: true }}
+        confirmLoading={resetLoading}
+      >
+        <div>
+          <p>Are you sure you want to reset the timetable for this date?</p>
+          <p><strong>This will delete all periods and breaks for {dateStr}.</strong></p>
+          <p style={{ color: '#ff4d4f', fontSize: '14px' }}>
+            ⚠️ This action cannot be undone.
+          </p>
+        </div>
       </Modal>
       
       {/* Enhanced Table Styles */}

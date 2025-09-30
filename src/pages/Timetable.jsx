@@ -215,7 +215,6 @@ export default function Timetable() {
           
           if (!extendedError && extendedData) {
             // Merge the extended data
-            // console.log('Extended data from DB:', extendedData);
             data = data.map(slot => {
               const extended = extendedData.find(e => e.id === slot.id);
               const merged = {
@@ -224,14 +223,12 @@ export default function Timetable() {
                 syllabus_topic_id: extended?.syllabus_topic_id || null,
               };
               // if (extended?.syllabus_chapter_id) {
-              //   console.log(`Merged slot ${slot.id}:`, merged);
               // }
               return merged;
             });
           }
         } catch (extendedErr) {
           // New columns don't exist yet, continue with basic data
-          // console.log('New syllabus columns not available yet:', extendedErr.message);
         }
       }
       if (error) { 
@@ -260,25 +257,46 @@ export default function Timetable() {
       const ids = (syllabi ?? []).map(s => s.id);
       if (!ids.length) return setChaptersById(new Map());
 
-      const { data: items, error: itErr } = await supabase
-        .from('syllabus_items')
-        .select('id, syllabus_id, unit_no, title, status')
-        .in('syllabus_id', ids);
-      if (itErr) { 
-        console.error('syllabus_items table error:', itErr);
+      // Get chapters with their topics using the new structure
+      const { data: chapters, error: chErr } = await supabase
+        .from('syllabus_chapters')
+        .select(`
+          id, chapter_no, title, description,
+          syllabus_topics(id, topic_no, title, description)
+        `)
+        .in('syllabus_id', ids)
+        .order('chapter_no');
+      
+      if (chErr) { 
+        console.error('syllabus_chapters table error:', chErr);
         setChaptersById(new Map());
         return; 
       }
 
       const byId = new Map();
       const subjBySyl = new Map((syllabi ?? []).map(s => [s.id, s.subject_id]));
-      for (const ch of (items ?? [])) {
+      
+      // Process chapters
+      for (const ch of (chapters ?? [])) {
         byId.set(ch.id, {
-          unit_no: ch.unit_no,
+          unit_no: ch.chapter_no,
           title: ch.title,
-          status: ch.status,
+          status: 'pending', // Default status for chapters
           subject_id: subjBySyl.get(ch.syllabus_id) || null,
+          type: 'chapter'
         });
+        
+        // Process topics within chapters
+        for (const topic of (ch.syllabus_topics ?? [])) {
+          byId.set(topic.id, {
+            unit_no: `${ch.chapter_no}.${topic.topic_no}`,
+            title: topic.title,
+            status: 'pending', // Default status for topics
+            subject_id: subjBySyl.get(ch.syllabus_id) || null,
+            type: 'topic',
+            chapter_id: ch.id
+          });
+        }
       }
       setChaptersById(byId);
     } catch (e) {

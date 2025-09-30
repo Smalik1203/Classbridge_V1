@@ -1,6 +1,6 @@
 // src/components/timetable/ViewTab.jsx
 import React, { useMemo } from 'react';
-import { Card, Table, Tag, Typography, Space, Empty } from 'antd';
+import { Card, Table, Tag, Typography, Space } from 'antd';
 import { ClockCircleOutlined, BookOutlined } from '@ant-design/icons';
 import SyllabusProgressIndicator from '../SyllabusProgressIndicator';
 import EmptyState from '../../ui/EmptyState';

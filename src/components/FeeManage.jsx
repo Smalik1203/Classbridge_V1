@@ -2,9 +2,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card, Table, Space, Button, Typography, Select, Drawer,
-  Row, Col, message, Empty, InputNumber, Spin, Alert, Tooltip, Divider
+  Row, Col, message, Empty, InputNumber, Spin, Alert, Tooltip, Divider,
+  Input, Tag, Dropdown, Menu, Checkbox
 } from "antd";
-import { EditOutlined, PlusOutlined, TeamOutlined, ExclamationCircleOutlined, DollarOutlined } from "@ant-design/icons";
+import { 
+  EditOutlined, PlusOutlined, TeamOutlined, ExclamationCircleOutlined, 
+  DollarOutlined, SearchOutlined, FilterOutlined, MoreOutlined,
+  CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined
+} from "@ant-design/icons";
 import { supabase } from "../config/supabaseClient";
 import { getUserRole, getSchoolCode } from "../utils/metadata";
 import { Page, EmptyState } from "../ui";
@@ -58,6 +63,11 @@ export default function FeeManage() {
     items: [] // [{ component_type_id, amount_inr }]
   });
   const [savingClass, setSavingClass] = useState(false);
+
+  // Search and filter state
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // all, has_plan, no_plan
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
 
 
@@ -158,28 +168,51 @@ export default function FeeManage() {
 
       // Items and totals
       const totalByPlan = new Map();
+      const collectedByPlan = new Map();
+      
       if (planIds.length > 0) {
         const { data: items, error: iErr } = await supabase
           .from("fee_student_plan_items")
           .select("plan_id, amount_paise")
-          .in("plan_id", planIds)
-          .eq("school_code", me.school_code);
+          .in("plan_id", planIds);
         if (iErr) throw iErr;
         for (const it of items || []) {
           totalByPlan.set(it.plan_id, (totalByPlan.get(it.plan_id) || 0) + Number(it.amount_paise || 0));
+        }
+
+        // Get payment data for collection progress
+        try {
+          const { data: payments, error: pErr } = await supabase
+            .from("fee_payments")
+            .select("plan_id, amount_paise")
+            .in("plan_id", planIds)
+            .eq("school_code", me.school_code);
+          
+          if (!pErr && payments) {
+            for (const payment of payments) {
+              collectedByPlan.set(payment.plan_id, (collectedByPlan.get(payment.plan_id) || 0) + Number(payment.amount_paise || 0));
+            }
+          }
+        } catch (e) {
+          // fee_payments table might not exist yet
         }
       }
 
       setRows(studentList.map(st => {
         const pid = planByStudent.get(st.id) || null;
         const total = pid ? (totalByPlan.get(pid) || 0) : 0;
+        const collected = pid ? (collectedByPlan.get(pid) || 0) : 0;
+        const collectionPercentage = total > 0 ? Math.round((collected / total) * 100) : 0;
+        
         return {
           key: st.id,
           student_id: st.id,
           student_name: st.full_name,
           student_code: st.student_code,
           plan_id: pid,
-          total_paise: total
+          total_paise: total,
+          collected_paise: collected,
+          collection_percentage: collectionPercentage
         };
       }));
     } catch (e) {
@@ -196,6 +229,28 @@ export default function FeeManage() {
       loadStudentsAndTotals(classId);
     }
   }, [classId, loadStudentsAndTotals]);
+
+  // Filter and search students
+  const filteredRows = useMemo(() => {
+    let filtered = rows;
+
+    // Apply search filter
+    if (searchText) {
+      filtered = filtered.filter(row => 
+        row.student_name.toLowerCase().includes(searchText.toLowerCase()) ||
+        row.student_code.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter === "has_plan") {
+      filtered = filtered.filter(row => row.plan_id);
+    } else if (statusFilter === "no_plan") {
+      filtered = filtered.filter(row => !row.plan_id);
+    }
+
+    return filtered;
+  }, [rows, searchText, statusFilter]);
 
   // ---------- open student drawer ----------
   const openEditor = async (row) => {
@@ -228,8 +283,7 @@ export default function FeeManage() {
       const { data: items, error: itemsErr } = await supabase
         .from("fee_student_plan_items")
         .select("component_type_id, amount_paise")
-        .eq("plan_id", planId)
-        .eq("school_code", me.school_code);
+        .eq("plan_id", planId);
       if (itemsErr) throw itemsErr;
 
       setDrawer({
@@ -256,8 +310,7 @@ export default function FeeManage() {
       const { data: existing, error: existingErr } = await supabase
         .from("fee_student_plan_items")
         .select("component_type_id")
-        .eq("plan_id", drawer.planId)
-        .eq("school_code", me.school_code);
+        .eq("plan_id", drawer.planId);
       if (existingErr) throw existingErr;
 
       const existingIds = new Set((existing || []).map(e => e.component_type_id));
@@ -270,8 +323,7 @@ export default function FeeManage() {
           .from("fee_student_plan_items")
           .delete()
           .eq("plan_id", drawer.planId)
-          .in("component_type_id", toDelete)
-          .eq("school_code", me.school_code);
+          .in("component_type_id", toDelete);
         if (delErr) throw delErr;
       }
 
@@ -279,8 +331,7 @@ export default function FeeManage() {
       const toUpsert = drawer.items.map(item => ({
         plan_id: drawer.planId,
         component_type_id: item.component_type_id,
-        amount_paise: toPaise(parseINR(item.amount_inr)),
-        school_code: me.school_code
+        amount_paise: toPaise(parseINR(item.amount_inr))
       }));
 
       if (toUpsert.length > 0) {
@@ -417,16 +468,14 @@ export default function FeeManage() {
         const { error: delErr } = await supabase
           .from("fee_student_plan_items")
           .delete()
-          .in("plan_id", ids)
-          .eq("school_code", me.school_code);
+          .in("plan_id", ids);
         if (delErr) throw delErr;
       }
 
       // 3) Insert new items for each plan (chunked)
       const baseItems = classDrawer.items.map(i => ({
         component_type_id: i.component_type_id,
-        amount_paise: toPaise(parseINR(i.amount_inr)),
-        school_code: me.school_code
+        amount_paise: toPaise(parseINR(i.amount_inr))
       }));
 
       const allItems = [];
@@ -464,6 +513,50 @@ export default function FeeManage() {
     }
   };
 
+  // Bulk actions
+  const handleBulkEdit = () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Please select students to edit");
+      return;
+    }
+    // Open class editor with selected students
+    openClassEditor();
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning("Please select students to delete plans");
+      return;
+    }
+    
+    try {
+      // Delete plans for selected students
+      const { error } = await supabase
+        .from("fee_student_plans")
+        .delete()
+        .in("student_id", selectedRowKeys)
+        .eq("school_code", me.school_code);
+      
+      if (error) throw error;
+      
+      message.success(`Deleted fee plans for ${selectedRowKeys.length} students`);
+      setSelectedRowKeys([]);
+      loadStudentsAndTotals(classId);
+    } catch (e) {
+      console.error("Error deleting plans:", e);
+      message.error("Failed to delete plans");
+    }
+  };
+
+  // Row selection configuration
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: setSelectedRowKeys,
+    getCheckboxProps: (record) => ({
+      disabled: !canWrite,
+    }),
+  };
+
   // ---------- UI ----------
   const columns = [
     {
@@ -471,36 +564,109 @@ export default function FeeManage() {
       key: "student",
       render: (_, record) => (
         <div>
-          <div><strong>{record.student_name}</strong></div>
+          <div>
+            <strong>{record.student_name}</strong>
+          </div>
           <div style={{ fontSize: '12px', color: '#666' }}>{record.student_code}</div>
         </div>
       )
     },
     {
-      title: "Total Fee",
-      key: "total",
-      align: "right",
-      render: (_, record) => (
-        <Text strong>{fmtINR(record.total_paise)}</Text>
-      )
+      title: "Fee Status",
+      key: "fee_status",
+      width: 200,
+      render: (_, record) => {
+        if (!record.plan_id) {
+          return (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                width: '100%', 
+                height: 8, 
+                backgroundColor: '#f1f5f9', 
+                borderRadius: 4,
+                marginBottom: 4
+              }} />
+              <Tooltip title="No fee plan assigned">
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  No Plan
+                </Text>
+              </Tooltip>
+            </div>
+          );
+        }
+
+        // Show actual collection progress
+        const collectionPercentage = record.collection_percentage || 0;
+        const hasPayments = record.collected_paise > 0;
+        
+        return (
+          <div>
+            <div style={{ marginBottom: 4 }}>
+              <Text strong style={{ color: '#059669', fontSize: '14px' }}>
+                {fmtINR(record.total_paise)}
+              </Text>
+            </div>
+            <div style={{ 
+              width: '100%', 
+              height: 6, 
+              backgroundColor: '#e2e8f0', 
+              borderRadius: 3,
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${collectionPercentage}%`,
+                height: '100%',
+                backgroundColor: collectionPercentage >= 100 ? '#10b981' : 
+                                collectionPercentage >= 50 ? '#f59e0b' : '#ef4444',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            <Tooltip title={`${collectionPercentage}% collected (${fmtINR(record.collected_paise)} of ${fmtINR(record.total_paise)})`}>
+              <Text type="secondary" style={{ fontSize: '11px' }}>
+                {collectionPercentage >= 100 ? 'Complete' : 
+                 hasPayments ? `${collectionPercentage}%` : 'Pending'}
+              </Text>
+            </Tooltip>
+          </div>
+        );
+      }
     },
     {
       title: "Actions",
       key: "actions",
       align: "center",
+      width: 120,
       render: (_, record) => (
-        <Space>
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => openEditor(record)}
-            disabled={!canWrite}
-            size="middle"
-            style={{ fontSize: '14px', height: '40px' }}
-          >
-            Edit Plan
-          </Button>
-        </Space>
+        <Dropdown
+          menu={{
+            items: [
+              {
+                key: 'edit',
+                label: 'Edit Plan',
+                icon: <EditOutlined />,
+                onClick: () => openEditor(record),
+                disabled: !canWrite
+              },
+              {
+                key: 'view',
+                label: 'View Details',
+                icon: <DollarOutlined />,
+                onClick: () => {
+                  // Navigate to collections page with this student
+                  window.location.href = '/fees#collections';
+                }
+              }
+            ]
+          }}
+          trigger={['click']}
+        >
+          <Button 
+            type="text" 
+            icon={<MoreOutlined />}
+            size="small"
+            style={{ borderRadius: 6 }}
+          />
+        </Dropdown>
       )
     }
   ];
@@ -538,7 +704,6 @@ export default function FeeManage() {
               Class Plan
             </Button>
           </Tooltip>
-
         </Space>
       }
     >
@@ -552,19 +717,87 @@ export default function FeeManage() {
         />
       )}
 
-      <Card>
+      {/* Search and Filter Bar */}
+      {classId && (
+        <Card style={{ marginBottom: 16, borderRadius: 12 }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={12} md={8}>
+              <Input
+                placeholder="Search students by name or code..."
+                prefix={<SearchOutlined />}
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ borderRadius: 8 }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Select
+                placeholder="Filter by status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                style={{ width: '100%' }}
+                options={[
+                  { value: 'all', label: 'All Students' },
+                  { value: 'has_plan', label: 'Has Fee Plan' },
+                  { value: 'no_plan', label: 'No Fee Plan' }
+                ]}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={10}>
+              <Space>
+                <Text type="secondary">
+                  Showing {filteredRows.length} of {rows.length} students
+                </Text>
+                {selectedRowKeys.length > 0 && (
+                  <Space>
+                    <Text strong style={{ color: '#1890ff' }}>
+                      {selectedRowKeys.length} selected
+                    </Text>
+                    <Button
+                      size="small"
+                      onClick={handleBulkEdit}
+                      disabled={!canWrite}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      onClick={handleBulkDelete}
+                      disabled={!canWrite}
+                    >
+                      Delete Plans
+                    </Button>
+                  </Space>
+                )}
+              </Space>
+            </Col>
+          </Row>
+        </Card>
+      )}
+
+      <Card style={{ borderRadius: 12 }}>
         <Table
           columns={columns}
-          dataSource={rows}
+          dataSource={filteredRows}
           loading={loading}
-          pagination={false}
+          rowSelection={rowSelection}
+          rowKey="student_id"
+          pagination={{
+            pageSize: 20,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
+          }}
           locale={{
             emptyText: (
               <EmptyState
                 title="No students found"
                 description={
                   classId
-                    ? "No students are assigned to this class."
+                    ? searchText || statusFilter !== 'all'
+                      ? "No students match your search criteria."
+                      : "No students are assigned to this class."
                     : "Please select a class to view students."
                 }
               />

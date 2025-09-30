@@ -4,6 +4,7 @@ import { getUserRole } from '../utils/metadata';
 import AdminAnalytics from './admin/AdminAnalytics';
 import StudentAnalytics from './student/StudentAnalytics';
 import SuperAdminAnalytics from './superadmin/SuperAdminAnalytics';
+import AttendanceAnalyticsEnhanced from '../components/AttendanceAnalyticsEnhanced';
 
 const AnalyticsPage = () => {
   const { user } = useAuth();
@@ -11,11 +12,11 @@ const AnalyticsPage = () => {
 
   switch (role) {
     case 'superadmin':
-      return <SuperAdminAnalytics />;
+      return <AttendanceAnalyticsEnhanced />;
     case 'admin':
-      return <AdminAnalytics />;
+      return <AttendanceAnalyticsEnhanced />;
     case 'student':
-      return <StudentAnalytics />;
+      return <AttendanceAnalyticsEnhanced />;
     default:
       return <div>Access Denied</div>;
   }

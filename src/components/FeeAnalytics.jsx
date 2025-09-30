@@ -156,8 +156,7 @@ const FeeAnalytics = () => {
               amount_paise,
               fee_component_types!inner(id, name)
             `)
-            .in("plan_id", planIds)
-            .eq("school_code", me.school_code);
+            .in("plan_id", planIds);
 
           if (itemsErr) throw itemsErr;
           planItems = items || [];
@@ -190,7 +189,6 @@ const FeeAnalytics = () => {
             payments = paymentData || [];
           }
         } catch (e) {
-          console.log("fee_payments table not found, payments will be 0");
         }
 
         // Build fee data

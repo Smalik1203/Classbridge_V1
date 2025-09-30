@@ -13,4 +13,7 @@ export default defineConfig({
   optimizeDeps: {
     include: ['plyr', 'plyr-react']
   },
+  build: {
+    sourcemap: false
+  }
 })

@@ -171,12 +171,10 @@ const Dashboard = () => {
       ]
     };
     const userActions = actions[role] || [];
-    console.log('Dashboard - User role:', role, 'Available actions:', userActions);
     return userActions;
   };
 
   const handleActionClick = (path) => {
-    console.log('Dashboard - Action clicked, navigating to:', path);
     navigate(path);
   };
 

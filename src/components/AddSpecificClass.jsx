@@ -31,11 +31,6 @@ const AddSpecificClass = () => {
   const { user } = useAuth();
   
   // Debug user data structure (commented out for production)
-  // console.log('=== USER DATA DEBUG ===');
-  // console.log('Full user object:', user);
-  // console.log('user.user_metadata:', user?.user_metadata);
-  // console.log('user.app_metadata:', user?.app_metadata);
-  // console.log('user.raw_app_meta_data:', user?.raw_app_meta_data);
   
   // Use comprehensive metadata extraction
   const school_id = getSchoolId(user);
@@ -43,11 +38,6 @@ const AddSpecificClass = () => {
   const school_name = getSchoolName(user);
   const super_admin_code = getSuperAdminCode(user);
   
-  // console.log('Extracted values:');
-  // console.log('school_id:', school_id);
-  // console.log('school_code:', school_code);
-  // console.log('school_name:', school_name);
-  // console.log('super_admin_code:', super_admin_code);
 
   // Separate forms for academic year and class creation
   const [academicYearForm] = Form.useForm();
@@ -75,7 +65,6 @@ const AddSpecificClass = () => {
 
   const fetchAcademicYears = async () => {
     try {
-      console.log('Fetching academic years for school_code:', school_code);
       const { data, error } = await supabase
         .from('academic_years')
         .select('*')
@@ -86,7 +75,6 @@ const AddSpecificClass = () => {
         console.error('Error fetching academic years:', error);
         message.error('Failed to fetch academic years: ' + error.message);
       } else {
-        console.log('Academic years fetched successfully:', data);
         setAcademicYears(data || []);
       }
     } catch (err) {
@@ -170,7 +158,6 @@ const AddSpecificClass = () => {
         is_active: true,
       };
       
-      console.log('Creating academic year with data:', insertData);
       
       const { data: yearData, error: yearError } = await supabase
         .from('academic_years')
@@ -181,12 +168,10 @@ const AddSpecificClass = () => {
         console.error('Error creating academic year:', yearError);
         message.error(yearError.message);
       } else {
-        console.log('Academic year created successfully:', yearData);
         message.success('Academic year created successfully');
         academicYearForm.resetFields();
         
         // Force refresh the academic years list
-        console.log('Refreshing academic years list...');
         await fetchAcademicYears();
         
         // Also refresh the class instances to show any new data
@@ -205,6 +190,7 @@ const AddSpecificClass = () => {
       if (!school_code || !school_name || !super_admin_code) {
         message.error('School information not found. Please ensure you are properly logged in.');
         console.error('Missing school data - school_code:', school_code, 'school_name:', school_name, 'super_admin_code:', super_admin_code);
+        fetchClassInstances(); // Refresh data even on error
         return;
       }
 
@@ -236,6 +222,7 @@ const AddSpecificClass = () => {
           
         if (classError) {
           message.error(classError.message);
+          fetchClassInstances(); // Refresh data even on error
           return;
         }
         classId = newClass[0].id;
@@ -251,6 +238,7 @@ const AddSpecificClass = () => {
         
       if (existingInstance && existingInstance.length > 0) {
         message.error('Class already exists for this academic year');
+        fetchClassInstances(); // Refresh data even on error
         return;
       }
 
@@ -269,6 +257,7 @@ const AddSpecificClass = () => {
 
       if (insertError) {
         message.error(insertError.message);
+        fetchClassInstances(); // Refresh data even on error
       } else {
         message.success('Class created successfully');
         classForm.resetFields();

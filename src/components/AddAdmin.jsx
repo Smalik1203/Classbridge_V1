@@ -51,10 +51,6 @@ const AddAdmin = () => {
   const [adminLoading, setAdminLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Debug logging (can be removed in production)
-  console.log('School code detected:', school_code);
-  console.log('User role:', user?.app_metadata?.role);
-  console.log('Render check - adminList state:', adminList, 'adminLoading:', adminLoading);
   
   // Ensure adminList is always an array
   const safeAdminList = Array.isArray(adminList) ? adminList : 
@@ -72,66 +68,36 @@ const AddAdmin = () => {
   const fetchAdmins = async () => {
     setAdminLoading(true);
     try {
-      console.log('=== FETCHING ADMINS ===');
-      console.log('Querying for school_code:', school_code);
-      console.log('Current user:', user?.email);
-      console.log('User role:', user?.app_metadata?.role);
-      
       // First, let's try a simple query without filters to see if we can access the admin table at all
-      console.log('Testing basic admin table access...');
       const { data: testData, error: testError } = await supabase
         .from('admin')
         .select('id, email, role, school_code')
         .limit(3);
       
-      console.log('Basic admin table test:', { data: testData, error: testError });
-      
       // Now try the actual query on admin table (where the data actually exists)
-      console.log('Running actual admin query on admin table...');
       const { data: adminData, error: adminError } = await supabase
         .from('admin')
         .select('id, full_name, email, phone, role, admin_code, school_code, school_name, created_at')
         .eq('school_code', school_code)
         .eq('role', 'admin');
 
-      console.log('Admin table query result:', { 
-        data: adminData, 
-        error: adminError,
-        count: adminData?.length || 0
-      });
 
       if (adminError) {
-        console.log('Admin table error details:', {
-          code: adminError.code,
-          message: adminError.message,
-          details: adminError.details,
-          hint: adminError.hint
-        });
         
         // Try users table as fallback
-        console.log('Trying users table as fallback...');
         const { data: usersData, error: usersError } = await supabase
           .from('users')
           .select('id, full_name, email, phone, role, admin_code, school_code, school_name, created_at')
           .eq('school_code', school_code)
           .eq('role', 'admin');
 
-        console.log('Users table query result:', { 
-          data: usersData, 
-          error: usersError,
-          count: usersData?.length || 0
-        });
 
         if (usersError) {
-          console.log('Both tables failed:', usersError);
           setAdminList([]);
         } else {
-          console.log('Found admins in users table:', usersData);
           setAdminList(usersData || []);
         }
       } else {
-        console.log('SUCCESS: Found admins in admin table:', adminData);
-        console.log('Setting admin list with', adminData?.length || 0, 'admins');
         setAdminList(adminData || []);
       }
     } catch (err) {
@@ -161,6 +127,7 @@ const AddAdmin = () => {
       if (!token) {
         message.error('Not authenticated. Please log in.');
         setLoading(false);
+        setRefreshTrigger(prev => prev + 1); // Refresh data even on error
         return;
       }
 
@@ -188,6 +155,7 @@ const AddAdmin = () => {
 
       if (!response.ok) {
         message.error(result.error || result.details || `Failed to create admin. Status: ${response.status}`);
+        setRefreshTrigger(prev => prev + 1); // Refresh data even on error
       } else {
         message.success('Admin created successfully!');
         form.resetFields();
@@ -195,6 +163,7 @@ const AddAdmin = () => {
       }
     } catch (err) {
       message.error('Unexpected error: ' + err.message);
+      setRefreshTrigger(prev => prev + 1); // Refresh data even on error
     } finally {
       setLoading(false);
     }
@@ -221,7 +190,6 @@ const AddAdmin = () => {
         .eq('id', editingAdmin.id);
 
       if (adminError) {
-        console.log('Admin table update failed, trying users table:', adminError);
         
         // If admin table update fails, try users table
         const { error: usersError } = await supabase

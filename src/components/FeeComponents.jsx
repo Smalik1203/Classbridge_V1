@@ -218,12 +218,6 @@ export default function FeeComponents() {
   return (
     <Page
       title="Fee Components"
-      subtitle="Manage fee component types for your school"
-      extra={
-        <Text type="secondary" style={{ fontSize: '14px', fontWeight: 500 }}>
-          {(me.role || "").toUpperCase()}
-        </Text>
-      }
       loading={loading}
     >
       <Card 

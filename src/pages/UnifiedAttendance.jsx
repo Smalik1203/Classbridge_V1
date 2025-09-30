@@ -502,6 +502,7 @@ const UnifiedAttendance = () => {
                         style={{ width: '100%' }}
                         size="large"
                         allowClear
+                        notFoundContent="No classes available"
                       >
                         {classInstances.map(c => (
                           <Option key={c.id} value={c.id}>Grade {c.grade} - Section {c.section}</Option>
@@ -692,20 +693,32 @@ const UnifiedAttendance = () => {
           )}
 
           <Tabs.TabPane tab="View History" key="view">
-            <Row gutter={[16, 16]}>
+            <Row gutter={[16, 16]} align="bottom">
               <Col span={12}>
-                <Text strong>Date</Text>
-                <DatePicker value={historyDate} onChange={setHistoryDate} style={{ width: '100%' }} />
+                <div style={{ marginBottom: 8 }}>
+                  <Text strong style={{ color: '#475569' }}>Date</Text>
+                </div>
+                <DatePicker 
+                  value={historyDate} 
+                  onChange={setHistoryDate} 
+                  style={{ width: '100%' }} 
+                  size="large"
+                  placeholder="Select date"
+                />
               </Col>
               {!isStudent && (
                 <Col span={12}>
-                  <Text strong>Class</Text>
+                  <div style={{ marginBottom: 8 }}>
+                    <Text strong style={{ color: '#475569' }}>Class</Text>
+                  </div>
                   <Select
                     placeholder="Select Class"
                     value={selectedClassId}
                     onChange={setSelectedClassId}
                     style={{ width: '100%' }}
+                    size="large"
                     allowClear
+                    notFoundContent="No classes available"
                   >
                     {classInstances.map(c => (
                       <Option key={c.id} value={c.id}>Grade {c.grade} - Section {c.section}</Option>

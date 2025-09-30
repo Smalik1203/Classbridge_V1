@@ -48,7 +48,6 @@ const TestReviewModal = ({ visible, testAttempt, onClose }) => {
 
   const isAnswerCorrect = (question, answer) => {
     if (!answer) {
-      console.log('No answer provided for question:', question.id);
       return false;
     }
     
@@ -59,28 +58,12 @@ const TestReviewModal = ({ visible, testAttempt, onClose }) => {
       if (question.correct_index !== null && question.correct_index !== undefined) {
         const correctOption = question.options?.[question.correct_index];
         result = answer === correctOption;
-        console.log('MCQ index comparison:', {
-          answer,
-          correctIndex: question.correct_index,
-          correctOption,
-          result
-        });
       } else {
         result = answer === question.correct_text;
-        console.log('MCQ text comparison:', {
-          answer,
-          correctText: question.correct_text,
-          result
-        });
       }
     } else {
       // For text answers, compare with correct text
       result = answer.toLowerCase().trim() === (question.correct_text || '').toLowerCase().trim();
-      console.log('Text comparison:', {
-        answer,
-        correctText: question.correct_text,
-        result
-      });
     }
     
     return result;
@@ -94,16 +77,6 @@ const TestReviewModal = ({ visible, testAttempt, onClose }) => {
     const userAnswer = answers?.[question.id];
     const isCorrect = isAnswerCorrect(question, userAnswer);
     
-    console.log(`Review Modal - Question ${index + 1}:`, {
-      questionId: question.id,
-      questionText: question.question_text,
-      questionType: question.question_type,
-      userAnswer: userAnswer,
-      correctIndex: question.correct_index,
-      correctText: question.correct_text,
-      options: question.options,
-      isCorrect: isCorrect
-    });
     
     if (isCorrect) {
       calculatedScore++;

@@ -41,13 +41,10 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
   const [form] = Form.useForm();
 
   const handleFileUpload = (file) => {
-    console.log('File uploaded:', file);
-    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const content = e.target.result;
-        console.log('File content loaded, length:', content.length);
         setFileContent(content);
         
         // Determine file type
@@ -57,12 +54,10 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
         else if (fileName.endsWith('.json')) type = 'json';
         else if (fileName.endsWith('.txt')) type = 'txt';
         
-        console.log('File type detected:', type);
         setFileType(type);
         
         // Parse the content
         const { tests, errors } = parseTests(content, type);
-        console.log('Parsed tests:', tests.length, 'Errors:', errors.length);
         setParsedTests(tests);
         setValidationErrors(errors);
         
@@ -122,17 +117,6 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
   };
 
   const handleImport = async () => {
-    console.log('=== IMPORT DEBUG START ===');
-    console.log('Import button clicked');
-    console.log('Selected class:', selectedClass);
-    console.log('Validation errors:', validationErrors);
-    console.log('Parsed tests:', parsedTests);
-    console.log('Class instances:', classInstances);
-    console.log('Subjects:', subjects);
-    console.log('School code:', schoolCode);
-    console.log('User ID:', userId);
-    console.log('=== IMPORT DEBUG END ===');
-    
     if (!selectedClass) {
       message.error('Please select a class first');
       return;
@@ -153,7 +137,6 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
       title: 'Import Tests',
       content: `Are you sure you want to import ${parsedTests.length} tests for ${selectedClass.grade} ${selectedClass.section}?`,
       onOk: async () => {
-        console.log('Starting import process...');
         setImporting(true);
         let successCount = 0;
         let errorCount = 0;
@@ -161,17 +144,12 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
 
         for (const test of parsedTests) {
           try {
-            console.log('Processing test:', test);
-            
             // Use the selected class instead of trying to match
-            console.log('Using selected class:', selectedClass);
 
             // Find matching subject - handle case insensitive matching
             const subject = subjects.find(
               sub => sub.subject_name.toLowerCase() === test.subject_name.toLowerCase()
             );
-            
-            console.log('Found subject:', subject);
             
             if (!subject) {
               const errorMsg = `Test "${test.title}": No matching subject found for "${test.subject_name}". Available subjects: ${subjects.map(s => s.subject_name).join(', ')}`;
@@ -194,9 +172,7 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
               created_by: userId
             };
 
-            console.log('Creating test with data:', testData);
             await createTest(testData);
-            console.log('Test created successfully');
             successCount++;
           } catch (error) {
             console.error('Error creating test:', error);

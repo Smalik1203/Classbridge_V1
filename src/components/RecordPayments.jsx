@@ -1,14 +1,13 @@
-// src/components/FeeCollections.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Card, Table, Space, Button, Typography, Select, Modal, Upload,
   Row, Col, message, Empty, InputNumber, Spin, Alert, Tooltip, Divider,
-  Progress, Tag, DatePicker, Form, Input, Tabs, Statistic, Descriptions, Checkbox
+  Progress, Tag, DatePicker, Form, Input, Statistic, Descriptions, Checkbox
 } from "antd";
 import {
-  UploadOutlined, DownloadOutlined, EyeOutlined, PlusOutlined,
-  TeamOutlined, FileTextOutlined, PieChartOutlined, WalletOutlined,
-  CalendarOutlined
+  UploadOutlined, DownloadOutlined, PlusOutlined,
+  TeamOutlined, FileTextOutlined, WalletOutlined,
+  CalendarOutlined, DollarOutlined
 } from "@ant-design/icons";
 import { supabase } from "../config/supabaseClient";
 import { getUserRole, getSchoolCode } from "../utils/metadata";
@@ -18,7 +17,6 @@ import dayjs from "dayjs";
 import { useErrorHandler } from "../hooks/useErrorHandler.jsx";
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 const { RangePicker } = DatePicker;
 
 // CSV parsing utility
@@ -41,31 +39,7 @@ const parseCSV = (csvText) => {
   return data;
 };
 
-// CSV export utility
-const exportToCSV = (data, filename) => {
-  if (!data || data.length === 0) {
-    message.warning('No data to export');
-    return;
-  }
-
-  const headers = Object.keys(data[0]);
-  const csvContent = [
-    headers.join(','),
-    ...data.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
-  ].join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', `${filename}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
-
-export default function FeeCollections() {
+export default function RecordPayments() {
   // User context
   const [me, setMe] = useState({ id: null, role: "", school_code: null });
   const { showError, showSuccess } = useErrorHandler();
@@ -75,21 +49,24 @@ export default function FeeCollections() {
   const [classes, setClasses] = useState([]);
   const [classId, setClassId] = useState(null);
   const [students, setStudents] = useState([]);
-  const [collectionData, setCollectionData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [boot, setBoot] = useState(false);
 
   // UI state
-  const [activeTab, setActiveTab] = useState('record');
   const [paymentModal, setPaymentModal] = useState({ open: false, student: null });
-  const [ledgerModal, setLedgerModal] = useState({ open: false, student: null });
   const [bulkUploadModal, setBulkUploadModal] = useState(false);
-  const [dateRange, setDateRange] = useState(null);
 
   // Payment form state
   const [paymentForm] = Form.useForm();
   const [savingPayment, setSavingPayment] = useState(false);
-  const [paymentLines, setPaymentLines] = useState([]); // [{ component_type_id, component_name, plan_amount_paise, selected, mode, amount_inr }]
+  const [paymentLines, setPaymentLines] = useState([]);
+
+  // Summary statistics
+  const [summaryStats, setSummaryStats] = useState({
+    totalPlanAmount: 0,
+    totalCollected: 0,
+    totalOutstanding: 0
+  });
 
   // Prepare payment lines when opening modal
   useEffect(() => {
@@ -136,16 +113,16 @@ export default function FeeCollections() {
         showError(e, {
           useNotification: true,
           context: {
-            item: 'fee collections',
-            resource: 'fee data'
+            item: 'record payments',
+            resource: 'payment data'
           }
         });
       }
     })();
   }, []);
 
-  // ---------- load collection data from existing fee management tables ----------
-  const loadCollectionData = useCallback(async (cid, dateFilter = null) => {
+  // ---------- load students and summary for selected class ----------
+  const loadStudentsAndSummary = useCallback(async (cid) => {
     if (!cid || !me.school_code) return;
     setLoading(true);
 
@@ -165,7 +142,7 @@ export default function FeeCollections() {
 
       if (studentsErr) throw studentsErr;
 
-      // Get fee plans for these students (scoped to this class)
+      // Get fee plans for these students
       const studentIds = students.map(s => s.id);
       const { data: plans, error: plansErr } = await supabase
         .from("fee_student_plans")
@@ -195,10 +172,10 @@ export default function FeeCollections() {
         planItems = items || [];
       }
 
-      // Get existing payments (if fee_payments table exists)
+      // Get existing payments
       let payments = [];
       try {
-        let q = supabase
+        const { data: paymentData, error: paymentErr } = await supabase
           .from("fee_payments")
           .select(`
             student_id,
@@ -209,30 +186,20 @@ export default function FeeCollections() {
           `)
           .in("student_id", studentIds)
           .eq("school_code", me.school_code);
-        if (planIds.length > 0) {
-          q = q.in("plan_id", planIds);
-        }
-        if (dateFilter && Array.isArray(dateFilter) && dateFilter[0] && dateFilter[1]) {
-          q = q.gte("payment_date", dateFilter[0].format("YYYY-MM-DD")).lte("payment_date", dateFilter[1].format("YYYY-MM-DD"));
-        }
-        const { data: paymentData, error: paymentErr } = await q;
 
         if (!paymentErr) {
           payments = paymentData || [];
         }
       } catch (e) {
-        // fee_payments table doesn't exist yet, that's okay
+        // fee_payments table doesn't exist yet
       }
 
-      // Build collection data
-      const collectionData = students.map(student => {
+      // Build student data with payment info
+      const studentData = students.map(student => {
         const planId = planByStudent.get(student.id);
         const studentPlanItems = planItems.filter(item => item.plan_id === planId);
         
-        // Calculate totals
         const totalPlanAmount = studentPlanItems.reduce((sum, item) => sum + (item.amount_paise || 0), 0);
-        
-        // Calculate collected amount from payments
         const studentPayments = payments.filter(p => p.student_id === student.id);
         const totalCollected = studentPayments.reduce((sum, payment) => sum + (payment.amount_paise || 0), 0);
         
@@ -246,7 +213,6 @@ export default function FeeCollections() {
           student_code: student.student_code,
           grade: student.class_instances.grade,
           section: student.class_instances.section,
-          class_instance_id: cid,
           plan_id: planId,
           total_plan_amount_paise: totalPlanAmount,
           total_collected_paise: totalCollected,
@@ -257,33 +223,32 @@ export default function FeeCollections() {
         };
       });
 
-      setCollectionData(collectionData);
+      setStudents(studentData);
+
+      // Calculate summary statistics
+      const totalPlanAmount = studentData.reduce((sum, row) => sum + row.total_plan_amount_paise, 0);
+      const totalCollected = studentData.reduce((sum, row) => sum + row.total_collected_paise, 0);
+      const totalOutstanding = totalPlanAmount - totalCollected;
+
+      setSummaryStats({
+        totalPlanAmount,
+        totalCollected,
+        totalOutstanding
+      });
+
     } catch (e) {
-      console.error("Error loading collection data:", e);
+      console.error("Error loading students:", e);
       showError(e, {
         useNotification: true,
         context: {
-          item: 'collection data',
-          resource: 'fee collection records'
+          item: 'student data',
+          resource: 'payment records'
         }
       });
     } finally {
       setLoading(false);
     }
   }, [me.school_code]);
-
-  // ---------- class change handler ----------
-  const handleClassChange = useCallback((cid) => {
-    setClassId(cid);
-    if (!cid) {
-      setCollectionData([]);
-    }
-  }, []);
-
-  // ---------- date range change handler ----------
-  const handleDateRangeChange = useCallback((dates) => {
-    setDateRange(dates);
-  }, []);
 
   // ---------- save payment ----------
   const savePayment = async (values) => {
@@ -326,8 +291,6 @@ export default function FeeCollections() {
     setSavingPayment(true);
 
     try {
-      // Ensure schema exists via migration; avoid creating DDL from client
-
       // Insert payment
       const { error: paymentErr } = await supabase
         .from("fee_payments")
@@ -341,7 +304,7 @@ export default function FeeCollections() {
       
       // Reload data
       if (classId) {
-        loadCollectionData(classId, dateRange);
+        loadStudentsAndSummary(classId);
       }
     } catch (e) {
       console.error("Error saving payment:", e);
@@ -358,8 +321,6 @@ export default function FeeCollections() {
     }
   };
 
-  // Removed client-side DDL; rely on migration supabase/migrations/20250101000000_fee_collections.sql
-
   // ---------- bulk upload ----------
   const handleBulkUpload = async (file) => {
     const reader = new FileReader();
@@ -368,8 +329,6 @@ export default function FeeCollections() {
         const csvData = parseCSV(e.target.result);
         let successCount = 0;
         let errorCount = 0;
-
-        // Assume migrations are applied; do not attempt client-side DDL
 
         for (const row of csvData) {
           try {
@@ -442,7 +401,7 @@ export default function FeeCollections() {
         
         // Reload data
         if (classId) {
-          loadCollectionData(classId, dateRange);
+          loadStudentsAndSummary(classId);
         }
       } catch (e) {
         console.error("Bulk upload error:", e);
@@ -452,84 +411,6 @@ export default function FeeCollections() {
     reader.readAsText(file);
     return false; // Prevent default upload
   };
-
-  // ---------- student ledger ----------
-  const openLedgerModal = async (student) => {
-    try {
-      // Get payments for this student
-      let payments = [];
-      try {
-        const { data: paymentData, error: paymentsErr } = await supabase
-          .from("fee_payments")
-          .select(`
-            id,
-            receipt_number,
-            amount_paise,
-            payment_date,
-            payment_method,
-            transaction_id,
-            remarks,
-            fee_component_types(name)
-          `)
-          .eq("student_id", student.student_id)
-          .eq("school_code", me.school_code)
-          .order("payment_date", { ascending: false });
-
-        if (!paymentsErr) {
-          payments = paymentData || [];
-        }
-      } catch (e) {
-        // fee_payments table doesn't exist
-        payments = [];
-      }
-
-      setLedgerModal({
-        open: true,
-        student,
-        payments,
-        planItems: student.plan_items || []
-      });
-    } catch (e) {
-      console.error("Error loading ledger:", e);
-      message.error(e.message || "Failed to load student ledger");
-    }
-  };
-
-  // ---------- export data ----------
-  const handleExport = () => {
-    if (!collectionData || collectionData.length === 0) {
-      message.warning('No data to export');
-      return;
-    }
-
-    const exportData = collectionData.map(row => ({
-      'Student Name': row.student_name,
-      'Student Code': row.student_code,
-      'Class': `${row.grade}-${row.section}`,
-      'Total Plan Amount': fmtINR(row.total_plan_amount_paise),
-      'Total Collected': fmtINR(row.total_collected_paise),
-      'Total Outstanding': fmtINR(row.total_outstanding_paise),
-      'Collection %': `${row.collection_percentage}%`
-    }));
-
-    exportToCSV(exportData, `fee_collections_${classId}_${new Date().toISOString().split('T')[0]}`);
-  };
-
-  // ---------- statistics ----------
-  const stats = useMemo(() => {
-    if (!collectionData || collectionData.length === 0) {
-      return { totalPlan: 0, totalCollected: 0, totalOutstanding: 0, overallCollectionRate: 0 };
-    }
-
-    const totalPlan = collectionData.reduce((sum, row) => sum + row.total_plan_amount_paise, 0);
-    const totalCollected = collectionData.reduce((sum, row) => sum + row.total_collected_paise, 0);
-    const totalOutstanding = totalPlan - totalCollected;
-    
-    // Calculate overall collection rate (total collected / total plan amount)
-    const overallCollectionRate = totalPlan > 0 ? Math.round((totalCollected / totalPlan) * 100) : 0;
-
-    return { totalPlan, totalCollected, totalOutstanding, overallCollectionRate };
-  }, [collectionData]);
 
   // ---------- table columns ----------
   const columns = [
@@ -590,243 +471,131 @@ export default function FeeCollections() {
           <Tooltip title="Record Payment">
             <Button
               size="small"
+              type="primary"
               icon={<PlusOutlined />}
               onClick={() => setPaymentModal({ open: true, student: record })}
-              disabled={!canWrite}
-            />
-          </Tooltip>
-          <Tooltip title="View Ledger">
-            <Button
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => openLedgerModal(record)}
-            />
+              disabled={!canWrite || !record.plan_id}
+            >
+              Record
+            </Button>
           </Tooltip>
         </Space>
       )
     }
   ];
 
-
-
   return (
     <Page
-      title="Fee Collections"
-      subtitle="Record payments and track collection progress"
-      extra={
-        <Space>
-          <Select
-            placeholder="Select Class"
-            value={classId}
-            onChange={handleClassChange}
-            style={{ width: 300 }}
-            options={classes}
-          />
-          <RangePicker
-            placeholder={['Start Date', 'End Date']}
-            value={dateRange}
-            onChange={handleDateRangeChange}
-          />
-          <Button
-            type="primary"
-            onClick={() => {
-              if (classId && dateRange && dateRange[0] && dateRange[1]) {
-                loadCollectionData(classId, dateRange);
-              } else {
-                message.warning('Please select both a class and date range before loading data');
-              }
-            }}
-            disabled={!classId || !dateRange || !dateRange[0] || !dateRange[1]}
-          >
-            Load Data
-          </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={handleExport}
-            disabled={!collectionData || collectionData.length === 0}
-          >
-            Export
-          </Button>
-        </Space>
-      }
+      title="Record Payments"
+      subtitle="Enter payment transactions for students"
     >
-      <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        <TabPane tab="Record Payments" key="record">
-          <Card>
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-              <Col span={6}>
+      {/* Class Selection and Summary */}
+      <Card style={{ marginBottom: 24, borderRadius: 12 }}>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={12} md={6}>
+            <div>
+              <Text strong style={{ display: 'block', marginBottom: 4 }}>Select Class</Text>
+              <Select
+                placeholder="Choose a class"
+                value={classId}
+                onChange={(value) => {
+                  setClassId(value);
+                  loadStudentsAndSummary(value);
+                }}
+                style={{ width: '100%' }}
+                options={classes}
+              />
+            </div>
+          </Col>
+          {classId && (
+            <>
+              <Col xs={24} sm={12} md={6}>
                 <Statistic
                   title="Total Plan Amount"
-                  value={fmtINR(stats.totalPlan)}
+                  value={fmtINR(summaryStats.totalPlanAmount)}
                   prefix={<WalletOutlined />}
                 />
               </Col>
-              <Col span={6}>
+              <Col xs={24} sm={12} md={6}>
                 <Statistic
                   title="Total Collected"
-                  value={fmtINR(stats.totalCollected)}
-                  prefix={<WalletOutlined />}
+                  value={fmtINR(summaryStats.totalCollected)}
+                  prefix={<DollarOutlined />}
                   valueStyle={{ color: '#3f8600' }}
                 />
               </Col>
-              <Col span={6}>
+              <Col xs={24} sm={12} md={6}>
                 <Statistic
                   title="Total Outstanding"
-                  value={fmtINR(stats.totalOutstanding)}
-                  prefix={<WalletOutlined />}
+                  value={fmtINR(summaryStats.totalOutstanding)}
+                  prefix={<DollarOutlined />}
                   valueStyle={{ color: '#cf1322' }}
                 />
               </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Overall Collection Rate"
-                  value={stats.overallCollectionRate}
-                  suffix="%"
-                  prefix={<PieChartOutlined />}
-                />
-              </Col>
-            </Row>
+            </>
+          )}
+        </Row>
+      </Card>
 
-            <Space style={{ marginBottom: 16 }}>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  const firstStudent = collectionData?.[0] || null;
-                  setPaymentModal({ open: true, student: firstStudent });
-                }}
-                disabled={!canWrite || !classId || collectionData.length === 0}
-              >
-                Record Payment
-              </Button>
-              <Button
-                icon={<UploadOutlined />}
-                onClick={() => setBulkUploadModal(true)}
-                disabled={!canWrite || !classId}
-              >
-                Bulk Upload
-              </Button>
-            </Space>
+      {/* Action Buttons */}
+      {classId && (
+        <Card style={{ marginBottom: 24, borderRadius: 12 }}>
+          <Space>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                const firstStudent = students?.[0] || null;
+                setPaymentModal({ open: true, student: firstStudent });
+              }}
+              disabled={!canWrite || !classId || students.length === 0}
+            >
+              Record Payment
+            </Button>
+            <Button
+              icon={<UploadOutlined />}
+              onClick={() => setBulkUploadModal(true)}
+              disabled={!canWrite || !classId}
+            >
+              Bulk Upload
+            </Button>
+          </Space>
+        </Card>
+      )}
 
-            {!classId ? (
-              <EmptyState
-                title="Select a Class"
-                description="Choose a class from the dropdown above to view and record payments."
-                icon="👥"
-              />
-            ) : !dateRange || !dateRange[0] || !dateRange[1] ? (
-              <EmptyState
-                title="Select Date Range"
-                description="Choose a date range to view fee collection data for the selected period."
-                icon="📅"
-              />
-            ) : loading ? (
-              <div style={{ textAlign: 'center', padding: '50px' }}>
-                <Spin size="large" />
-                <div style={{ marginTop: '20px' }}>Loading collection data...</div>
-              </div>
-            ) : collectionData.length === 0 ? (
-              <EmptyState
-                title="No Collection Data"
-                description="No fee plans found for the selected class. Create fee plans first in the Fee Management section."
-                icon="💰"
-                actionText="Go to Fee Management"
-                onAction={() => {
-                  // Navigate to fee management
-                  window.location.href = '/fees';
-                }}
-              />
-            ) : (
-              <Table
-                columns={columns}
-                dataSource={collectionData}
-                rowKey="id"
-                pagination={{
-                  pageSize: 10,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`
-                }}
-              />
-            )}
-          </Card>
-        </TabPane>
-
-        <TabPane tab="View Collections" key="view">
-          <Card>
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-              <Col span={6}>
-                <Statistic
-                  title="Total Plan Amount"
-                  value={fmtINR(stats.totalPlan)}
-                  prefix={<WalletOutlined />}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Total Collected"
-                  value={fmtINR(stats.totalCollected)}
-                  prefix={<WalletOutlined />}
-                  valueStyle={{ color: '#3f8600' }}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Total Outstanding"
-                  value={fmtINR(stats.totalOutstanding)}
-                  prefix={<WalletOutlined />}
-                  valueStyle={{ color: '#cf1322' }}
-                />
-              </Col>
-              <Col span={6}>
-                <Statistic
-                  title="Overall Collection Rate"
-                  value={stats.overallCollectionRate}
-                  suffix="%"
-                  prefix={<PieChartOutlined />}
-                />
-              </Col>
-            </Row>
-
-            {!classId ? (
-              <EmptyState
-                icon={<TeamOutlined />}
-                title="Select a Class"
-                description="Choose a class from the dropdown above to view collection progress"
-              />
-            ) : !dateRange || !dateRange[0] || !dateRange[1] ? (
-              <EmptyState
-                icon={<CalendarOutlined />}
-                title="Select Date Range"
-                description="Choose a date range to view collection progress for the selected period"
-              />
-            ) : loading ? (
-              <div style={{ textAlign: 'center', padding: '50px' }}>
-                <Spin size="large" />
-                <div style={{ marginTop: '20px' }}>Loading collection data...</div>
-              </div>
-            ) : collectionData.length === 0 ? (
-              <EmptyState
-                icon={<FileTextOutlined />}
-                title="No Collection Data"
-                description="No fee plans found for the selected class. Create fee plans first in the Fee Management section."
-              />
-            ) : (
-              <Table
-                columns={columns.filter(col => col.key !== 'actions')}
-                dataSource={collectionData}
-                rowKey="id"
-                pagination={{
-                  pageSize: 10,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`
-                }}
-              />
-            )}
-          </Card>
-        </TabPane>
-      </Tabs>
+      {/* Students Table */}
+      <Card style={{ borderRadius: 12 }}>
+        {!classId ? (
+          <EmptyState
+            title="Select a Class"
+            description="Choose a class from the dropdown above to view students and record payments."
+            icon="👥"
+          />
+        ) : loading ? (
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: '20px' }}>Loading students...</div>
+          </div>
+        ) : students.length === 0 ? (
+          <EmptyState
+            title="No Students Found"
+            description="No students are assigned to this class. Add students first to record payments."
+            icon="👥"
+          />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={students}
+            rowKey="id"
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} students`
+            }}
+          />
+        )}
+      </Card>
 
       {/* Payment Modal */}
       <Modal
@@ -992,57 +761,6 @@ export default function FeeCollections() {
             Support for CSV files only
           </p>
         </Upload.Dragger>
-      </Modal>
-
-      {/* Ledger Modal */}
-      <Modal
-        title={`Student Ledger - ${ledgerModal.student?.student_name}`}
-        open={ledgerModal.open}
-        onCancel={() => setLedgerModal({ open: false, student: null })}
-        footer={null}
-        width={800}
-      >
-        {ledgerModal.student && (
-          <div>
-            <Descriptions bordered size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="Student Name">{ledgerModal.student.student_name}</Descriptions.Item>
-              <Descriptions.Item label="Student Code">{ledgerModal.student.student_code}</Descriptions.Item>
-              <Descriptions.Item label="Class">{`${ledgerModal.student.grade}-${ledgerModal.student.section}`}</Descriptions.Item>
-            </Descriptions>
-
-            <Divider>Fee Plan Items</Divider>
-            <Table
-              columns={[
-                { title: 'Component', dataIndex: 'fee_component_types', key: 'component', render: (ct) => ct?.name },
-                { title: 'Amount', dataIndex: 'amount_paise', key: 'amount', render: (amount) => fmtINR(amount) }
-              ]}
-              dataSource={ledgerModal.planItems}
-              rowKey="id"
-              pagination={false}
-              size="small"
-            />
-
-            <Divider>Payment History</Divider>
-            {ledgerModal.payments.length === 0 ? (
-              <Empty description="No payments recorded yet" />
-            ) : (
-              <Table
-                columns={[
-                  { title: 'Date', dataIndex: 'payment_date', key: 'date' },
-                  { title: 'Receipt #', dataIndex: 'receipt_number', key: 'receipt_number', render: (r) => r || '-' },
-                  { title: 'Component', dataIndex: 'fee_component_types', key: 'component', render: (ct) => ct?.name },
-                  { title: 'Amount', dataIndex: 'amount_paise', key: 'amount', render: (amount) => fmtINR(amount) },
-                  { title: 'Method', dataIndex: 'payment_method', key: 'method' },
-                  { title: 'Transaction ID', dataIndex: 'transaction_id', key: 'transaction_id', render: (id) => id || '-' }
-                ]}
-                dataSource={ledgerModal.payments}
-                rowKey="id"
-                pagination={false}
-                size="small"
-              />
-            )}
-          </div>
-        )}
       </Modal>
     </Page>
   );

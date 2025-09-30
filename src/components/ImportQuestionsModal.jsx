@@ -56,9 +56,6 @@ const ImportQuestionsModal = ({ visible, test, onClose, onImportComplete }) => {
   const handleFileUpload = (info) => {
     const { file, fileList: newFileList } = info;
     
-    console.log('File upload info:', info);
-    console.log('File object:', file);
-    console.log('File list:', newFileList);
     
     // Update file list
     setFileList(newFileList);
@@ -70,7 +67,6 @@ const ImportQuestionsModal = ({ visible, test, onClose, onImportComplete }) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target.result;
-        console.log('File content length:', content.length);
         setFileContent(content);
         parseQuestions(content);
       };
@@ -121,8 +117,6 @@ const ImportQuestionsModal = ({ visible, test, onClose, onImportComplete }) => {
           throw new Error('Unsupported format');
       }
       
-      console.log('Parsed questions:', questions);
-      console.log('Number of questions:', questions.length);
       
       // Check if any questions were parsed
       if (questions.length === 0) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Form, Button, message, Typography, Table, Popconfirm, Card, Select, Input, Space, Tag, Tooltip, Empty } from 'antd';
+import { Form, Button, message, Typography, Table, Popconfirm, Card, Select, Input, Space, Tag, Tooltip } from 'antd';
 import { Trash2 } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';

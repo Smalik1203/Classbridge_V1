@@ -938,7 +938,24 @@ export const designTokens = {
   },
   spacing: SPACING,
   radius: RADIUS,
+  borderRadius: RADIUS, // Alias for compatibility
   shadows: SHADOWS,
+  fontSize: {
+    xs: 12,
+    sm: 14,
+    md: 16,
+    lg: 18,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 30,
+    '4xl': 36,
+  },
+  fontWeight: {
+    normal: 400,
+    medium: 500,
+    semibold: 600,
+    bold: 700,
+  },
   typography: {
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontWeights: {

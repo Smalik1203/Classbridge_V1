@@ -132,7 +132,6 @@ export const createLearningResource = async (resourceData) => {
       throw new Error('learning_resources table does not exist. Please run the migration first.');
     }
 
-    console.log('Creating resource with data:', resourceData);
 
     const { data, error } = await supabase
       .from('learning_resources')
@@ -145,7 +144,6 @@ export const createLearningResource = async (resourceData) => {
       throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
     }
     
-    console.log('Resource created successfully:', data);
     return data;
   } catch (error) {
     console.error('Error creating learning resource:', error);

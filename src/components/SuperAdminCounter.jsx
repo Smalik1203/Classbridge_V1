@@ -27,7 +27,6 @@ const SuperAdminCounter = () => {
         .eq('role', 'superadmin');
 
       if (usersError) {
-        console.log('Users table query failed:', usersError);
         // If users table doesn't exist or has no data, try admin table
         const { data: adminData, error: adminError } = await supabase
           .from('admin')
@@ -35,7 +34,6 @@ const SuperAdminCounter = () => {
           .eq('role', 'superadmin');
 
         if (adminError) {
-          console.log('Admin table query failed:', adminError);
           setError('Could not query super admin data. This might require service role access.');
         } else {
           setSuperAdminCount(adminData?.length || 0);

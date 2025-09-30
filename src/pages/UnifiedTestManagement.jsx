@@ -56,6 +56,7 @@ import TestImportModal from '../components/TestImportModal';
 import { supabase } from '../config/supabaseClient';
 import { getSchoolCode } from '../utils/metadata';
 import EmptyState from '../ui/EmptyState';
+import { useErrorHandler } from '../hooks/useErrorHandler.jsx';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -64,6 +65,7 @@ const { TabPane } = Tabs;
 const UnifiedTestManagement = () => {
   const { user } = useAuth();
   const { theme: antdTheme } = useTheme();
+  const { showError, showSuccess } = useErrorHandler();
   const [tests, setTests] = useState([]);
   const [classInstances, setClassInstances] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -100,16 +102,8 @@ const UnifiedTestManagement = () => {
   const schoolCode = getSchoolCode(user);
 
   useEffect(() => {
-    console.log('=== USEEFFECT DEBUG ===');
-    console.log('School code:', schoolCode);
-    console.log('User:', user);
-    console.log('Will fetch data:', !!schoolCode);
-    
     if (schoolCode) {
-      console.log('Calling fetchData...');
       fetchData();
-    } else {
-      console.log('No school code, not fetching data');
     }
   }, [schoolCode]);
 
@@ -131,7 +125,13 @@ const UnifiedTestManagement = () => {
       setSubjects(subjectsData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      message.error('Failed to fetch data: ' + error.message);
+      showError(error, {
+        useNotification: true,
+        context: {
+          item: 'test data',
+          resource: 'test management data'
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -203,7 +203,15 @@ const UnifiedTestManagement = () => {
       fetchData();
     } catch (error) {
       console.error('Error saving test:', error);
-      message.error('Failed to save test');
+      showError(error, {
+        useNotification: true,
+        context: {
+          item: 'test',
+          resource: 'test record',
+          action: 'save'
+        }
+      });
+      fetchData(); // Refresh data even on error
     } finally {
       setConfirmLoading(false);
     }
@@ -238,7 +246,15 @@ const UnifiedTestManagement = () => {
       fetchData();
     } catch (error) {
       console.error('Error deleting test:', error);
-      message.error('Failed to delete test');
+      showError(error, {
+        useNotification: true,
+        context: {
+          item: 'test',
+          resource: 'test record',
+          action: 'delete'
+        }
+      });
+      fetchData(); // Refresh data even on error
     }
   };
 
@@ -306,12 +322,14 @@ const UnifiedTestManagement = () => {
           } catch (error) {
             console.error('Error allowing reattempts:', error);
             message.error('Failed to allow reattempts');
+            fetchData(); // Refresh data even on error
           }
         }
       });
     } catch (error) {
       console.error('Error allowing reattempts:', error);
       message.error('Failed to allow reattempts');
+      fetchData(); // Refresh data even on error
     }
   };
 
@@ -439,9 +457,6 @@ const UnifiedTestManagement = () => {
             </Button>
             <Button
               onClick={() => {
-                console.log('Manual refresh clicked');
-                console.log('School code:', schoolCode);
-                console.log('User:', user);
                 fetchData();
               }}
               size="large"

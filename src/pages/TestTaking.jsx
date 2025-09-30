@@ -10,6 +10,7 @@ import { PlayCircleOutlined, ClockCircleOutlined, BookOutlined, TrophyOutlined, 
 import { useAuth } from '../AuthProvider';
 import { getSchoolCode, getStudentCode, getUserRole } from '../utils/metadata';
 import { useTheme } from '../contexts/ThemeContext';
+import { useErrorHandler } from '../hooks/useErrorHandler.jsx';
 import {
   getAvailableTests,
   getTestForTaking,
@@ -28,6 +29,7 @@ export default function TestTaking() {
   const { user } = useAuth();
   const { theme: antdTheme } = useTheme();
   const [messageApi, contextHolder] = message.useMessage();
+  const { showError, showSuccess } = useErrorHandler();
   const mountedRef = useRef(false);
 
   // state
@@ -104,7 +106,13 @@ export default function TestTaking() {
       setTestHistory(history || []);
     } catch (err) {
       console.error('loadData error', err);
-      messageApi.error(err.message || 'Failed to load tests');
+      showError(err, {
+        useNotification: true,
+        context: {
+          item: 'tests',
+          resource: 'available tests'
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -147,7 +155,14 @@ export default function TestTaking() {
       messageApi.success('Test started');
     } catch (err) {
       console.error('handleStart error', err);
-      messageApi.error(err.message || 'Failed to start test. If you recently changed DB schema, try refreshing API schema in Supabase.');
+      showError(err, {
+        useNotification: true,
+        context: {
+          item: 'test',
+          resource: 'test attempt',
+          action: 'start'
+        }
+      });
     } finally {
       setTestLoading(false);
       setLoadingTestId(null);
@@ -301,7 +316,14 @@ export default function TestTaking() {
       messageApi.success('Test submitted successfully');
     } catch (err) {
       console.error('submit error', err);
-      messageApi.error(err.message || 'Failed to submit test');
+      showError(err, {
+        useNotification: true,
+        context: {
+          item: 'test',
+          resource: 'test submission',
+          action: 'submit'
+        }
+      });
     } finally {
       setSubmitting(false);
     }
@@ -363,7 +385,13 @@ export default function TestTaking() {
       await loadData(); // Refresh the data
     } catch (err) {
       console.error('Error allowing reattempt:', err);
-      messageApi.error(err.message || 'Failed to allow test reattempt');
+      showError(err, {
+        context: {
+          item: 'test',
+          resource: 'test reattempt',
+          action: 'allow'
+        }
+      });
     } finally {
       setReattempting(false);
     }

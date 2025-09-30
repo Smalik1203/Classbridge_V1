@@ -17,9 +17,6 @@ const AddStudent = () => {
   const super_admin_code = getSuperAdminCode(user);
   
   // Debug logging (only when needed)
-  // console.log('=== ADD STUDENT COMPONENT DEBUG ===');
-  // console.log('User role:', user?.app_metadata?.role || user?.user_metadata?.role);
-  // console.log('School code:', school_code);
 
   const [form] = Form.useForm();
   const [editForm] = Form.useForm();
@@ -65,8 +62,6 @@ const AddStudent = () => {
 
   useEffect(() => {
     const fetchClassInstances = async () => {
-      console.log('=== FETCH CLASS INSTANCES DEBUG ===');
-      console.log('School code:', school_code);
       
       // BACKEND INTEGRATION: Replace with comprehensive query above
       const { data, error } = await supabase
@@ -83,7 +78,6 @@ const AddStudent = () => {
         message.error('Failed to load classes: ' + error.message);
         setClassInstances([]);
       } else {
-        console.log('Class instances data:', data);
         setClassInstances(data || []);
         
         // Clear any existing form values when classes are loaded
@@ -111,6 +105,7 @@ const AddStudent = () => {
       if (!token) {
         message.error('Not authenticated. Please log in.');
         setLoading(false);
+        fetchStudents(); // Refresh data even on error
         return;
       }
 
@@ -137,6 +132,7 @@ const AddStudent = () => {
       if (!response.ok) {
         // ERROR HANDLING: Display specific error messages
         message.error(result.error || `Failed to create student. Status: ${response.status}`);
+        fetchStudents(); // Refresh data even on error
       } else {
         // SUCCESS HANDLING: User feedback and form reset
         message.success('Student created successfully!');
@@ -150,6 +146,7 @@ const AddStudent = () => {
     } catch (err) {
       // GENERAL ERROR HANDLING: Network and unexpected errors
       message.error('Unexpected error: ' + err.message);
+      fetchStudents(); // Refresh data even on error
     } finally {
       setLoading(false);
     }

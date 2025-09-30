@@ -169,7 +169,6 @@ const Assessments = () => {
 
   // Real-time subscription for assessments
   useSupabaseSubscription('assessments', (payload) => {
-    console.log('Assessment change:', payload);
     refetchAssessments();
   }, [{ column: 'school_code', value: currentUser.schoolCode }]);
 
