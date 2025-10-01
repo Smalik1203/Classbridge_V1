@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   Row,
@@ -8,29 +8,30 @@ import {
   Button,
   Spin,
   Tag,
-  Progress
+  Progress,
+  Skeleton,
+  Statistic
 } from 'antd';
 import {
   UserOutlined,
   BookOutlined,
   CalendarOutlined,
-  TrophyOutlined,
   ReloadOutlined,
   TeamOutlined,
   DollarOutlined,
   CheckCircleOutlined,
   RightOutlined,
-  SettingOutlined,
   FileTextOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  ClockCircleOutlined,
+  TrophyOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
 import { supabase } from '../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import { getSchoolCode } from '../utils/metadata';
-import EmptyState from '../ui/EmptyState';
+import { getSchoolCode, getUserRole, getStudentCode, getSchoolName } from '../utils/metadata';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -41,50 +42,257 @@ const Dashboard = () => {
     totalStudents: 0,
     totalClasses: 0,
     totalSubjects: 0,
-    todayAttendance: 0
+    todayAttendance: 0,
+    todayAttendanceTotal: 0,
+    pendingFees: 0,
+    upcomingTests: 0,
+    todayClasses: 0
   });
-  const [error, setError] = useState(null);
+  const [schoolInfo, setSchoolInfo] = useState({ name: '', academicYear: '' });
+  const [realtimeData, setRealtimeData] = useState({
+    lastAttendanceUpdate: null,
+    lastFeeUpdate: null
+  });
+
+  const channelRef = useRef(null);
+  const debounceTimerRef = useRef(null);
 
   const userName = user?.user_metadata?.full_name || 'User';
-  const role = user?.app_metadata?.role || user?.user_metadata?.role || 'user';
+  const role = getUserRole(user) || 'user';
   const schoolCode = getSchoolCode(user);
+  const studentCode = getStudentCode(user);
+  const schoolName = getSchoolName(user) || '';
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [role, schoolCode]);
+  const getIST = () => {
+    return new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
-  const fetchDashboardData = async () => {
+  const getISTDate = () => {
+    return new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getTodayIST = () => {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  };
+
+  const fetchDashboardData = useCallback(async () => {
+    if (!schoolCode) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    setError(null);
 
     try {
-      if (!schoolCode) {
-        setLoading(false);
-        return;
+      const today = getTodayIST();
+
+      if (role === 'student') {
+        const { data: studentData } = await supabase
+          .from('student')
+          .select('id, class_instance_id, full_name')
+          .eq('student_code', studentCode)
+          .eq('school_code', schoolCode)
+          .maybeSingle();
+
+        if (!studentData) {
+          setLoading(false);
+          return;
+        }
+
+        const [attendanceResult, feeResult, testResult, timetableResult] = await Promise.all([
+          supabase.from('attendance').select('status', { count: 'exact' }).eq('student_id', studentData.id).eq('date', today).maybeSingle(),
+          supabase.from('fee_student_plans').select('fee_student_plan_items(amount_paise)').eq('student_id', studentData.id).eq('school_code', schoolCode).maybeSingle(),
+          supabase.from('tests').select('id', { count: 'exact', head: true }).eq('class_instance_id', studentData.class_instance_id).gte('scheduled_date', today),
+          supabase.from('timetable_slots').select('id', { count: 'exact', head: true }).eq('class_instance_id', studentData.class_instance_id).eq('date', today)
+        ]);
+
+        const totalFees = feeResult.data?.fee_student_plan_items?.reduce((sum, item) => sum + (item.amount_paise || 0), 0) || 0;
+        const { data: payments } = await supabase.from('fee_payments').select('amount_paise').eq('student_id', studentData.id).eq('school_code', schoolCode);
+        const paidFees = payments?.reduce((sum, p) => sum + (p.amount_paise || 0), 0) || 0;
+
+        const { count: totalAttendance } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentData.id);
+        const { count: presentCount } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentData.id).eq('status', 'present');
+
+        setStats({
+          totalStudents: 1,
+          totalClasses: 1,
+          todayAttendance: attendanceResult.data?.status === 'present' ? 1 : 0,
+          todayAttendanceTotal: totalAttendance || 0,
+          attendancePercentage: totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0,
+          pendingFees: (totalFees - paidFees) / 100,
+          upcomingTests: testResult.count || 0,
+          todayClasses: timetableResult.count || 0
+        });
+      } else if (role === 'admin') {
+        const { data: adminClasses } = await supabase
+          .from('class_instances')
+          .select('id')
+          .eq('class_teacher_id', user.id)
+          .eq('school_code', schoolCode);
+
+        const classIds = adminClasses?.map(c => c.id) || [];
+
+        if (classIds.length === 0) {
+          setStats({
+            totalStudents: 0,
+            totalClasses: 0,
+            totalSubjects: 0,
+            todayAttendance: 0,
+            todayAttendanceTotal: 0,
+            pendingFees: 0,
+            upcomingTests: 0,
+            todayClasses: 0
+          });
+          setLoading(false);
+          return;
+        }
+
+        const [studentsResult, attendanceResult, attendanceTotalResult, feeResult, testResult] = await Promise.all([
+          supabase.from('student').select('id', { count: 'exact', head: true }).in('class_instance_id', classIds).eq('school_code', schoolCode),
+          supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today).eq('status', 'present'),
+          supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today),
+          supabase.from('fee_student_plans').select('student_id, fee_student_plan_items(amount_paise)').eq('school_code', schoolCode),
+          supabase.from('tests').select('id', { count: 'exact', head: true }).in('class_instance_id', classIds).gte('scheduled_date', today)
+        ]);
+
+        setStats({
+          totalStudents: studentsResult.count || 0,
+          totalClasses: classIds.length,
+          totalSubjects: 0,
+          todayAttendance: attendanceResult.count || 0,
+          todayAttendanceTotal: attendanceTotalResult.count || 0,
+          pendingFees: 0,
+          upcomingTests: testResult.count || 0,
+          todayClasses: classIds.length
+        });
+      } else if (role === 'superadmin') {
+        const [studentsResult, classesResult, subjectsResult, attendanceResult, attendanceTotalResult, feeResult, testResult] = await Promise.all([
+          supabase.from('student').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
+          supabase.from('class_instances').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
+          supabase.from('subjects').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
+          supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today).eq('status', 'present'),
+          supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today),
+          supabase.from('fee_student_plans').select('student_id, fee_student_plan_items(amount_paise)').eq('school_code', schoolCode),
+          supabase.from('tests').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).gte('scheduled_date', today)
+        ]);
+
+        const totalFees = feeResult.data?.reduce((sum, plan) => {
+          return sum + (plan.fee_student_plan_items?.reduce((s, item) => s + (item.amount_paise || 0), 0) || 0);
+        }, 0) || 0;
+
+        const { data: payments } = await supabase.from('fee_payments').select('amount_paise').eq('school_code', schoolCode);
+        const paidFees = payments?.reduce((sum, p) => sum + (p.amount_paise || 0), 0) || 0;
+
+        setStats({
+          totalStudents: studentsResult.count || 0,
+          totalClasses: classesResult.count || 0,
+          totalSubjects: subjectsResult.count || 0,
+          todayAttendance: attendanceResult.count || 0,
+          todayAttendanceTotal: attendanceTotalResult.count || 0,
+          pendingFees: (totalFees - paidFees) / 100,
+          upcomingTests: testResult.count || 0,
+          todayClasses: classesResult.count || 0
+        });
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const { data: schoolData } = await supabase
+        .from('schools')
+        .select('name, academic_year')
+        .eq('school_code', schoolCode)
+        .maybeSingle();
 
-      const [studentsResult, classesResult, subjectsResult, attendanceResult] = await Promise.all([
-        supabase.from('student').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
-        supabase.from('class_instances').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
-        supabase.from('subjects').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
-        supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today).eq('status', 'present')
-      ]);
+      if (schoolData) {
+        setSchoolInfo({
+          name: schoolData.name || schoolName,
+          academicYear: schoolData.academic_year || new Date().getFullYear()
+        });
+      }
 
-      setStats({
-        totalStudents: studentsResult.count || 0,
-        totalClasses: classesResult.count || 0,
-        totalSubjects: subjectsResult.count || 0,
-        todayAttendance: attendanceResult.count || 0
-      });
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [role, schoolCode, studentCode, user, schoolName]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  useEffect(() => {
+    if (!schoolCode) return;
+
+    const channel = supabase.channel(`dashboard:${schoolCode}`);
+
+    const handleChange = () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        fetchDashboardData();
+        setRealtimeData(prev => ({
+          ...prev,
+          lastAttendanceUpdate: new Date().toISOString()
+        }));
+      }, 1000);
+    };
+
+    const handleFeeChange = () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        fetchDashboardData();
+        setRealtimeData(prev => ({
+          ...prev,
+          lastFeeUpdate: new Date().toISOString()
+        }));
+      }, 1000);
+    };
+
+    channel
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'attendance',
+        filter: `school_code=eq.${schoolCode}`
+      }, handleChange)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'fee_payments',
+        filter: `school_code=eq.${schoolCode}`
+      }, handleFeeChange)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'student',
+        filter: `school_code=eq.${schoolCode}`
+      }, handleChange)
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [schoolCode, fetchDashboardData]);
 
   const getRoleDisplay = (role) => {
     const roles = {
@@ -106,38 +314,38 @@ const Dashboard = () => {
   const getQuickActions = (role) => {
     const allActions = {
       'cb_admin': [
-        { label: 'Schools', path: '/cb-admin-dashboard', icon: <TeamOutlined />, color: '#0ea5e9', description: 'Manage all schools' },
-        { label: 'Add School', path: '/add-schools', icon: <SettingOutlined />, color: '#10b981', description: 'Register new school' },
-        { label: 'Super Admins', path: '/add-super-admin', icon: <UserOutlined />, color: '#f59e0b', description: 'Manage super admins' }
+        { label: 'Schools', path: '/cb-admin-dashboard', icon: <TeamOutlined />, color: '#1890ff', description: 'Manage schools' },
+        { label: 'Add School', path: '/add-schools', icon: <UserOutlined />, color: '#52c41a', description: 'Register school' },
+        { label: 'Super Admins', path: '/add-super-admin', icon: <UserOutlined />, color: '#faad14', description: 'Manage admins' }
       ],
       'superadmin': [
-        { label: 'School Setup', path: '/school-setup', icon: <SettingOutlined />, color: '#0ea5e9', description: 'Configure school' },
-        { label: 'Students', path: '/add-student', icon: <UserOutlined />, color: '#10b981', description: 'Manage students' },
-        { label: 'Classes', path: '/add-specific-class', icon: <BookOutlined />, color: '#f59e0b', description: 'Manage classes' },
-        { label: 'Attendance', path: '/attendance', icon: <CheckCircleOutlined />, color: '#06b6d4', description: 'Mark attendance' },
-        { label: 'Fees', path: '/fees', icon: <DollarOutlined />, color: '#ef4444', description: 'Fee management' },
-        { label: 'Analytics', path: '/analytics', icon: <BarChartOutlined />, color: '#8b5cf6', description: 'View insights' }
+        { label: 'Students', path: '/add-student', icon: <UserOutlined />, color: '#52c41a', description: 'Manage students' },
+        { label: 'Classes', path: '/add-specific-class', icon: <BookOutlined />, color: '#faad14', description: 'Manage classes' },
+        { label: 'Attendance', path: '/attendance', icon: <CheckCircleOutlined />, color: '#1890ff', description: 'Mark attendance' },
+        { label: 'Fees', path: '/fees', icon: <DollarOutlined />, color: '#f5222d', description: 'Fee management' },
+        { label: 'Tests', path: '/tests', icon: <FileTextOutlined />, color: '#722ed1', description: 'Manage tests' },
+        { label: 'Analytics', path: '/analytics', icon: <BarChartOutlined />, color: '#13c2c2', description: 'View insights' }
       ],
       'admin': [
-        { label: 'Students', path: '/add-student', icon: <UserOutlined />, color: '#10b981', description: 'Manage students' },
-        { label: 'Timetable', path: '/timetable', icon: <CalendarOutlined />, color: '#0ea5e9', description: 'Class schedules' },
-        { label: 'Attendance', path: '/attendance', icon: <CheckCircleOutlined />, color: '#06b6d4', description: 'Mark attendance' },
-        { label: 'Fees', path: '/fees', icon: <DollarOutlined />, color: '#f59e0b', description: 'Fee collection' },
-        { label: 'Tests', path: '/tests', icon: <FileTextOutlined />, color: '#ef4444', description: 'Manage tests' },
-        { label: 'Analytics', path: '/analytics', icon: <BarChartOutlined />, color: '#8b5cf6', description: 'View reports' }
+        { label: 'Students', path: '/add-student', icon: <UserOutlined />, color: '#52c41a', description: 'Manage students' },
+        { label: 'Timetable', path: '/timetable', icon: <CalendarOutlined />, color: '#1890ff', description: 'Class schedules' },
+        { label: 'Attendance', path: '/attendance', icon: <CheckCircleOutlined />, color: '#1890ff', description: 'Mark attendance' },
+        { label: 'Fees', path: '/fees', icon: <DollarOutlined />, color: '#faad14', description: 'Fee collection' },
+        { label: 'Tests', path: '/tests', icon: <FileTextOutlined />, color: '#f5222d', description: 'Manage tests' },
+        { label: 'Analytics', path: '/analytics', icon: <BarChartOutlined />, color: '#722ed1', description: 'View reports' }
       ],
       'student': [
-        { label: 'Tests', path: '/take-tests', icon: <FileTextOutlined />, color: '#0ea5e9', description: 'Take assessments' },
-        { label: 'Resources', path: '/learning-resources', icon: <BookOutlined />, color: '#10b981', description: 'Study materials' },
-        { label: 'Timetable', path: '/timetable', icon: <CalendarOutlined />, color: '#f59e0b', description: 'My schedule' },
-        { label: 'Attendance', path: '/attendance', icon: <CheckCircleOutlined />, color: '#06b6d4', description: 'My attendance' },
-        { label: 'Fees', path: '/fees', icon: <DollarOutlined />, color: '#ef4444', description: 'Fee status' }
+        { label: 'Tests', path: '/take-tests', icon: <FileTextOutlined />, color: '#1890ff', description: 'Take assessments' },
+        { label: 'Resources', path: '/learning-resources', icon: <BookOutlined />, color: '#52c41a', description: 'Study materials' },
+        { label: 'Timetable', path: '/timetable', icon: <CalendarOutlined />, color: '#faad14', description: 'My schedule' },
+        { label: 'Attendance', path: '/attendance', icon: <CheckCircleOutlined />, color: '#1890ff', description: 'My attendance' },
+        { label: 'Fees', path: '/fees', icon: <DollarOutlined />, color: '#f5222d', description: 'Fee status' }
       ]
     };
     return allActions[role] || [];
   };
 
-  const StatCard = ({ title, value, icon, color, trend, trendValue }) => (
+  const StatCard = ({ title, value, icon, color, suffix, loading }) => (
     <Card
       style={{
         borderRadius: 8,
@@ -146,31 +354,28 @@ const Dashboard = () => {
       }}
       bodyStyle={{ padding: 12 }}
     >
-      <div>
-        <Text style={{ fontSize: 12, color: '#8c8c8c', fontWeight: 500, display: 'block', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {title}
-        </Text>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <div style={{
-            fontSize: 28,
-            color: color,
-            lineHeight: 1,
-            flexShrink: 0
-          }}>
-            {icon}
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-            {value}
+      {loading ? (
+        <Skeleton active paragraph={{ rows: 1 }} />
+      ) : (
+        <div>
+          <Text style={{ fontSize: 12, color: '#8c8c8c', fontWeight: 500, display: 'block', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {title}
+          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <div style={{
+              fontSize: 28,
+              color: color,
+              lineHeight: 1,
+              flexShrink: 0
+            }}>
+              {icon}
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+              {value}{suffix || ''}
+            </div>
           </div>
         </div>
-        {trend && (
-          <div style={{ marginTop: 4 }}>
-            <Text style={{ fontSize: 11, color: trend === 'up' ? '#52c41a' : '#f5222d' }}>
-              {trend === 'up' ? '↑' : '↓'} {trendValue}
-            </Text>
-          </div>
-        )}
-      </div>
+      )}
     </Card>
   );
 
@@ -226,18 +431,21 @@ const Dashboard = () => {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '70vh',
-        background: '#f8fafc'
+        background: '#fafafa'
       }}>
         <Spin size="large" />
       </div>
     );
   }
 
+  const attendancePercentage = stats.todayAttendanceTotal > 0
+    ? Math.round((stats.todayAttendance / stats.todayAttendanceTotal) * 100)
+    : 0;
+
   return (
     <div style={{ padding: 16, background: '#fafafa', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        {/* Header Section */}
-        <div style={{ marginBottom: 32 }}>
+        <div style={{ marginBottom: 16 }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -260,8 +468,13 @@ const Dashboard = () => {
                 {getGreeting()}, {userName}
               </h1>
               <Text style={{ fontSize: 13, color: '#8c8c8c', display: 'block', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                {role === 'student' ? 'Ready to learn today?' : 'Overview of your school'}
+                {schoolInfo.name && `${schoolInfo.name} • `}{getISTDate()} • {getIST()}
               </Text>
+              {schoolInfo.academicYear && (
+                <Tag color="blue" style={{ fontSize: 11, marginTop: 4 }}>
+                  AY {schoolInfo.academicYear}
+                </Tag>
+              )}
             </div>
             <Space size={8} style={{ flexShrink: 0, flexWrap: 'wrap' }}>
               <Tag color="blue" style={{ fontSize: 12, padding: '2px 10px', whiteSpace: 'nowrap' }}>
@@ -280,70 +493,238 @@ const Dashboard = () => {
         </div>
 
         <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={12} lg={6}>
-            <StatCard
-              title="Total Students"
-              value={stats.totalStudents}
-              icon={<UserOutlined />}
-              color="#10b981"
-              trend="up"
-              trendValue="+12%"
-            />
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <StatCard
-              title="Total Classes"
-              value={stats.totalClasses}
-              icon={<BookOutlined />}
-              color="#0ea5e9"
-            />
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <StatCard
-              title="Subjects"
-              value={stats.totalSubjects}
-              icon={<FileTextOutlined />}
-              color="#f59e0b"
-            />
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <StatCard
-              title="Present Today"
-              value={stats.todayAttendance}
-              icon={<CheckCircleOutlined />}
-              color="#06b6d4"
-              trend="up"
-              trendValue="+5%"
-            />
-          </Col>
+          {role === 'student' ? (
+            <>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="My Attendance"
+                  value={stats.attendancePercentage || 0}
+                  suffix="%"
+                  icon={<CheckCircleOutlined />}
+                  color="#52c41a"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Pending Fees"
+                  value={`₹${stats.pendingFees.toFixed(0)}`}
+                  icon={<DollarOutlined />}
+                  color="#f5222d"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Upcoming Tests"
+                  value={stats.upcomingTests}
+                  icon={<TrophyOutlined />}
+                  color="#722ed1"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Today's Classes"
+                  value={stats.todayClasses}
+                  icon={<CalendarOutlined />}
+                  color="#1890ff"
+                  loading={false}
+                />
+              </Col>
+            </>
+          ) : role === 'admin' ? (
+            <>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="My Students"
+                  value={stats.totalStudents}
+                  icon={<UserOutlined />}
+                  color="#52c41a"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="My Classes"
+                  value={stats.totalClasses}
+                  icon={<BookOutlined />}
+                  color="#1890ff"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Today's Attendance"
+                  value={attendancePercentage}
+                  suffix="%"
+                  icon={<CheckCircleOutlined />}
+                  color="#1890ff"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Upcoming Tests"
+                  value={stats.upcomingTests}
+                  icon={<TrophyOutlined />}
+                  color="#722ed1"
+                  loading={false}
+                />
+              </Col>
+            </>
+          ) : (
+            <>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Total Students"
+                  value={stats.totalStudents}
+                  icon={<UserOutlined />}
+                  color="#52c41a"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Total Classes"
+                  value={stats.totalClasses}
+                  icon={<BookOutlined />}
+                  color="#1890ff"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Today's Attendance"
+                  value={attendancePercentage}
+                  suffix="%"
+                  icon={<CheckCircleOutlined />}
+                  color="#1890ff"
+                  loading={false}
+                />
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <StatCard
+                  title="Pending Fees"
+                  value={`₹${stats.pendingFees.toFixed(0)}`}
+                  icon={<DollarOutlined />}
+                  color="#f5222d"
+                  loading={false}
+                />
+              </Col>
+            </>
+          )}
         </Row>
 
-        {!loading && stats.totalStudents === 0 && stats.totalClasses === 0 && role !== 'student' && (
-          <Card style={{
-            borderRadius: 8,
-            marginBottom: 16,
-            border: '1px solid #e8e8e8'
-          }} bodyStyle={{ padding: 32 }}>
-            <EmptyState
-              title="Welcome to ClassBridge!"
-              description="Let's get started by setting up your school. Add classes and students to begin using the platform."
-              icon="🎓"
-              actionText="Start Setup"
-              onAction={() => navigate('/school-setup')}
-            />
-          </Card>
-        )}
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          <Col xs={24} md={12}>
+            <Card
+              style={{
+                borderRadius: 8,
+                border: '1px solid #e8e8e8',
+                height: '100%'
+              }}
+              bodyStyle={{ padding: 16 }}
+            >
+              <div style={{ marginBottom: 12 }}>
+                <Text strong style={{ fontSize: 14, color: '#262626' }}>
+                  {role === 'student' ? "Today's Status" : "Today's Overview"}
+                </Text>
+                <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
+                  {getTodayIST()}
+                </div>
+              </div>
+              <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: '#595959' }}>
+                    {role === 'student' ? 'Attendance' : 'Students Present'}
+                  </Text>
+                  <Statistic
+                    value={role === 'student' ? (stats.todayAttendance > 0 ? '✓' : '—') : stats.todayAttendance}
+                    valueStyle={{ fontSize: 16, color: stats.todayAttendance > 0 ? '#52c41a' : '#8c8c8c' }}
+                  />
+                </div>
+                {role !== 'student' && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 12, color: '#595959' }}>Attendance Rate</Text>
+                      <Text style={{ fontSize: 12, fontWeight: 600, color: attendancePercentage >= 75 ? '#52c41a' : '#faad14' }}>
+                        {attendancePercentage}%
+                      </Text>
+                    </div>
+                    <Progress
+                      percent={attendancePercentage}
+                      strokeColor={attendancePercentage >= 75 ? '#52c41a' : '#faad14'}
+                      showInfo={false}
+                      size="small"
+                    />
+                  </div>
+                )}
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} md={12}>
+            <Card
+              style={{
+                borderRadius: 8,
+                border: '1px solid #e8e8e8',
+                height: '100%'
+              }}
+              bodyStyle={{ padding: 16 }}
+            >
+              <div style={{ marginBottom: 12 }}>
+                <Text strong style={{ fontSize: 14, color: '#262626' }}>
+                  Quick Stats
+                </Text>
+                <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
+                  Live updates
+                </div>
+              </div>
+              <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Space size={8}>
+                    <ClockCircleOutlined style={{ color: '#1890ff', fontSize: 16 }} />
+                    <Text style={{ fontSize: 13, color: '#595959' }}>
+                      {role === 'student' ? "Today's Classes" : 'Upcoming Tests'}
+                    </Text>
+                  </Space>
+                  <Statistic
+                    value={role === 'student' ? stats.todayClasses : stats.upcomingTests}
+                    valueStyle={{ fontSize: 16, color: '#262626' }}
+                  />
+                </div>
+                {role !== 'student' && stats.totalSubjects > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Space size={8}>
+                      <BookOutlined style={{ color: '#faad14', fontSize: 16 }} />
+                      <Text style={{ fontSize: 13, color: '#595959' }}>Subjects</Text>
+                    </Space>
+                    <Statistic
+                      value={stats.totalSubjects}
+                      valueStyle={{ fontSize: 16, color: '#262626' }}
+                    />
+                  </div>
+                )}
+                {realtimeData.lastAttendanceUpdate && (
+                  <div style={{ fontSize: 10, color: '#52c41a', textAlign: 'right', marginTop: 4 }}>
+                    ● Live - Updated just now
+                  </div>
+                )}
+              </Space>
+            </Card>
+          </Col>
+        </Row>
 
         <div style={{ marginBottom: 16 }}>
           <div style={{ marginBottom: 12 }}>
             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#262626', marginBottom: 2 }}>
               Quick Actions
             </h2>
-            <Text style={{ color: '#64748b', fontSize: 14 }}>
+            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
               Access your most-used features
             </Text>
           </div>
-          <Row gutter={[16, 16]}>
+          <Row gutter={[12, 12]}>
             {getQuickActions(role).map((action, index) => (
               <Col key={index} xs={24} sm={12} md={8} lg={8} xl={6}>
                 <ActionCard {...action} />
@@ -351,59 +732,6 @@ const Dashboard = () => {
             ))}
           </Row>
         </div>
-
-        {stats.totalStudents > 0 && (
-          <Card
-            style={{
-              borderRadius: 8,
-              border: '1px solid #e8e8e8'
-            }}
-            bodyStyle={{ padding: 16 }}
-          >
-            <div style={{ marginBottom: 12 }}>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#262626', marginBottom: 2 }}>
-                System Status
-              </h2>
-              <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
-                Everything is running smoothly
-              </Text>
-            </div>
-            <Row gutter={[12, 12]}>
-              <Col xs={24} md={12}>
-                <div style={{ padding: 12, background: '#fafafa', borderRadius: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text strong style={{ fontSize: 13, color: '#262626' }}>Class Enrollment</Text>
-                    <Text style={{ color: '#1890ff', fontWeight: 600, fontSize: 13 }}>
-                      {stats.totalStudents > 0 ? '85%' : '0%'}
-                    </Text>
-                  </div>
-                  <Progress
-                    percent={stats.totalStudents > 0 ? 85 : 0}
-                    strokeColor="#1890ff"
-                    showInfo={false}
-                    size="small"
-                  />
-                </div>
-              </Col>
-              <Col xs={24} md={12}>
-                <div style={{ padding: 12, background: '#fafafa', borderRadius: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text strong style={{ fontSize: 13, color: '#262626' }}>Today's Attendance</Text>
-                    <Text style={{ color: '#52c41a', fontWeight: 600, fontSize: 13 }}>
-                      {stats.totalStudents > 0 ? Math.round((stats.todayAttendance / stats.totalStudents) * 100) : 0}%
-                    </Text>
-                  </div>
-                  <Progress
-                    percent={stats.totalStudents > 0 ? Math.round((stats.todayAttendance / stats.totalStudents) * 100) : 0}
-                    strokeColor="#10b981"
-                    showInfo={false}
-                    size="small"
-                  />
-                </div>
-              </Col>
-            </Row>
-          </Card>
-        )}
       </div>
     </div>
   );
