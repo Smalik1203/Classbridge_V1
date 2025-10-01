@@ -69,7 +69,7 @@ const SetupSchool = () => {
       description: 'Set up curriculum subjects and course offerings',
       icon: <BookOutlined />,
       link: '/add-subjects',
-      color: '#8b5cf6',
+      color: '#06b6d4',
       bgColor: '#faf5ff',
       iconBg: '#e9d5ff',
       priority: 3

@@ -405,7 +405,7 @@ const CBAdminDashboard = () => {
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
                 <div style={{ 
                   fontSize: '48px', 
-                  color: '#8b5cf6', 
+                  color: '#06b6d4', 
                   marginBottom: theme.token.margin 
                 }}>
                   <BookOutlined />
@@ -413,7 +413,7 @@ const CBAdminDashboard = () => {
                 <Statistic
                   title="Total Classes"
                   value={stats.totalClasses}
-                  valueStyle={{ color: '#8b5cf6' }}
+                  valueStyle={{ color: '#06b6d4' }}
                   titleStyle={{ color: theme.token.colorTextSecondary, fontWeight: 500 }}
                 />
               </div>

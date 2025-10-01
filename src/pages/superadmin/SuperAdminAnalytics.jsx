@@ -354,7 +354,7 @@ const SuperAdminAnalytics = () => {
                 }}
                 bodyStyle={{ padding: '24px' }}
               >
-                <BankOutlined style={{ fontSize: '40px', color: '#8b5cf6', marginBottom: '12px' }} />
+                <BankOutlined style={{ fontSize: '40px', color: '#06b6d4', marginBottom: '12px' }} />
                 <div style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>Class Comparison</div>
                 <Text type="secondary" style={{ fontSize: '14px' }}>Compare class performance</Text>
               </Card>

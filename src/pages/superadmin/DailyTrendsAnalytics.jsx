@@ -410,7 +410,7 @@ const DailyTrendsAnalytics = () => {
           <Col xs={24} lg={12}>
             <Card style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-                <CalendarOutlined style={{ fontSize: '20px', color: '#8b5cf6', marginRight: '8px' }} />
+                <CalendarOutlined style={{ fontSize: '20px', color: '#06b6d4', marginRight: '8px' }} />
                 <Title level={4} style={{ margin: 0, color: '#1f2937' }}>Weekly Averages</Title>
               </div>
               <div style={{ height: 300 }}>
@@ -418,8 +418,8 @@ const DailyTrendsAnalytics = () => {
                   <BarChart data={analyticsData.weeklyAverages || []}>
                     <defs>
                       <linearGradient id="weeklyGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.4}/>
+                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.4}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />

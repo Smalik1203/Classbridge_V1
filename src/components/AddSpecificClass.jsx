@@ -567,8 +567,8 @@ const AddSpecificClass = () => {
                 size="large"
                 disabled={academicYears.length === 0}
                 style={{
-                  background: academicYears.length === 0 ? '#d1d5db' : '#6366f1',
-                  borderColor: academicYears.length === 0 ? '#d1d5db' : '#6366f1',
+                  background: academicYears.length === 0 ? '#d1d5db' : '#38bdf8',
+                  borderColor: academicYears.length === 0 ? '#d1d5db' : '#38bdf8',
                   borderRadius: '8px',
                   fontWeight: 500,
                 }}

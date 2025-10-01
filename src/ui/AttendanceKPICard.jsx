@@ -52,9 +52,9 @@ const AttendanceKPICard = ({
         dark: '#d97706'     // amber-600
       },
       total: {
-        primary: '#6366f1', // indigo-500
+        primary: '#38bdf8', // indigo-500
         light: '#e0e7ff',   // indigo-100
-        dark: '#4f46e5'     // indigo-600
+        dark: '#0ea5e9'     // indigo-600
       }
     };
 

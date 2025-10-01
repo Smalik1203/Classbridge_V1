@@ -406,7 +406,7 @@ const StudentPerformanceAnalytics = () => {
           <Col xs={24} lg={12}>
             <Card style={{ borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-                <UserOutlined style={{ fontSize: '20px', color: '#8b5cf6', marginRight: '8px' }} />
+                <UserOutlined style={{ fontSize: '20px', color: '#06b6d4', marginRight: '8px' }} />
                 <Title level={4} style={{ margin: 0, color: '#1f2937' }}>Performance Distribution</Title>
               </div>
               <div style={{ height: 300 }}>

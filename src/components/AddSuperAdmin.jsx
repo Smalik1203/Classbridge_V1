@@ -219,8 +219,8 @@ const AddSuperAdmin = () => {
                 loading={loading}
                 size="large"
                 style={{
-                  background: '#6366f1',
-                  borderColor: '#6366f1',
+                  background: '#38bdf8',
+                  borderColor: '#38bdf8',
                   borderRadius: '8px',
                   fontWeight: 500,
                   height: '48px',

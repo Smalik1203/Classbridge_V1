@@ -5,11 +5,11 @@
 
 import { theme } from 'antd';
 
-// Enhanced Brand Colors - Refined for business-grade appearance
-const BRAND_PRIMARY = '#4f46e5'; // Indigo-600 - More professional
-const BRAND_ACCENT = '#7c3aed'; // Purple-600 - Refined accent
-const BRAND_SECONDARY = '#059669'; // Green-600 - Success actions
-const LOGO_BG = '#3730a3'; // Indigo-700 - Deeper brand
+// Enhanced Brand Colors - Professional blue and green palette
+const BRAND_PRIMARY = '#0ea5e9'; // Sky-500 - Professional and modern
+const BRAND_ACCENT = '#06b6d4'; // Cyan-500 - Clean accent
+const BRAND_SECONDARY = '#10b981'; // Emerald-500 - Success actions
+const LOGO_BG = '#0284c7'; // Sky-600 - Deeper brand
 
 // Enhanced Neutral Color Scale - Optimized for readability and hierarchy
 const NEUTRALS = {
@@ -63,18 +63,18 @@ const STATUS_COLORS = {
   },
 };
 
-// Enhanced Data Visualization Palette - Business-grade with improved contrast
+// Enhanced Data Visualization Palette - Professional color scheme
 const DATA_VIZ_PALETTE = [
-  '#4f46e5', // Primary - Indigo-600
-  '#059669', // Success - Green-600
-  '#d97706', // Warning - Amber-600
-  '#dc2626', // Error - Red-600
-  '#7c3aed', // Purple - Purple-600
-  '#0891b2', // Cyan - Cyan-600
-  '#ea580c', // Orange - Orange-600
-  '#be185d', // Pink - Pink-600
-  '#0d9488', // Teal - Teal-600
-  '#7c2d12', // Brown - Brown-600
+  '#0ea5e9', // Sky-500 - Primary
+  '#10b981', // Emerald-500 - Success
+  '#f59e0b', // Amber-500 - Warning
+  '#ef4444', // Red-500 - Error
+  '#06b6d4', // Cyan-500 - Info
+  '#14b8a6', // Teal-500 - Teal
+  '#f97316', // Orange-500 - Orange
+  '#ec4899', // Pink-500 - Pink
+  '#06b6d4', // Violet-500 - Accent
+  '#38bdf8', // Indigo-500 - Secondary
 ];
 
 // Enhanced spacing system for better visual hierarchy
@@ -118,12 +118,12 @@ export const lightTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#3730a3',
-    colorPrimaryActive: '#312e81',
-    colorPrimaryBg: 'hsl(237, 100%, 98%)',
-    colorPrimaryBgHover: 'hsl(237, 100%, 96%)',
-    colorPrimaryBorder: 'hsl(237, 100%, 92%)',
-    colorPrimaryBorderHover: 'hsl(237, 100%, 88%)',
+    colorPrimaryHover: '#0284c7',
+    colorPrimaryActive: '#0369a1',
+    colorPrimaryBg: 'hsl(199, 100%, 98%)',
+    colorPrimaryBgHover: 'hsl(199, 100%, 96%)',
+    colorPrimaryBorder: 'hsl(199, 100%, 92%)',
+    colorPrimaryBorderHover: 'hsl(199, 100%, 88%)',
 
     // Enhanced Base Colors - Cleaner, more professional
     colorBgBase: NEUTRALS.N25,
@@ -220,7 +220,7 @@ export const lightTheme = {
     boxShadowTertiary: SHADOWS.lg,
 
     // Enhanced Focus - Better accessibility
-    controlOutline: 'rgba(79, 70, 229, 0.2)',
+    controlOutline: 'rgba(14, 165, 233, 0.2)',
     controlOutlineWidth: 2,
 
     // Enhanced Motion - Smooth, professional animations
@@ -527,12 +527,12 @@ export const darkTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#6366f1',
-    colorPrimaryActive: '#818cf8',
-    colorPrimaryBg: 'hsl(237, 100%, 6%)',
-    colorPrimaryBgHover: 'hsl(237, 100%, 8%)',
-    colorPrimaryBorder: 'hsl(237, 100%, 15%)',
-    colorPrimaryBorderHover: 'hsl(237, 100%, 20%)',
+    colorPrimaryHover: '#38bdf8',
+    colorPrimaryActive: '#7dd3fc',
+    colorPrimaryBg: 'hsl(199, 95%, 6%)',
+    colorPrimaryBgHover: 'hsl(199, 95%, 8%)',
+    colorPrimaryBorder: 'hsl(199, 95%, 15%)',
+    colorPrimaryBorderHover: 'hsl(199, 95%, 20%)',
 
     // Enhanced Base Colors - Better contrast and depth
     colorBgBase: NEUTRALS.N950,
@@ -627,7 +627,7 @@ export const darkTheme = {
     boxShadowTertiary: '0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3)',
 
     // Focus
-    controlOutline: 'rgba(99, 102, 241, 0.3)',
+    controlOutline: 'rgba(14, 165, 233, 0.3)',
     controlOutlineWidth: 2,
 
     // Motion

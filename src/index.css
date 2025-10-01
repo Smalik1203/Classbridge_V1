@@ -71,7 +71,7 @@ body {
 }
 
 *:focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid #0ea5e9;
   outline-offset: 2px;
 }
 
@@ -677,12 +677,12 @@ body,
 }
 
 .ant-btn-primary {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+  background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%) !important;
   border: none !important;
 }
 
 .ant-btn-primary:hover {
-  background: linear-gradient(135deg, #3730a3 0%, #6d28d9 100%) !important;
+  background: linear-gradient(135deg, #0284c7 0%, #0891b2 100%) !important;
 }
 
 /* Enhanced Table Styles */
@@ -723,8 +723,8 @@ body,
 .ant-picker-focused,
 .ant-input-number:focus,
 .ant-textarea:focus {
-  border-color: #4f46e5 !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
   outline: none !important;
 }
 
@@ -734,34 +734,34 @@ body,
 }
 
 .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
-  border-color: #4f46e5 !important;
+  border-color: #0ea5e9 !important;
   box-shadow: none !important;
 }
 
 .ant-input-affix-wrapper-focused {
-  border-color: #4f46e5 !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
 }
 
 /* Fix for select component */
 .ant-select:not(.ant-select-disabled):hover .ant-select-selector {
-  border-color: #4f46e5 !important;
+  border-color: #0ea5e9 !important;
   box-shadow: none !important;
 }
 
 .ant-select-focused:not(.ant-select-disabled).ant-select:not(.ant-select-customize-input) .ant-select-selector {
-  border-color: #4f46e5 !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
 }
 
 /* Fix for date picker */
 .ant-picker:hover,
 .ant-picker-focused {
-  border-color: #4f46e5 !important;
+  border-color: #0ea5e9 !important;
 }
 
 .ant-picker-focused {
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
 }
 
 /* Remove any conflicting borders */
@@ -828,20 +828,20 @@ body,
 .dark-theme .ant-picker-focused,
 .dark-theme .ant-input-number:focus,
 .dark-theme .ant-textarea:focus {
-  border-color: #6366f1 !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
 }
 
 .dark-theme .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
-  border-color: #6366f1 !important;
+  border-color: #38bdf8 !important;
 }
 
 .dark-theme .ant-select:not(.ant-select-disabled):hover .ant-select-selector {
-  border-color: #6366f1 !important;
+  border-color: #38bdf8 !important;
 }
 
 .dark-theme .ant-picker:hover {
-  border-color: #6366f1 !important;
+  border-color: #38bdf8 !important;
 }
 
 /* Fix any remaining hardcoded white backgrounds */

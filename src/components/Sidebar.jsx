@@ -218,40 +218,43 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
       }}>
         {!collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Avatar 
-              size={40} 
-              style={{ 
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                fontWeight: 800,
+            <Avatar
+              size={40}
+              style={{
+                background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+                fontWeight: 700,
                 fontSize: '15px',
-                fontFamily: 'Arial, sans-serif',
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                letterSpacing: '0.2px'
+                fontFamily: 'Inter, sans-serif',
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                letterSpacing: '0.5px'
               }}
             >
               {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
             </Avatar>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <Text strong style={{ 
-                fontSize: '20px', 
-                color: antdTheme.token.colorPrimary, 
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              <Text strong style={{
+                fontSize: '18px',
+                color: antdTheme.token.colorPrimary,
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text'
               }}>
                 {userName}
               </Text>
-              <Tag 
-                color="orange"
+              <Tag
+                color="blue"
                 style={{
                   textTransform: 'capitalize',
                   fontWeight: 500,
-                  borderRadius: '6px',
+                  borderRadius: '4px',
                   padding: '2px 8px',
                   fontSize: '11px',
-                  margin: '0px'
+                  margin: '0px',
+                  background: '#e0f2fe',
+                  color: '#0369a1',
+                  border: '1px solid #bae6fd'
                 }}
               >
                 {userRole === 'superadmin' ? 'Super Admin' : userRole === 'admin' ? 'Admin' : userRole}
@@ -264,15 +267,18 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
             title={
               <div style={{ textAlign: 'center' }}>
                 <div style={{ marginBottom: '4px', fontWeight: 600 }}>{userName}</div>
-                <Tag 
-                  color="orange"
+                <Tag
+                  color="blue"
                   style={{
                     textTransform: 'capitalize',
                     fontWeight: 500,
-                    borderRadius: '6px',
+                    borderRadius: '4px',
                     padding: '2px 8px',
                     fontSize: '11px',
-                    margin: '0px'
+                    margin: '0px',
+                    background: '#e0f2fe',
+                    color: '#0369a1',
+                    border: '1px solid #bae6fd'
                   }}
                 >
                   {userRole === 'superadmin' ? 'Super Admin' : userRole === 'admin' ? 'Admin' : userRole}
@@ -281,15 +287,15 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
             } 
             placement="right"
           >
-            <Avatar 
-              size={32} 
-              style={{ 
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                fontWeight: 800,
+            <Avatar
+              size={32}
+              style={{
+                background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+                fontWeight: 700,
                 fontSize: '12px',
-                fontFamily: 'Arial, sans-serif',
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                letterSpacing: '0.1px'
+                fontFamily: 'Inter, sans-serif',
+                textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                letterSpacing: '0.5px'
               }}
             >
               {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
