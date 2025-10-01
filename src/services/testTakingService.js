@@ -469,7 +469,30 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
       .from('test_attempts')
       .update(updateData)
       .eq('id', attemptId)
-      .select()
+      .select(`
+        id,
+        test_id,
+        status,
+        score,
+        earned_points,
+        total_points,
+        answers,
+        completed_at,
+        test:tests (
+          title,
+          test_type,
+          subjects(subject_name),
+          syllabus_chapters(id, chapter_no, title, description),
+          test_questions(
+            id,
+            question_text,
+            question_type,
+            options,
+            correct_text,
+            correct_index
+          )
+        )
+      `)
       .single();
 
     if (updateErr) {
@@ -549,10 +572,11 @@ export async function getTestHistory(studentId, schoolCode, userEmail, studentCo
         total_points,
         answers,
         completed_at,
-        test:tests ( 
-          title, 
-          test_type, 
+        test:tests (
+          title,
+          test_type,
           subjects(subject_name),
+          syllabus_chapters(id, chapter_no, title, description),
           test_questions(
             id,
             question_text,
