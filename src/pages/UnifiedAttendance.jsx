@@ -411,70 +411,42 @@ const UnifiedAttendance = () => {
   };
 
   return (
-    <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
+    <div style={{ padding: 16, background: '#fafafa', minHeight: '100vh' }}>
       <style>
         {`
-          .attendance-row-even { 
-            background-color: #f8fafc !important; 
-          }
-          .attendance-row-odd { 
-            background-color: #ffffff !important; 
-          }
-          .attendance-row-even:hover { 
-            background-color: #f1f5f9 !important; 
-          }
-          .attendance-row-odd:hover { 
-            background-color: #f8fafc !important; 
-          }
-          .ant-table-tbody > tr > td {
-            padding: 6px 12px !important;
-            font-size: 14px !important;
-            line-height: 1.3 !important;
-          }
-          .ant-table-thead > tr > th {
-            padding: 8px 12px !important;
-            font-size: 14px !important;
-            font-weight: 600 !important;
-          }
-          .compact-table .ant-table-tbody > tr {
-            height: 36px !important;
-          }
           .student-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 12px;
-            padding: 12px 0;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 8px;
+            padding: 0;
           }
           .student-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 6px 10px;
+            border-radius: 4px;
             background: #fff;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #e8e8e8;
             font-size: 13px;
-            transition: all 0.2s ease;
-          }
-          .student-item:nth-child(odd) {
-            background: #f8fafc;
+            transition: all 0.15s ease;
           }
           .student-item:hover {
-            background: #f1f5f9;
-            border-color: #cbd5e1;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            background: #f5f5f5;
+            border-color: #d9d9d9;
           }
         `}
       </style>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>
-            Attendance
-          </h1>
-          <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
-            {isStudent ? 'View your attendance history' : 'Mark and manage student attendance'}
-          </p>
+      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 600, color: '#262626', marginBottom: 2 }}>
+              Attendance
+            </h1>
+            <p style={{ margin: 0, color: '#8c8c8c', fontSize: '13px' }}>
+              {isStudent ? 'View history' : canMark ? 'Mark & manage attendance' : 'View attendance'}
+            </p>
+          </div>
         </div>
 
         {alert && (
@@ -484,22 +456,24 @@ const UnifiedAttendance = () => {
             showIcon
             closable
             onClose={() => setAlert(null)}
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: 12, fontSize: 13 }}
+            banner
           />
         )}
 
-        <Card style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} bodyStyle={{ padding: '24px' }}>
-          <Tabs activeKey={isStudent ? 'view' : activeTab} onChange={setActiveTab} size="large">
+        <Card style={{ borderRadius: 8 }} bodyStyle={{ padding: 16 }}>
+          <Tabs activeKey={isStudent ? 'view' : activeTab} onChange={setActiveTab} size="middle">
           {!isStudent && (
             <Tabs.TabPane tab="Mark Attendance" key="mark">
-              <Card 
+              <Card
                 size="small"
-                style={{ marginBottom: 16, border: '2px solid #e2e8f0', backgroundColor: '#f8fafc' }}
+                style={{ marginBottom: 12, border: '1px solid #e8e8e8', backgroundColor: '#fafafa' }}
+                bodyStyle={{ padding: 12 }}
               >
-                <Row gutter={16} align="middle">
+                <Row gutter={12} align="middle">
                   <Col span={12}>
-                    <div style={{ marginBottom: 8 }}>
-                      <Text strong style={{ color: '#475569' }}>Class</Text>
+                    <div style={{ marginBottom: 6 }}>
+                      <Text strong style={{ color: '#595959', fontSize: 13 }}>Class</Text>
                     </div>
                     {classesLoading ? (
                       <Skeleton.Input active style={{ width: '100%', height: 40 }} />
@@ -509,7 +483,7 @@ const UnifiedAttendance = () => {
                         value={selectedClassId}
                         onChange={setSelectedClassId}
                         style={{ width: '100%' }}
-                        size="large"
+                        size="middle"
                         allowClear
                         notFoundContent="No classes available"
                       >
@@ -520,14 +494,14 @@ const UnifiedAttendance = () => {
                     )}
                   </Col>
                   <Col span={12}>
-                    <div style={{ marginBottom: 8 }}>
-                      <Text strong style={{ color: '#475569' }}>Date</Text>
+                    <div style={{ marginBottom: 6 }}>
+                      <Text strong style={{ color: '#595959', fontSize: 13 }}>Date</Text>
                     </div>
-                    <DatePicker 
+                    <DatePicker
                       value={date}
                       onChange={setDate}
                       style={{ width: '100%' }}
-                      size="large"
+                      size="middle"
                       format="DD/MM/YYYY"
                     />
                   </Col>
@@ -536,85 +510,74 @@ const UnifiedAttendance = () => {
 
 
               {selectedClassId && (
-                <Card size="small" style={{ marginBottom: 16 }}>
-                  <div style={{ marginBottom: 12 }}>
+                <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
+                  <div style={{ marginBottom: 8 }}>
                     <Row justify="space-between" align="middle">
                       <Col flex="auto">
-                        <Row align="middle" gutter={16}>
+                        <Row align="middle" gutter={12}>
                           <Col>
-                            <Text strong style={{ color: '#475569', fontSize: '15px' }}>
+                            <Text strong style={{ color: '#595959', fontSize: 14 }}>
                               Students ({progressStats.total})
                             </Text>
                             {progressStats.total > 0 && (
-                              <Text type="secondary" style={{ fontSize: '12px', marginLeft: 8 }}>
-                                {progressStats.unmarked > 0 
+                              <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                                {progressStats.unmarked > 0
                                   ? `${progressStats.marked} marked · ${progressStats.unmarked} unmarked`
-                                  : '✅ All marked'
+                                  : 'All marked'
                                 }
                               </Text>
                             )}
                           </Col>
                           <Col>
-                            <Space size="small">
-                              <Button 
+                            <Space size={6}>
+                              <Button
                                 onClick={() => markAll('present')}
                                 size="small"
+                                type="primary"
                                 style={{
-                                  backgroundColor: '#22c55e',
-                                  borderColor: '#22c55e',
-                                  color: '#fff',
-                                  fontWeight: '500',
-                                  borderRadius: 4,
-                                  height: 28,
-                                  fontSize: '12px',
-                                  padding: '0 8px'
+                                  backgroundColor: '#52c41a',
+                                  borderColor: '#52c41a',
+                                  fontSize: 12,
+                                  height: 26,
+                                  padding: '0 10px'
                                 }}
                               >
-                                🟢 All Present
+                                All Present
                               </Button>
-                              <Button 
+                              <Button
                                 onClick={() => markAll('absent')}
                                 size="small"
+                                danger
                                 style={{
-                                  backgroundColor: '#ef4444',
-                                  borderColor: '#ef4444',
-                                  color: '#fff',
-                                  fontWeight: '500',
-                                  borderRadius: 4,
-                                  height: 28,
-                                  fontSize: '12px',
-                                  padding: '0 8px'
+                                  fontSize: 12,
+                                  height: 26,
+                                  padding: '0 10px'
                                 }}
                               >
-                                🔴 All Absent
+                                All Absent
                               </Button>
-                              <Button 
+                              <Button
                                 onClick={resetAttendance}
                                 size="small"
                                 style={{
-                                  backgroundColor: '#f1f5f9',
-                                  borderColor: '#e2e8f0',
-                                  color: '#64748b',
-                                  fontWeight: '500',
-                                  borderRadius: 4,
-                                  height: 28,
-                                  fontSize: '12px',
-                                  padding: '0 8px'
+                                  fontSize: 12,
+                                  height: 26,
+                                  padding: '0 10px'
                                 }}
                               >
-                                🔄 Reset
+                                Reset
                               </Button>
                             </Space>
                           </Col>
                         </Row>
                         {progressStats.total > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <Progress 
-                              percent={progressStats.percentage} 
-                              size="small" 
-                              strokeColor={progressStats.percentage === 100 ? '#22c55e' : '#1890ff'}
+                          <div style={{ marginTop: 6 }}>
+                            <Progress
+                              percent={progressStats.percentage}
+                              size="small"
+                              strokeColor={progressStats.percentage === 100 ? '#52c41a' : '#1890ff'}
                               showInfo={false}
-                              style={{ width: '200px' }}
+                              style={{ width: 160 }}
                             />
                           </div>
                         )}
@@ -626,13 +589,13 @@ const UnifiedAttendance = () => {
               )}
 
               {selectedClassId && students.length > 0 && (
-                <div style={{ 
-                  position: 'sticky', 
-                  bottom: 0, 
-                  backgroundColor: '#fff', 
-                  padding: '12px 0', 
-                  borderTop: '1px solid #e2e8f0', 
-                  marginTop: 16 
+                <div style={{
+                  position: 'sticky',
+                  bottom: 0,
+                  backgroundColor: '#fff',
+                  padding: '10px 0',
+                  borderTop: '1px solid #e8e8e8',
+                  marginTop: 12
                 }}>
                   <Row justify="center">
                     <Col>
@@ -641,12 +604,9 @@ const UnifiedAttendance = () => {
                         onClick={handleSubmit}
                         loading={saving}
                         disabled={!canMark || progressStats.unmarked > 0}
-                        style={{ 
-                          borderRadius: 6, 
-                          minWidth: 160, 
-                          height: 36, 
-                          fontSize: '14px', 
-                          fontWeight: '600' 
+                        style={{
+                          minWidth: 140,
+                          height: 32
                         }}
                       >
                         {saveStatus === 'saving' && 'Saving...'}
@@ -657,9 +617,9 @@ const UnifiedAttendance = () => {
                     </Col>
                   </Row>
                   {progressStats.unmarked > 0 && (
-                    <div style={{ textAlign: 'center', marginTop: 6 }}>
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {progressStats.unmarked} students unmarked
+                    <div style={{ textAlign: 'center', marginTop: 4 }}>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {progressStats.unmarked} unmarked
                       </Text>
                     </div>
                   )}
@@ -702,30 +662,30 @@ const UnifiedAttendance = () => {
           )}
 
           <Tabs.TabPane tab="View History" key="view">
-            <Row gutter={[16, 16]} align="bottom">
+            <Row gutter={[12, 12]} align="bottom">
               <Col span={12}>
-                <div style={{ marginBottom: 8 }}>
-                  <Text strong style={{ color: '#475569' }}>Date</Text>
+                <div style={{ marginBottom: 6 }}>
+                  <Text strong style={{ color: '#595959', fontSize: 13 }}>Date</Text>
                 </div>
-                <DatePicker 
-                  value={historyDate} 
-                  onChange={setHistoryDate} 
-                  style={{ width: '100%' }} 
-                  size="large"
+                <DatePicker
+                  value={historyDate}
+                  onChange={setHistoryDate}
+                  style={{ width: '100%' }}
+                  size="middle"
                   placeholder="Select date"
                 />
               </Col>
               {!isStudent && (
                 <Col span={12}>
-                  <div style={{ marginBottom: 8 }}>
-                    <Text strong style={{ color: '#475569' }}>Class</Text>
+                  <div style={{ marginBottom: 6 }}>
+                    <Text strong style={{ color: '#595959', fontSize: 13 }}>Class</Text>
                   </div>
                   <Select
                     placeholder="Select Class"
                     value={selectedClassId}
                     onChange={setSelectedClassId}
                     style={{ width: '100%' }}
-                    size="large"
+                    size="middle"
                     allowClear
                     notFoundContent="No classes available"
                   >
@@ -736,8 +696,8 @@ const UnifiedAttendance = () => {
                 </Col>
               )}
             </Row>
-            <div style={{ marginTop: 12 }}>
-              <Button type="primary" onClick={fetchHistory} disabled={!historyDate || !selectedClassId} loading={historyLoading}>
+            <div style={{ marginTop: 10 }}>
+              <Button type="primary" onClick={fetchHistory} disabled={!historyDate || !selectedClassId} loading={historyLoading} size="middle">
                 {historyLoading ? 'Loading...' : 'Fetch History'}
               </Button>
             </div>

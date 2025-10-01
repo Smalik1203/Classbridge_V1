@@ -277,31 +277,29 @@ const FeeAnalyticsEnhanced = () => {
   const collectionRateColor = getCollectionRateColor(analytics.averageCollectionRate);
 
   return (
-    <div style={{ padding: '24px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0, color: chartTheme.colors.text }}>
-          Fee Analytics Dashboard
+    <div style={{ padding: 16, backgroundColor: '#fafafa', minHeight: '100vh' }}>
+      <div style={{ marginBottom: 16 }}>
+        <Title level={3} style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#262626' }}>
+          Fee Analytics
         </Title>
-        <Text type="secondary" style={{ fontSize: '16px' }}>
-          Comprehensive fee collection insights and student payment tracking
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          {role === 'student' ? 'View your fee details' : 'Fee collection insights & payment tracking'}
         </Text>
       </div>
 
-      {/* Filters */}
-      <Card style={{ marginBottom: '24px', borderRadius: '12px' }}>
-        <Row gutter={[16, 16]} align="middle">
+      <Card style={{ marginBottom: 12, borderRadius: 8 }} bodyStyle={{ padding: 12 }}>
+        <Row gutter={[12, 12]} align="middle">
           <Col xs={24} sm={12} md={8}>
             <div>
-              <Text strong style={{ display: 'block', marginBottom: '8px' }}>
-                Select Class
+              <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>
+                Class
               </Text>
               <Select
-                placeholder="Choose a class"
+                placeholder="Select class"
                 value={selectedClassId}
                 onChange={setSelectedClassId}
                 style={{ width: '100%' }}
-                size="large"
+                size="middle"
               >
                 {classInstances.map(cls => (
                   <Option key={cls.id} value={cls.id}>
@@ -313,48 +311,49 @@ const FeeAnalyticsEnhanced = () => {
           </Col>
           <Col xs={24} sm={12} md={8}>
             <div>
-              <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+              <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>
                 Date Range
               </Text>
               <RangePicker
                 style={{ width: '100%' }}
-                size="large"
+                size="middle"
                 value={dateRange}
                 onChange={setDateRange}
               />
             </div>
           </Col>
           <Col xs={24} sm={24} md={8}>
-            <Space style={{ marginTop: '24px' }}>
-              <Button 
-                type="primary" 
-                icon={<DownloadOutlined />}
-                onClick={handleExport}
-                disabled={!students.length}
-                size="large"
-              >
-                Export Data
-              </Button>
-            </Space>
+            <div style={{ marginTop: role === 'superadmin' ? 0 : 20 }}>
+              {role !== 'student' && (
+                <Button
+                  type="primary"
+                  icon={<DownloadOutlined />}
+                  onClick={handleExport}
+                  disabled={!students.length}
+                  size="middle"
+                >
+                  Export
+                </Button>
+              )}
+            </div>
           </Col>
         </Row>
       </Card>
 
-      {/* Alert */}
       {alert && (
         <Alert
           message={alert.message}
           type={alert.type}
           closable
           onClose={() => setAlert(null)}
-          style={{ marginBottom: '24px' }}
+          style={{ marginBottom: 12, fontSize: 13 }}
+          banner
         />
       )}
 
-      {/* KPI Cards */}
       {selectedClassId && (
         <>
-          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
             <Col xs={24} sm={12} md={6}>
               <KPICard
                 title="Total Students"
@@ -396,8 +395,7 @@ const FeeAnalyticsEnhanced = () => {
             </Col>
           </Row>
 
-          {/* Secondary KPIs */}
-          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
             <Col xs={24} sm={12} md={12}>
               <KPICard
                 title="Collection Rate"
@@ -435,8 +433,8 @@ const FeeAnalyticsEnhanced = () => {
             </Col>
           </Row>
 
-          {/* Charts */}
-          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          {role !== 'student' && (
+            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
             <Col xs={24} lg={12}>
               <EnhancedChart
                 title="Fee Component Breakdown"
@@ -460,20 +458,21 @@ const FeeAnalyticsEnhanced = () => {
               />
             </Col>
           </Row>
+          )}
 
-          {/* Student Table */}
-          <Card 
+          <Card
             title={
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Title level={4} style={{ margin: 0 }}>
-                  Student Fee Details
-                </Title>
-                <Tag color="blue" style={{ fontSize: '12px' }}>
-                  {students.length} Students
+                <Text strong style={{ fontSize: 15 }}>
+                  {role === 'student' ? 'My Fee Details' : 'Student Fee Details'}
+                </Text>
+                <Tag color="blue" style={{ fontSize: 12 }}>
+                  {students.length} {role === 'student' ? 'Items' : 'Students'}
                 </Tag>
               </div>
             }
-            style={{ borderRadius: '12px' }}
+            style={{ borderRadius: 8 }}
+            bodyStyle={{ padding: 12 }}
           >
             <EnhancedStudentTable
               data={students}
@@ -487,13 +486,12 @@ const FeeAnalyticsEnhanced = () => {
         </>
       )}
 
-      {/* Empty State */}
       {!selectedClassId && (
-        <Card style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <Card style={{ textAlign: 'center', padding: 40, borderRadius: 8 }}>
           <EmptyState
-            title="Select a Class to View Analytics"
-            description="Choose a class from the dropdown above to see detailed fee analytics and student payment information."
-            icon={<PieChartOutlined style={{ fontSize: '64px', color: chartTheme.colors.textSecondary }} />}
+            title="Select a Class"
+            description="Choose a class to view fee analytics and payment information."
+            icon={<PieChartOutlined style={{ fontSize: 48, color: chartTheme.colors.textSecondary }} />}
           />
         </Card>
       )}

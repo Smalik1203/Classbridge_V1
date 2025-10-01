@@ -140,45 +140,35 @@ const Dashboard = () => {
   const StatCard = ({ title, value, icon, color, trend, trendValue }) => (
     <Card
       style={{
-        borderRadius: 16,
-        border: 'none',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        height: '100%',
-        overflow: 'hidden'
+        borderRadius: 8,
+        border: '1px solid #e8e8e8',
+        height: '100%'
       }}
-      bodyStyle={{ padding: 0 }}
+      bodyStyle={{ padding: 12 }}
     >
-      <div style={{
-        background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
-        padding: '24px',
-        position: 'relative'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 16,
-          right: 16,
-          fontSize: 48,
-          color: `${color}30`,
-          lineHeight: 1
-        }}>
-          {icon}
-        </div>
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <Text style={{ fontSize: 14, color: '#64748b', fontWeight: 500, display: 'block', marginBottom: 8 }}>
-            {title}
-          </Text>
-          <div style={{ fontSize: 36, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>
+      <div>
+        <Text style={{ fontSize: 12, color: '#8c8c8c', fontWeight: 500, display: 'block', marginBottom: 4 }}>
+          {title}
+        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            fontSize: 28,
+            color: color,
+            lineHeight: 1
+          }}>
+            {icon}
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#262626' }}>
             {value}
           </div>
-          {trend && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 12, color: trend === 'up' ? '#10b981' : '#ef4444' }}>
-                {trend === 'up' ? '↑' : '↓'} {trendValue}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#94a3b8' }}>vs last week</Text>
-            </div>
-          )}
         </div>
+        {trend && (
+          <div style={{ marginTop: 4 }}>
+            <Text style={{ fontSize: 11, color: trend === 'up' ? '#52c41a' : '#f5222d' }}>
+              {trend === 'up' ? '↑' : '↓'} {trendValue}
+            </Text>
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -188,46 +178,42 @@ const Dashboard = () => {
       hoverable
       onClick={() => navigate(path)}
       style={{
-        borderRadius: 12,
-        border: '1px solid #e2e8f0',
+        borderRadius: 6,
+        border: '1px solid #e8e8e8',
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.2s ease',
         height: '100%'
       }}
-      bodyStyle={{ padding: '20px' }}
+      bodyStyle={{ padding: 12 }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = color;
-        e.currentTarget.style.boxShadow = `0 4px 12px ${color}20`;
-        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = '#e2e8f0';
-        e.currentTarget.style.boxShadow = 'none';
+        e.currentTarget.style.borderColor = '#e8e8e8';
         e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          width: 48,
-          height: 48,
-          borderRadius: 12,
+          width: 36,
+          height: 36,
+          borderRadius: 6,
           background: `${color}15`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 24,
+          fontSize: 18,
           color: color,
           flexShrink: 0
         }}>
           {icon}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Text strong style={{ fontSize: 15, color: '#1e293b' }}>{label}</Text>
-            <RightOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
-          </div>
-          <Text style={{ fontSize: 13, color: '#64748b', display: 'block' }}>{description}</Text>
+          <Text strong style={{ fontSize: 13, color: '#262626', display: 'block' }}>{label}</Text>
+          <Text style={{ fontSize: 11, color: '#8c8c8c', display: 'block' }}>{description}</Text>
         </div>
+        <RightOutlined style={{ fontSize: 10, color: '#bfbfbf' }} />
       </div>
     </Card>
   );
@@ -247,7 +233,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
+    <div style={{ padding: 16, background: '#fafafa', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         {/* Header Section */}
         <div style={{ marginBottom: 32 }}>
@@ -262,35 +248,27 @@ const Dashboard = () => {
             <div>
               <h1 style={{
                 margin: 0,
-                fontSize: 32,
-                fontWeight: 700,
-                color: '#1e293b',
-                marginBottom: 8,
+                fontSize: 24,
+                fontWeight: 600,
+                color: '#262626',
+                marginBottom: 4,
                 lineHeight: 1.2
               }}>
-                {getGreeting()}, {userName}!
+                {getGreeting()}, {userName}
               </h1>
-              <Text style={{ fontSize: 16, color: '#64748b' }}>
-                Here's what's happening with your school today
+              <Text style={{ fontSize: 13, color: '#8c8c8c' }}>
+                {role === 'student' ? 'Ready to learn today?' : 'Overview of your school'}
               </Text>
             </div>
-            <Space>
-              <Tag color="blue" style={{
-                padding: '6px 16px',
-                fontSize: 14,
-                borderRadius: 8,
-                border: 'none',
-                background: '#e0f2fe',
-                color: '#0369a1',
-                fontWeight: 500
-              }}>
+            <Space size={8}>
+              <Tag color="blue" style={{ fontSize: 12, padding: '2px 10px' }}>
                 {getRoleDisplay(role)}
               </Tag>
               <Button
                 icon={<ReloadOutlined />}
                 onClick={fetchDashboardData}
                 loading={loading}
-                style={{ borderRadius: 8 }}
+                size="small"
               >
                 Refresh
               </Button>
@@ -298,8 +276,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <Row gutter={[20, 20]} style={{ marginBottom: 32 }}>
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} lg={6}>
             <StatCard
               title="Total Students"
@@ -338,14 +315,12 @@ const Dashboard = () => {
           </Col>
         </Row>
 
-        {/* Empty State for New Users */}
         {!loading && stats.totalStudents === 0 && stats.totalClasses === 0 && role !== 'student' && (
           <Card style={{
-            borderRadius: 16,
-            marginBottom: 32,
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }} bodyStyle={{ padding: 48 }}>
+            borderRadius: 8,
+            marginBottom: 16,
+            border: '1px solid #e8e8e8'
+          }} bodyStyle={{ padding: 32 }}>
             <EmptyState
               title="Welcome to ClassBridge!"
               description="Let's get started by setting up your school. Add classes and students to begin using the platform."
@@ -356,10 +331,9 @@ const Dashboard = () => {
           </Card>
         )}
 
-        {/* Quick Actions */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ marginBottom: 20 }}>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#262626', marginBottom: 2 }}>
               Quick Actions
             </h2>
             <Text style={{ color: '#64748b', fontSize: 14 }}>
@@ -375,46 +349,44 @@ const Dashboard = () => {
           </Row>
         </div>
 
-        {/* Recent Activity Section (Placeholder) */}
         {stats.totalStudents > 0 && (
           <Card
             style={{
-              borderRadius: 16,
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+              borderRadius: 8,
+              border: '1px solid #e8e8e8'
             }}
-            bodyStyle={{ padding: 24 }}
+            bodyStyle={{ padding: 16 }}
           >
-            <div style={{ marginBottom: 20 }}>
-              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>
+            <div style={{ marginBottom: 12 }}>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#262626', marginBottom: 2 }}>
                 System Status
               </h2>
-              <Text style={{ color: '#64748b', fontSize: 14 }}>
+              <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
                 Everything is running smoothly
               </Text>
             </div>
-            <Row gutter={[20, 20]}>
+            <Row gutter={[12, 12]}>
               <Col xs={24} md={12}>
-                <div style={{ padding: 16, background: '#f8fafc', borderRadius: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text strong style={{ color: '#1e293b' }}>Class Enrollment</Text>
-                    <Text style={{ color: '#0ea5e9', fontWeight: 600 }}>
+                <div style={{ padding: 12, background: '#fafafa', borderRadius: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text strong style={{ fontSize: 13, color: '#262626' }}>Class Enrollment</Text>
+                    <Text style={{ color: '#1890ff', fontWeight: 600, fontSize: 13 }}>
                       {stats.totalStudents > 0 ? '85%' : '0%'}
                     </Text>
                   </div>
                   <Progress
                     percent={stats.totalStudents > 0 ? 85 : 0}
-                    strokeColor="#0ea5e9"
+                    strokeColor="#1890ff"
                     showInfo={false}
                     size="small"
                   />
                 </div>
               </Col>
               <Col xs={24} md={12}>
-                <div style={{ padding: 16, background: '#f8fafc', borderRadius: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text strong style={{ color: '#1e293b' }}>Today's Attendance</Text>
-                    <Text style={{ color: '#10b981', fontWeight: 600 }}>
+                <div style={{ padding: 12, background: '#fafafa', borderRadius: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text strong style={{ fontSize: 13, color: '#262626' }}>Today's Attendance</Text>
+                    <Text style={{ color: '#52c41a', fontWeight: 600, fontSize: 13 }}>
                       {stats.totalStudents > 0 ? Math.round((stats.todayAttendance / stats.totalStudents) * 100) : 0}%
                     </Text>
                   </div>
