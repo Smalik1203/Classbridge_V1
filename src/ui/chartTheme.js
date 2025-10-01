@@ -1,48 +1,48 @@
 // Centralized chart theme configuration for consistent UI/UX
 export const chartTheme = {
   colors: {
-    primary: '#1890ff',
-    success: '#52c41a',
-    warning: '#faad14',
-    error: '#ff4d4f',
-    info: '#13c2c2',
-    collected: '#52c41a',
-    outstanding: '#ff4d4f',
-    noPlan: '#d9d9d9',
-    background: '#fafafa',
-    text: '#262626',
-    textSecondary: '#8c8c8c',
-    border: '#d9d9d9',
-    grid: '#f0f0f0'
+    primary: '#0ea5e9',
+    success: '#10b981',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    info: '#06b6d4',
+    collected: '#10b981',
+    outstanding: '#ef4444',
+    noPlan: '#e2e8f0',
+    background: '#f8fafc',
+    text: '#1e293b',
+    textSecondary: '#64748b',
+    border: '#e2e8f0',
+    grid: '#f1f5f9'
   },
   
   // Chart styling
   chart: {
     margin: { top: 20, right: 30, left: 20, bottom: 5 },
-    barRadius: [4, 4, 0, 0],
+    barRadius: [6, 6, 0, 0],
     strokeWidth: 2,
-    fontSize: 12,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    fontSize: 13,
+    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
   },
   
   // KPI card styling
   kpiCard: {
     borderRadius: 12,
     border: 'none',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-    transition: 'all 0.3s ease',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    transition: 'all 0.2s ease',
     '&:hover': {
-      boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
       transform: 'translateY(-2px)'
     }
   },
   
   // Status colors for badges
   statusColors: {
-    paid: '#52c41a',
-    partiallyPaid: '#faad14',
-    unpaid: '#ff4d4f',
-    noPlan: '#d9d9d9'
+    paid: '#10b981',
+    partiallyPaid: '#f59e0b',
+    unpaid: '#ef4444',
+    noPlan: '#e2e8f0'
   }
 };
 

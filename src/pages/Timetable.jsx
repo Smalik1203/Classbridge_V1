@@ -456,79 +456,133 @@ export default function Timetable() {
   }, [me?.role, classId, date, subjects, admins, daySlots, chaptersById, syllabusContentMap, fetchDaySlots]);
 
   return (
-    <Card
-        title={
-          <Space align="center">
-            <span style={{ fontSize: '18px', fontWeight: 600 }}>
-              {me?.role === 'student' ? 'My Timetable' : 'Timetable'}
-            </span>
+    <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+        {/* Header Section */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16
+          }}>
+            <div>
+              <h1 style={{
+                margin: 0,
+                fontSize: '28px',
+                fontWeight: 600,
+                color: '#1e293b',
+                marginBottom: 4
+              }}>
+                {me?.role === 'student' ? 'My Timetable' : 'Timetable'}
+              </h1>
+              <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
+                {me?.role === 'student' ? 'View your daily schedule' : 'Manage class schedules and periods'}
+              </p>
+            </div>
             {me?.role === 'student' && classId && (
-              <Tag color="blue" style={{ marginLeft: 8 }}>
+              <Tag color="blue" style={{
+                padding: '6px 16px',
+                fontSize: '14px',
+                borderRadius: '8px',
+                background: '#e0f2fe',
+                border: '1px solid #bae6fd',
+                color: '#0369a1'
+              }}>
                 {classOptions.find(opt => opt.value === classId)?.label || 'Your Class'}
               </Tag>
             )}
-          </Space>
-        }
-        extra={
-          <Space wrap align="center">
+          </div>
+        </div>
+
+        {/* Filters Card */}
+        <Card
+          style={{
+            marginBottom: 24,
+            borderRadius: '12px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          bodyStyle={{ padding: '20px' }}
+        >
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}>
             {ctx}
             {me?.role !== 'student' && (
-              <Space>
-                <Text strong>Class</Text>
+              <div style={{ flex: 1, minWidth: 250 }}>
+                <Text strong style={{ display: 'block', marginBottom: 8, color: '#475569' }}>Class</Text>
                 <Select
-                  style={{ width: 280 }}
+                  style={{ width: '100%' }}
                   showSearch
                   placeholder="Select class"
                   value={classId || undefined}
                   options={classOptions}
                   onChange={setClassId}
                   optionFilterProp="label"
+                  size="large"
                 />
-              </Space>
+              </div>
             )}
-            <Space>
-              <Text strong>Date</Text>
-              {me?.role === 'student' && (
-                <Space>
-                  <Button 
-                    icon={<LeftOutlined />} 
+            <div style={{ flex: 1, minWidth: 250 }}>
+              <Text strong style={{ display: 'block', marginBottom: 8, color: '#475569' }}>Date</Text>
+              {me?.role === 'student' ? (
+                <Space.Compact style={{ width: '100%' }}>
+                  <Button
+                    icon={<LeftOutlined />}
                     onClick={() => setDate(date.subtract(1, 'day'))}
-                    size="small"
+                    size="large"
+                    style={{ borderRadius: '8px 0 0 8px' }}
                   />
-                  <DatePicker 
-                    value={date} 
+                  <DatePicker
+                    value={date}
                     onChange={(d) => setDate(d || dayjs())}
-                    style={{ width: 140 }}
-                    format="DD/MM/YYYY"
+                    style={{ flex: 1 }}
+                    format="DD MMM YYYY"
                     placeholder="Select date"
                     allowClear={false}
                     suffixIcon={<CalendarOutlined />}
+                    size="large"
                   />
-                  <Button 
-                    icon={<RightOutlined />} 
+                  <Button
+                    icon={<RightOutlined />}
                     onClick={() => setDate(date.add(1, 'day'))}
-                    size="small"
+                    size="large"
+                    style={{ borderRadius: '0 8px 8px 0' }}
                   />
-                </Space>
-              )}
-              {me?.role !== 'student' && (
-                <DatePicker 
-                  value={date} 
+                </Space.Compact>
+              ) : (
+                <DatePicker
+                  value={date}
                   onChange={(d) => setDate(d || dayjs())}
-                  style={{ width: 140 }}
-                  format="DD/MM/YYYY"
+                  style={{ width: '100%' }}
+                  format="DD MMM YYYY"
                   placeholder="Select date"
                   allowClear={false}
+                  size="large"
                 />
               )}
-            </Space>
-          </Space>
-        }
-      >
-        <Tabs 
-          defaultActiveKey={me?.role === 'student' ? 'view' : 'manage'} 
-          items={tabs} 
-        />
-      </Card>
+            </div>
+          </div>
+        </Card>
+
+        {/* Content Card */}
+        <Card
+          style={{
+            borderRadius: '12px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}
+          bodyStyle={{ padding: '24px' }}
+        >
+          <Tabs
+            defaultActiveKey={me?.role === 'student' ? 'view' : 'manage'}
+            items={tabs}
+            size="large"
+          />
+        </Card>
+      </div>
+    </div>
   );
 }

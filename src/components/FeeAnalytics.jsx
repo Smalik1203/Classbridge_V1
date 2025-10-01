@@ -401,16 +401,16 @@ const FeeAnalytics = () => {
   }
 
   return (
-    <div style={{ padding: 24, background: '#fafafa', minHeight: '100vh' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <Title level={2} style={{ margin: 0, color: '#1f2937', fontWeight: 600 }}>
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>
             Fee Analytics
-          </Title>
-          <Text type="secondary" style={{ fontSize: '16px' }}>
-            Monitor and analyze fee collection patterns and performance
-          </Text>
+          </h1>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
+            Monitor fee collection and track outstanding payments
+          </p>
         </div>
 
         {alert && (
@@ -425,18 +425,18 @@ const FeeAnalytics = () => {
         )}
 
         {/* Filters */}
-        <Card style={{ marginBottom: 24, borderRadius: 12 }}>
-          <Row gutter={[24, 16]} align="middle">
-            <Col xs={24} md={8}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <FilterOutlined style={{ color: '#666' }} />
-                <Text strong style={{ minWidth: 60 }}>Class:</Text>
+        <Card style={{ marginBottom: 24, borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} bodyStyle={{ padding: '20px' }}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={12} md={8}>
+              <div>
+                <Text strong style={{ display: 'block', marginBottom: 8, color: '#475569' }}>Class</Text>
                 <Select
                   value={selectedClassId}
                   onChange={setSelectedClassId}
-                  style={{ flex: 1 }}
+                  style={{ width: '100%' }}
                   placeholder="Select Class"
                   loading={loading}
+                  size="large"
                 >
                   {classInstances.map(cls => (
                     <Option key={cls.id} value={cls.id}>
@@ -446,119 +446,92 @@ const FeeAnalytics = () => {
                 </Select>
               </div>
             </Col>
-            <Col xs={24} md={8}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <CalendarOutlined style={{ color: '#666' }} />
-                <Text strong style={{ minWidth: 80 }}>Date Range:</Text>
+            <Col xs={24} sm={12} md={8}>
+              <div>
+                <Text strong style={{ display: 'block', marginBottom: 8, color: '#475569' }}>Date Range</Text>
                 <RangePicker
                   value={dateRange}
                   onChange={setDateRange}
-                  style={{ flex: 1 }}
+                  style={{ width: '100%' }}
+                  size="large"
                 />
               </div>
             </Col>
             <Col xs={24} md={8}>
-              <Space>
-                <Button 
+              <div style={{ display: 'flex', gap: 8, marginTop: 28 }}>
+                <Button
                   type="primary"
                   onClick={() => {
                     if (selectedClassId && dateRange && dateRange[0] && dateRange[1]) {
                       fetchStudents();
                       fetchFeeData();
                     } else {
-                      message.warning('Please select both class and date range before loading data');
+                      message.warning('Please select both class and date range');
                     }
                   }}
                   disabled={!selectedClassId || !dateRange || !dateRange[0] || !dateRange[1]}
                   loading={dataLoading}
+                  size="large"
+                  style={{ flex: 1 }}
                 >
                   {dataLoading ? 'Loading...' : 'Load Data'}
                 </Button>
-                <Button 
-                  icon={<DownloadOutlined />} 
-                  type="primary"
-                  ghost
+                <Button
+                  icon={<DownloadOutlined />}
                   disabled={!feeData.length}
+                  size="large"
                 >
-                  Export Data
+                  Export
                 </Button>
-              </Space>
+              </div>
             </Col>
           </Row>
         </Card>
 
-        {/* Overview Statistics */}
-        <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
-          <Col xs={12} md={6}>
-            <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <Statistic
-                title={<Text style={{ fontSize: '14px', color: '#666' }}>Total Students</Text>}
-                value={analytics.totalStudents}
-                prefix={<TeamOutlined style={{ color: '#1890ff' }} />}
-                valueStyle={{ fontSize: '28px', fontWeight: 600, color: '#1f2937' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <Statistic
-                title={<Text style={{ fontSize: '14px', color: '#666' }}>Total Plan Amount</Text>}
-                value={fmtINR(analytics.totalPlanAmount)}
-                prefix={<WalletOutlined style={{ color: '#722ed1' }} />}
-                valueStyle={{ fontSize: '24px', fontWeight: 600, color: '#722ed1' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <Statistic
-                title={<Text style={{ fontSize: '14px', color: '#666' }}>Total Collected</Text>}
-                value={fmtINR(analytics.totalCollected)}
-                prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
-                valueStyle={{ fontSize: '24px', fontWeight: 600, color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <Statistic
-                title={<Text style={{ fontSize: '14px', color: '#666' }}>Total Outstanding</Text>}
-                value={fmtINR(analytics.totalOutstanding)}
-                prefix={<CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
-                valueStyle={{ fontSize: '24px', fontWeight: 600, color: '#ff4d4f' }}
-              />
-            </Card>
-          </Col>
-        </Row>
-
-        <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
-          <Col xs={24} md={12}>
-            <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <Statistic
-                title={<Text style={{ fontSize: '14px', color: '#666' }}>Overall Collection Rate</Text>}
-                value={analytics.overallCollectionRate}
-                suffix="%"
-                prefix={<RiseOutlined style={{ color: '#1890ff' }} />}
-                valueStyle={{ fontSize: '32px', fontWeight: 600, color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} md={12}>
-            <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <Statistic
-                title={<Text style={{ fontSize: '14px', color: '#666' }}>Average Student Collection</Text>}
-                value={analytics.averageCollectionRate}
-                suffix="%"
-                prefix={<PieChartOutlined style={{ color: '#722ed1' }} />}
-                valueStyle={{ fontSize: '32px', fontWeight: 600, color: '#722ed1' }}
-              />
-            </Card>
-          </Col>
-        </Row>
+        {/* Key Metrics - Simplified */}
+        {feeData.length > 0 && (
+          <>
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+              <Col xs={24} sm={12} md={6}>
+                <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: '#fff' }} bodyStyle={{ padding: '20px 16px' }}>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#0ea5e9', marginBottom: 4 }}>
+                    {analytics.totalStudents}
+                  </div>
+                  <Text style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Total Students</Text>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={6}>
+                <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: '#fff' }} bodyStyle={{ padding: '20px 16px' }}>
+                  <div style={{ fontSize: '24px', fontWeight: 700, color: '#10b981', marginBottom: 4 }}>
+                    {fmtINR(analytics.totalCollected)}
+                  </div>
+                  <Text style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Collected</Text>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={6}>
+                <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: '#fff' }} bodyStyle={{ padding: '20px 16px' }}>
+                  <div style={{ fontSize: '24px', fontWeight: 700, color: '#ef4444', marginBottom: 4 }}>
+                    {fmtINR(analytics.totalOutstanding)}
+                  </div>
+                  <Text style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Outstanding</Text>
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={6}>
+                <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: '#fff' }} bodyStyle={{ padding: '20px 16px' }}>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#0ea5e9', marginBottom: 4 }}>
+                    {analytics.overallCollectionRate}%
+                  </div>
+                  <Text style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Collection Rate</Text>
+                </Card>
+              </Col>
+            </Row>
+          </>
+        )}
 
         {/* Analytics Tabs */}
-        <Card style={{ borderRadius: 12, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-          <Tabs activeKey={activeTab} onChange={setActiveTab} size="large">
+        {feeData.length > 0 && (
+          <Card style={{ borderRadius: 12, border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} bodyStyle={{ padding: '24px' }}>
+            <Tabs activeKey={activeTab} onChange={setActiveTab} size="large">
             <TabPane tab="Daily Trends" key="daily">
               <Spin spinning={dataLoading}>
                 {analytics.dailyStats.length > 0 ? (
@@ -648,6 +621,18 @@ const FeeAnalytics = () => {
             </TabPane>
           </Tabs>
         </Card>
+        )}
+
+        {/* Empty State */}
+        {!feeData.length && !dataLoading && (
+          <Card style={{ borderRadius: 12, border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} bodyStyle={{ padding: '48px 24px' }}>
+            <EmptyState
+              title="No fee data loaded"
+              description="Select a class and date range, then click 'Load Data' to view fee analytics and insights."
+              icon="💰"
+            />
+          </Card>
+        )}
       </div>
     </div>
   );

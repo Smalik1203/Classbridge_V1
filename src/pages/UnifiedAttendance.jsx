@@ -441,9 +441,9 @@ const UnifiedAttendance = () => {
           }
           .student-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            padding: 8px 0;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            padding: 12px 0;
           }
           .student-item {
             display: flex;
@@ -466,8 +466,16 @@ const UnifiedAttendance = () => {
           }
         `}
       </style>
-      <Card style={{ maxWidth: 1000, margin: '0 auto', borderRadius: 12 }}>
-        <Title level={3} style={{ color: '#1e293b' }}>Attendance</Title>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>
+            Attendance
+          </h1>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
+            {isStudent ? 'View your attendance history' : 'Mark and manage student attendance'}
+          </p>
+        </div>
 
         {alert && (
           <Alert
@@ -480,7 +488,8 @@ const UnifiedAttendance = () => {
           />
         )}
 
-        <Tabs activeKey={isStudent ? 'view' : activeTab} onChange={setActiveTab} size="large">
+        <Card style={{ borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} bodyStyle={{ padding: '24px' }}>
+          <Tabs activeKey={isStudent ? 'view' : activeTab} onChange={setActiveTab} size="large">
           {!isStudent && (
             <Tabs.TabPane tab="Mark Attendance" key="mark">
               <Card 
@@ -751,8 +760,9 @@ const UnifiedAttendance = () => {
               <Table columns={historyColumns} dataSource={historyData} style={{ marginTop: 16 }} />
             )}
           </Tabs.TabPane>
-        </Tabs>
-      </Card>
+          </Tabs>
+        </Card>
+      </div>
 
       {/* Submit Confirmation Modal */}
       <Modal
