@@ -438,12 +438,12 @@ const UnifiedAttendance = () => {
         `}
       </style>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 600, color: '#262626', marginBottom: 2 }}>
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#262626', marginBottom: 2, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
               Attendance
             </h1>
-            <p style={{ margin: 0, color: '#8c8c8c', fontSize: '13px' }}>
+            <p style={{ margin: 0, color: '#8c8c8c', fontSize: 13, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
               {isStudent ? 'View history' : canMark ? 'Mark & manage attendance' : 'View attendance'}
             </p>
           </div>
@@ -471,9 +471,9 @@ const UnifiedAttendance = () => {
                 bodyStyle={{ padding: 12 }}
               >
                 <Row gutter={12} align="middle">
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <div style={{ marginBottom: 6 }}>
-                      <Text strong style={{ color: '#595959', fontSize: 13 }}>Class</Text>
+                      <Text strong style={{ color: '#595959', fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Class</Text>
                     </div>
                     {classesLoading ? (
                       <Skeleton.Input active style={{ width: '100%', height: 40 }} />
@@ -493,9 +493,9 @@ const UnifiedAttendance = () => {
                       </Select>
                     )}
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <div style={{ marginBottom: 6 }}>
-                      <Text strong style={{ color: '#595959', fontSize: 13 }}>Date</Text>
+                      <Text strong style={{ color: '#595959', fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Date</Text>
                     </div>
                     <DatePicker
                       value={date}
@@ -514,22 +514,24 @@ const UnifiedAttendance = () => {
                   <div style={{ marginBottom: 8 }}>
                     <Row justify="space-between" align="middle">
                       <Col flex="auto">
-                        <Row align="middle" gutter={12}>
-                          <Col>
-                            <Text strong style={{ color: '#595959', fontSize: 14 }}>
-                              Students ({progressStats.total})
-                            </Text>
-                            {progressStats.total > 0 && (
-                              <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
-                                {progressStats.unmarked > 0
-                                  ? `${progressStats.marked} marked · ${progressStats.unmarked} unmarked`
-                                  : 'All marked'
-                                }
+                        <Row align="middle" gutter={12} style={{ flexWrap: 'wrap' }}>
+                          <Col flex="auto" style={{ minWidth: 0 }}>
+                            <div style={{ overflow: 'hidden' }}>
+                              <Text strong style={{ color: '#595959', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: '100%' }}>
+                                Students ({progressStats.total})
                               </Text>
-                            )}
+                              {progressStats.total > 0 && (
+                                <Text type="secondary" style={{ fontSize: 11, marginLeft: 8, whiteSpace: 'nowrap' }}>
+                                  {progressStats.unmarked > 0
+                                    ? `${progressStats.marked} · ${progressStats.unmarked} unmarked`
+                                    : 'All marked'
+                                  }
+                                </Text>
+                              )}
+                            </div>
                           </Col>
-                          <Col>
-                            <Space size={6}>
+                          <Col style={{ flexShrink: 0 }}>
+                            <Space size={6} wrap>
                               <Button
                                 onClick={() => markAll('present')}
                                 size="small"
@@ -542,7 +544,7 @@ const UnifiedAttendance = () => {
                                   padding: '0 10px'
                                 }}
                               >
-                                All Present
+                                <span style={{ whiteSpace: 'nowrap' }}>All Present</span>
                               </Button>
                               <Button
                                 onClick={() => markAll('absent')}
@@ -554,7 +556,7 @@ const UnifiedAttendance = () => {
                                   padding: '0 10px'
                                 }}
                               >
-                                All Absent
+                                <span style={{ whiteSpace: 'nowrap' }}>All Absent</span>
                               </Button>
                               <Button
                                 onClick={resetAttendance}
@@ -565,7 +567,7 @@ const UnifiedAttendance = () => {
                                   padding: '0 10px'
                                 }}
                               >
-                                Reset
+                                <span style={{ whiteSpace: 'nowrap' }}>Reset</span>
                               </Button>
                             </Space>
                           </Col>

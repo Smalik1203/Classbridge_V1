@@ -279,10 +279,10 @@ const FeeAnalyticsEnhanced = () => {
   return (
     <div style={{ padding: 16, backgroundColor: '#fafafa', minHeight: '100vh' }}>
       <div style={{ marginBottom: 16 }}>
-        <Title level={3} style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#262626' }}>
+        <Title level={3} style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#262626', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           Fee Analytics
         </Title>
-        <Text type="secondary" style={{ fontSize: 13 }}>
+        <Text type="secondary" style={{ fontSize: 13, display: 'block', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           {role === 'student' ? 'View your fee details' : 'Fee collection insights & payment tracking'}
         </Text>
       </div>
@@ -291,7 +291,7 @@ const FeeAnalyticsEnhanced = () => {
         <Row gutter={[12, 12]} align="middle">
           <Col xs={24} sm={12} md={8}>
             <div>
-              <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>
+              <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 Class
               </Text>
               <Select
@@ -311,7 +311,7 @@ const FeeAnalyticsEnhanced = () => {
           </Col>
           <Col xs={24} sm={12} md={8}>
             <div>
-              <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>
+              <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 Date Range
               </Text>
               <RangePicker
@@ -332,7 +332,7 @@ const FeeAnalyticsEnhanced = () => {
                   disabled={!students.length}
                   size="middle"
                 >
-                  Export
+                  <span style={{ whiteSpace: 'nowrap' }}>Export</span>
                 </Button>
               )}
             </div>

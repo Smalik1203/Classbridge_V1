@@ -462,20 +462,24 @@ export default function Timetable() {
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12
+            alignItems: 'flex-start',
+            marginBottom: 12,
+            gap: 12,
+            flexWrap: 'wrap'
           }}>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{
                 margin: 0,
                 fontSize: 22,
                 fontWeight: 600,
                 color: '#262626',
-                marginBottom: 2
+                marginBottom: 2,
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word'
               }}>
                 {me?.role === 'student' ? 'My Timetable' : 'Timetable'}
               </h1>
-              <p style={{ margin: 0, color: '#8c8c8c', fontSize: 13 }}>
+              <p style={{ margin: 0, color: '#8c8c8c', fontSize: 13, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                 {me?.role === 'student' ? 'Daily schedule' : me?.role === 'admin' ? 'Manage schedules' : 'View & manage schedules'}
               </p>
             </div>
@@ -483,7 +487,9 @@ export default function Timetable() {
               <Tag color="blue" style={{
                 padding: '4px 12px',
                 fontSize: 13,
-                borderRadius: 4
+                borderRadius: 4,
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}>
                 {classOptions.find(opt => opt.value === classId)?.label || 'Your Class'}
               </Tag>
@@ -507,7 +513,7 @@ export default function Timetable() {
             {ctx}
             {me?.role !== 'student' && (
               <div style={{ flex: 1, minWidth: 220 }}>
-                <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#595959' }}>Class</Text>
+                <Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#595959', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Class</Text>
                 <Select
                   style={{ width: '100%' }}
                   showSearch

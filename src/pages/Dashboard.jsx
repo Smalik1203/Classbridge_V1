@@ -147,18 +147,19 @@ const Dashboard = () => {
       bodyStyle={{ padding: 12 }}
     >
       <div>
-        <Text style={{ fontSize: 12, color: '#8c8c8c', fontWeight: 500, display: 'block', marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, color: '#8c8c8c', fontWeight: 500, display: 'block', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {title}
         </Text>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <div style={{
             fontSize: 28,
             color: color,
-            lineHeight: 1
+            lineHeight: 1,
+            flexShrink: 0
           }}>
             {icon}
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#262626' }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
             {value}
           </div>
         </div>
@@ -194,7 +195,7 @@ const Dashboard = () => {
         e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         <div style={{
           width: 36,
           height: 36,
@@ -209,11 +210,11 @@ const Dashboard = () => {
         }}>
           {icon}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Text strong style={{ fontSize: 13, color: '#262626', display: 'block' }}>{label}</Text>
-          <Text style={{ fontSize: 11, color: '#8c8c8c', display: 'block' }}>{description}</Text>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <Text strong style={{ fontSize: 13, color: '#262626', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</Text>
+          <Text style={{ fontSize: 11, color: '#8c8c8c', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{description}</Text>
         </div>
-        <RightOutlined style={{ fontSize: 10, color: '#bfbfbf' }} />
+        <RightOutlined style={{ fontSize: 10, color: '#bfbfbf', flexShrink: 0 }} />
       </div>
     </Card>
   );
@@ -242,26 +243,28 @@ const Dashboard = () => {
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             flexWrap: 'wrap',
-            gap: 16,
+            gap: 12,
             marginBottom: 8
           }}>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{
                 margin: 0,
                 fontSize: 24,
                 fontWeight: 600,
                 color: '#262626',
                 marginBottom: 4,
-                lineHeight: 1.2
+                lineHeight: 1.2,
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word'
               }}>
                 {getGreeting()}, {userName}
               </h1>
-              <Text style={{ fontSize: 13, color: '#8c8c8c' }}>
+              <Text style={{ fontSize: 13, color: '#8c8c8c', display: 'block', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                 {role === 'student' ? 'Ready to learn today?' : 'Overview of your school'}
               </Text>
             </div>
-            <Space size={8}>
-              <Tag color="blue" style={{ fontSize: 12, padding: '2px 10px' }}>
+            <Space size={8} style={{ flexShrink: 0, flexWrap: 'wrap' }}>
+              <Tag color="blue" style={{ fontSize: 12, padding: '2px 10px', whiteSpace: 'nowrap' }}>
                 {getRoleDisplay(role)}
               </Tag>
               <Button
@@ -270,7 +273,7 @@ const Dashboard = () => {
                 loading={loading}
                 size="small"
               >
-                Refresh
+                <span style={{ whiteSpace: 'nowrap' }}>Refresh</span>
               </Button>
             </Space>
           </div>
