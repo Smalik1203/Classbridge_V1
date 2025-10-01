@@ -31,11 +31,12 @@ const AttendanceChart = ({
 }) => {
   const { antdTheme } = useTheme();
 
-  // Attendance-specific color palette - only real categories
+  // Attendance-specific color palette - vibrant, professional colors (NO BLACK)
   const attendanceColors = {
-    present: '#10b981',    // green-500
-    absent: '#ef4444',     // red-500
-    late: '#f59e0b'        // amber-500
+    present: '#10b981',    // green-500 - vibrant green
+    absent: '#ef4444',     // red-500 - vibrant red
+    late: '#f59e0b',       // amber-500 - vibrant orange/amber
+    total: '#06b6d4'       // cyan-500 - fallback for any other data
   };
 
   // Default chart configurations
@@ -89,26 +90,27 @@ const AttendanceChart = ({
       case 'bar':
         return (
           <BarChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke={antdTheme?.token?.colorBorder} />
+            <CartesianGrid strokeDasharray="3 3" stroke={antdTheme?.token?.colorBorder || '#e5e7eb'} />
             <XAxis 
               dataKey="name" 
-              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary }}
-              axisLine={{ stroke: antdTheme?.token?.colorBorder }}
+              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary || '#64748b' }}
+              axisLine={{ stroke: antdTheme?.token?.colorBorder || '#e5e7eb' }}
             />
             <YAxis 
-              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary }}
-              axisLine={{ stroke: antdTheme?.token?.colorBorder }}
+              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary || '#64748b' }}
+              axisLine={{ stroke: antdTheme?.token?.colorBorder || '#e5e7eb' }}
             />
             <Tooltip 
               formatter={formatTooltip}
               contentStyle={{
-                backgroundColor: antdTheme?.token?.colorBgElevated,
-                border: `1px solid ${antdTheme?.token?.colorBorder}`,
+                backgroundColor: antdTheme?.token?.colorBgElevated || '#ffffff',
+                border: `1px solid ${antdTheme?.token?.colorBorder || '#e5e7eb'}`,
                 borderRadius: designTokens.borderRadius.md
               }}
             />
-            <Legend />
-            {Object.keys(attendanceColors).map((key, index) => (
+            <Legend iconType="circle" />
+            {/* Only render bars for present, absent, late - no 'total' */}
+            {['present', 'absent', 'late'].map((key) => (
               <Bar
                 key={key}
                 dataKey={key}
@@ -130,39 +132,50 @@ const AttendanceChart = ({
               outerRadius={chartConfig.outerRadius}
               paddingAngle={chartConfig.paddingAngle}
               dataKey="value"
+              label={(entry) => entry.value > 0 ? `${entry.value}` : ''}
             >
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={attendanceColors[entry.name] || attendanceColors.total} />
-              ))}
+              {data.map((entry, index) => {
+                // Ensure we always use a vibrant color, never black
+                const color = attendanceColors[entry.name?.toLowerCase()] || 
+                             attendanceColors[entry.name] || 
+                             attendanceColors.total;
+                return <Cell key={`cell-${index}`} fill={color} />;
+              })}
             </Pie>
             <Tooltip formatter={formatTooltip} />
-            <Legend />
+            <Legend 
+              wrapperStyle={{
+                paddingTop: '10px'
+              }}
+              iconType="circle"
+            />
           </PieChart>
         );
 
       case 'line':
         return (
           <LineChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke={antdTheme?.token?.colorBorder} />
+            <CartesianGrid strokeDasharray="3 3" stroke={antdTheme?.token?.colorBorder || '#e5e7eb'} />
             <XAxis 
               dataKey="name" 
-              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary }}
-              axisLine={{ stroke: antdTheme?.token?.colorBorder }}
+              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary || '#64748b' }}
+              axisLine={{ stroke: antdTheme?.token?.colorBorder || '#e5e7eb' }}
             />
             <YAxis 
-              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary }}
-              axisLine={{ stroke: antdTheme?.token?.colorBorder }}
+              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary || '#64748b' }}
+              axisLine={{ stroke: antdTheme?.token?.colorBorder || '#e5e7eb' }}
             />
             <Tooltip formatter={formatTooltip} />
-            <Legend />
-            {Object.keys(attendanceColors).map((key, index) => (
+            <Legend iconType="circle" />
+            {['present', 'absent', 'late'].map((key) => (
               <Line
                 key={key}
                 type="monotone"
                 dataKey={key}
                 stroke={attendanceColors[key]}
                 strokeWidth={chartConfig.strokeWidth}
-                dot={chartConfig.dot}
+                dot={{ ...chartConfig.dot, fill: attendanceColors[key] }}
+                activeDot={{ r: 6, fill: attendanceColors[key] }}
               />
             ))}
           </LineChart>
@@ -171,19 +184,19 @@ const AttendanceChart = ({
       case 'area':
         return (
           <AreaChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke={antdTheme?.token?.colorBorder} />
+            <CartesianGrid strokeDasharray="3 3" stroke={antdTheme?.token?.colorBorder || '#e5e7eb'} />
             <XAxis 
               dataKey="name" 
-              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary }}
-              axisLine={{ stroke: antdTheme?.token?.colorBorder }}
+              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary || '#64748b' }}
+              axisLine={{ stroke: antdTheme?.token?.colorBorder || '#e5e7eb' }}
             />
             <YAxis 
-              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary }}
-              axisLine={{ stroke: antdTheme?.token?.colorBorder }}
+              tick={{ fontSize: 12, fill: antdTheme?.token?.colorTextSecondary || '#64748b' }}
+              axisLine={{ stroke: antdTheme?.token?.colorBorder || '#e5e7eb' }}
             />
             <Tooltip formatter={formatTooltip} />
-            <Legend />
-            {Object.keys(attendanceColors).map((key, index) => (
+            <Legend iconType="circle" />
+            {['present', 'absent', 'late'].map((key) => (
               <Area
                 key={key}
                 type="monotone"
@@ -191,6 +204,7 @@ const AttendanceChart = ({
                 stackId="1"
                 stroke={attendanceColors[key]}
                 fill={attendanceColors[key]}
+                fillOpacity={0.6}
                 strokeWidth={chartConfig.strokeWidth}
               />
             ))}

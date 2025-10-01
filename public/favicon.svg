@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Blue book icon similar to the one you showed -->
+  <defs>
+    <linearGradient id="bookGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b9cff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e88e5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Left page -->
+  <path d="M 8 10 Q 8 8 10 8 L 28 8 Q 30 8 30 10 L 30 50 Q 30 52 28 52 Q 20 48 10 52 Q 8 52 8 50 Z" 
+        fill="url(#bookGradient)" stroke="#0d47a1" stroke-width="1.5"/>
+  
+  <!-- Right page -->
+  <path d="M 34 10 Q 34 8 36 8 L 54 8 Q 56 8 56 10 L 56 50 Q 56 52 54 52 Q 44 48 36 52 Q 34 52 34 50 Z" 
+        fill="url(#bookGradient)" stroke="#0d47a1" stroke-width="1.5"/>
+  
+  <!-- Book spine/middle -->
+  <path d="M 30 8 L 34 8 L 34 52 L 30 52 Z" fill="#ffffff" opacity="0.3"/>
+  
+  <!-- Book base -->
+  <ellipse cx="32" cy="52" rx="24" ry="4" fill="#0d47a1" opacity="0.8"/>
+</svg>
+

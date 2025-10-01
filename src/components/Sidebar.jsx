@@ -224,7 +224,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
                 background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
                 fontWeight: 700,
                 fontSize: '15px',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'Geist Sans, sans-serif',
                 textShadow: '0 1px 2px rgba(0,0,0,0.2)',
                 letterSpacing: '0.5px'
               }}
@@ -293,7 +293,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
                 background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
                 fontWeight: 700,
                 fontSize: '12px',
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'Geist Sans, sans-serif',
                 textShadow: '0 1px 2px rgba(0,0,0,0.2)',
                 letterSpacing: '0.5px'
               }}

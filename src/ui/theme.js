@@ -173,7 +173,7 @@ export const lightTheme = {
     colorInfoBorder: STATUS_COLORS.info.border,
 
     // Enhanced Typography - Refined for business-grade readability
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: 'Geist Sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: 14,
     fontSizeSM: 12,
     fontSizeLG: 16,
@@ -582,7 +582,7 @@ export const darkTheme = {
     colorInfoBorder: 'hsl(217, 91%, 15%)',
 
     // Typography - Consistent sizing
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: 'Geist Sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontSize: 14,
     fontSizeSM: 12,
     fontSizeLG: 16,
@@ -957,7 +957,7 @@ export const designTokens = {
     bold: 700,
   },
   typography: {
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: 'Geist Sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     fontWeights: {
       normal: 400,
       medium: 500,

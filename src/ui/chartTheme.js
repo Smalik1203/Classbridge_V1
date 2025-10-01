@@ -22,7 +22,7 @@ export const chartTheme = {
     barRadius: [6, 6, 0, 0],
     strokeWidth: 2,
     fontSize: 13,
-    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontFamily: 'Geist Sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
   },
   
   // KPI card styling

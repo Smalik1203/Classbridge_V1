@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
-import { getUserRole, getSchoolCode } from '../utils/metadata';
+import { getUserRole, getSchoolCode, isStudent, isSuperAdmin } from '../utils/metadata';
 import { fmtINR } from '../utils/money';
 import { 
   KPICard, 
@@ -40,7 +40,7 @@ const FeeAnalyticsEnhanced = () => {
   const [dateRange, setDateRange] = useState(null);
   const [feeData, setFeeData] = useState([]);
   const [students, setStudents] = useState([]);
-  const [me, setMe] = useState({ id: null, role: "", school_code: null });
+  const [me, setMe] = useState({ id: null, role: "", school_code: null, user: null });
 
   // Fetch user context
   useEffect(() => {
@@ -52,7 +52,7 @@ const FeeAnalyticsEnhanced = () => {
 
         const role = getUserRole(user) || "";
         const school_code = getSchoolCode(user) || null;
-        setMe({ id: user.id, role, school_code });
+        setMe({ id: user.id, role, school_code, user }); // Store user object for helper functions
 
         if (!school_code) {
           setAlert({ type: 'error', message: 'No school code found for user' });
@@ -283,7 +283,7 @@ const FeeAnalyticsEnhanced = () => {
           Fee Analytics
         </Title>
         <Text type="secondary" style={{ fontSize: 13, display: 'block', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-          {role === 'student' ? 'View your fee details' : 'Fee collection insights & payment tracking'}
+          {isStudent(me.user) ? 'View your fee details' : 'Fee collection insights & payment tracking'}
         </Text>
       </div>
 
@@ -323,8 +323,8 @@ const FeeAnalyticsEnhanced = () => {
             </div>
           </Col>
           <Col xs={24} sm={24} md={8}>
-            <div style={{ marginTop: role === 'superadmin' ? 0 : 20 }}>
-              {role !== 'student' && (
+            <div style={{ marginTop: isSuperAdmin(me.user) ? 0 : 20 }}>
+              {!isStudent(me.user) && (
                 <Button
                   type="primary"
                   icon={<DownloadOutlined />}
@@ -433,7 +433,7 @@ const FeeAnalyticsEnhanced = () => {
             </Col>
           </Row>
 
-          {role !== 'student' && (
+          {!isStudent(me.user) && (
             <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
             <Col xs={24} lg={12}>
               <EnhancedChart
@@ -464,10 +464,10 @@ const FeeAnalyticsEnhanced = () => {
             title={
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text strong style={{ fontSize: 15 }}>
-                  {role === 'student' ? 'My Fee Details' : 'Student Fee Details'}
+                  {isStudent(me.user) ? 'My Fee Details' : 'Student Fee Details'}
                 </Text>
                 <Tag color="blue" style={{ fontSize: 12 }}>
-                  {students.length} {role === 'student' ? 'Items' : 'Students'}
+                  {students.length} {isStudent(me.user) ? 'Items' : 'Students'}
                 </Tag>
               </div>
             }

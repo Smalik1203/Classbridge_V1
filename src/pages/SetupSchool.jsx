@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Typography, Row, Col, Tooltip, Popover, Button } from 'antd';
+import React from 'react';
+import { Card, Typography, Row, Col, Tooltip } from 'antd';
 import { 
   UserAddOutlined, 
   BookOutlined, 
@@ -8,30 +8,15 @@ import {
   CalendarOutlined,
   FileTextOutlined,
   DollarOutlined,
-  ClockCircleOutlined,
-  InfoCircleOutlined,
-  CloseOutlined
+  ClockCircleOutlined
 } from '@ant-design/icons';
-import { useAuth } from '../AuthProvider';
 import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
 
 const SetupSchool = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-
-  // Check if user is first time visitor
-  useEffect(() => {
-    const hasVisited = localStorage.getItem('quickSetupVisited');
-    if (!hasVisited) {
-      setShowOnboarding(true);
-      localStorage.setItem('quickSetupVisited', 'true');
-    }
-  }, []);
 
   const handleSetupAction = (link) => {
     navigate(link);
@@ -136,46 +121,6 @@ const SetupSchool = () => {
     }
   ];
 
-  const onboardingSteps = [
-    {
-      target: 'admins',
-      title: 'Start Here!',
-      content: 'Click here to set up administrators first. This is your first step to get your school running.',
-      placement: 'top'
-    },
-    {
-      target: 'classes',
-      title: 'Next Step',
-      content: 'Then organize your classes and academic structure.',
-      placement: 'top'
-    },
-    {
-      target: 'subjects',
-      title: 'Add Subjects',
-      content: 'Set up your curriculum and subject offerings.',
-      placement: 'top'
-    },
-    {
-      target: 'students',
-      title: 'Enroll Students',
-      content: 'Finally, enroll students and assign them to classes.',
-      placement: 'top'
-    }
-  ];
-
-  const handleOnboardingNext = () => {
-    if (currentStep < onboardingSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      setShowOnboarding(false);
-    }
-  };
-
-  const handleOnboardingSkip = () => {
-    setShowOnboarding(false);
-  };
-
-
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -212,172 +157,95 @@ const SetupSchool = () => {
 
         {/* Setup Tasks Grid */}
         <Row gutter={[16, 16]} justify="center">
-          {setupTasks.map((task, index) => {
-            const isOnboardingTarget = showOnboarding && 
-              onboardingSteps[currentStep]?.target === task.id;
-            
-            const cardContent = (
-              <Card
-                hoverable
-                onClick={() => handleSetupAction(task.link)}
-                style={{ 
-                  width: '100%',
-                  maxWidth: '320px',
-                  height: '180px',
-                  borderRadius: '16px',
-                  border: isOnboardingTarget ? '2px solid #3b82f6' : 'none',
-                  background: `linear-gradient(135deg, ${task.bgColor} 0%, #ffffff 100%)`,
-                  boxShadow: isOnboardingTarget 
-                    ? '0 8px 32px rgba(59, 130, 246, 0.2)' 
-                    : '0 4px 20px rgba(0, 0, 0, 0.08)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  cursor: 'pointer',
-                  margin: '0 auto',
-                  overflow: 'hidden',
-                  position: 'relative'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)';
-                  e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.12)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                  e.currentTarget.style.boxShadow = isOnboardingTarget 
-                    ? '0 8px 32px rgba(59, 130, 246, 0.2)' 
-                    : '0 4px 20px rgba(0, 0, 0, 0.08)';
-                }}
+          {setupTasks.map((task) => (
+            <Col xs={24} sm={12} md={8} lg={6} key={task.id}>
+              <Tooltip
+                title={task.description}
+                placement="top"
+                overlayStyle={{ maxWidth: '280px' }}
               >
-                <div style={{ 
-                  padding: '28px',
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  position: 'relative'
-                }}>
-                  {/* Onboarding Indicator */}
-                  {isOnboardingTarget && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '8px',
-                      right: '8px',
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
-                      background: '#3b82f6',
-                      animation: 'pulse 2s infinite'
-                    }} />
-                  )}
-
-                  {/* Icon with Pastel Background */}
-                  <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    background: task.iconBg,
+                <Card
+                  hoverable
+                  onClick={() => handleSetupAction(task.link)}
+                  style={{ 
+                    width: '100%',
+                    maxWidth: '320px',
+                    height: '180px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    background: `linear-gradient(135deg, ${task.bgColor} 0%, #ffffff 100%)`,
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    cursor: 'pointer',
+                    margin: '0 auto',
+                    overflow: 'hidden'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)';
+                    e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.12)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
+                  }}
+                >
+                  <div style={{ 
+                    padding: '28px',
+                    height: '100%',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '18px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                    textAlign: 'center'
                   }}>
+                    {/* Icon with Pastel Background */}
                     <div style={{
-                      fontSize: '28px',
-                      color: task.color,
-                      fontWeight: 'bold'
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '50%',
+                      background: task.iconBg,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '18px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                     }}>
-                      {task.icon}
+                      <div style={{
+                        fontSize: '28px',
+                        color: task.color,
+                        fontWeight: 'bold'
+                      }}>
+                        {task.icon}
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ width: '100%' }}>
+                      <Title level={4} style={{ 
+                        margin: '0 0 6px 0', 
+                        color: '#1e293b',
+                        fontWeight: 600,
+                        fontSize: '18px',
+                        lineHeight: '1.2',
+                        textAlign: 'center'
+                      }}>
+                        {task.title}
+                      </Title>
+                      <Text style={{ 
+                        color: '#64748b',
+                        fontSize: '13px',
+                        lineHeight: '1.3',
+                        display: 'block',
+                        textAlign: 'center',
+                        fontWeight: '500'
+                      }}>
+                        {task.tagline}
+                      </Text>
                     </div>
                   </div>
-
-                  {/* Content */}
-                  <div style={{ width: '100%' }}>
-                    <Title level={4} style={{ 
-                      margin: '0 0 6px 0', 
-                      color: '#1e293b',
-                      fontWeight: 600,
-                      fontSize: '18px',
-                      lineHeight: '1.2',
-                      textAlign: 'center'
-                    }}>
-                      {task.title}
-                    </Title>
-                    <Text style={{ 
-                      color: '#64748b',
-                      fontSize: '13px',
-                      lineHeight: '1.3',
-                      display: 'block',
-                      textAlign: 'center',
-                      fontWeight: '500'
-                    }}>
-                      {task.tagline}
-                    </Text>
-                  </div>
-                </div>
-              </Card>
-            );
-
-            return (
-              <Col xs={24} sm={12} md={8} lg={6} key={task.id}>
-                {isOnboardingTarget ? (
-                  <Popover
-                    content={
-                      <div style={{ padding: '8px 0' }}>
-                        <div style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center',
-                          marginBottom: '12px'
-                        }}>
-                          <Text strong style={{ fontSize: '14px' }}>
-                            {onboardingSteps[currentStep].title}
-                          </Text>
-                          <Button 
-                            type="text" 
-                            size="small" 
-                            icon={<CloseOutlined />}
-                            onClick={handleOnboardingSkip}
-                            style={{ padding: '0', minWidth: 'auto' }}
-                          />
-                        </div>
-                        <Text style={{ fontSize: '13px', display: 'block', marginBottom: '12px' }}>
-                          {onboardingSteps[currentStep].content}
-                        </Text>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={{ fontSize: '11px', color: '#9ca3af' }}>
-                            {currentStep + 1} of {onboardingSteps.length}
-                          </Text>
-                          <Button 
-                            type="primary" 
-                            size="small"
-                            onClick={handleOnboardingNext}
-                            style={{ fontSize: '12px', height: '24px' }}
-                          >
-                            {currentStep === onboardingSteps.length - 1 ? 'Finish' : 'Next'}
-                          </Button>
-                        </div>
-                      </div>
-                    }
-                    title={null}
-                    placement={onboardingSteps[currentStep].placement}
-                    open={true}
-                    overlayStyle={{ maxWidth: '280px' }}
-                  >
-                    {cardContent}
-                  </Popover>
-                ) : (
-                  <Tooltip
-                    title={task.description}
-                    placement="top"
-                    overlayStyle={{ maxWidth: '280px' }}
-                  >
-                    {cardContent}
-                  </Tooltip>
-                )}
-              </Col>
-            );
-          })}
+                </Card>
+              </Tooltip>
+            </Col>
+          ))}
         </Row>
       </div>
     </div>
