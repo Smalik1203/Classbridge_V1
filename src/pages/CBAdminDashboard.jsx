@@ -12,18 +12,25 @@ import {
   Alert,
   Spin,
   Tag,
+  Modal,
+  Form,
+  Input,
+  message,
+  Tooltip,
 } from 'antd';
 import {
   BankOutlined,
   UserOutlined,
   BookOutlined,
   ReloadOutlined,
-  PlusOutlined
+  PlusOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
 import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { updateSchoolName } from '../services/schoolService';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -50,6 +57,10 @@ const CBAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [schools, setSchools] = useState([]);
   const [superAdmins, setSuperAdmins] = useState([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSchool, setEditingSchool] = useState(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editForm] = Form.useForm();
   const [stats, setStats] = useState({
     totalSchools: 0,
     totalSuperAdmins: 0,
@@ -107,6 +118,39 @@ const CBAdminDashboard = () => {
       setSchools(data || []);
     } catch (err) {
       throw err;
+    }
+  };
+
+  const openEditModal = (schoolRecord) => {
+    setEditingSchool(schoolRecord);
+    editForm.setFieldsValue({ school_name: schoolRecord.school_name });
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingSchool(null);
+    editForm.resetFields();
+  };
+
+  const handleSubmitEdit = async () => {
+    try {
+      const values = await editForm.validateFields();
+      setIsSavingEdit(true);
+      await updateSchoolName(editingSchool.id, values.school_name);
+      message.success('School name updated');
+      handleCloseEditModal();
+      await fetchSchools();
+    } catch (err) {
+      if (err?.error?.message) {
+        message.error(err.error.message);
+      } else if (err?.message) {
+        message.error(err.message);
+      } else {
+        message.error('Failed to update school name');
+      }
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -247,6 +291,23 @@ const CBAdminDashboard = () => {
           <Text type="secondary">System</Text>
         );
       }
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Tooltip title="Edit school name">
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => openEditModal(record)}
+            >
+              Edit
+            </Button>
+          </Tooltip>
+        </Space>
+      )
     },
   ];
 
@@ -467,6 +528,27 @@ const CBAdminDashboard = () => {
             scroll={{ x: 1000 }}
           />
         </Card>
+        <Modal
+          title="Edit School Name"
+          open={isEditModalOpen}
+          onOk={handleSubmitEdit}
+          onCancel={handleCloseEditModal}
+          okButtonProps={{ loading: isSavingEdit }}
+          destroyOnClose
+        >
+          <Form form={editForm} layout="vertical" preserve={false}>
+            <Form.Item
+              label="School Name"
+              name="school_name"
+              rules={[
+                { required: true, message: 'Please enter a school name' },
+                { max: 200, message: 'Name is too long' },
+              ]}
+            >
+              <Input placeholder="Enter new school name" autoFocus />
+            </Form.Item>
+          </Form>
+        </Modal>
       </Spin>
 
     </Content>
