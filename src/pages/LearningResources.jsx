@@ -128,7 +128,6 @@ const LearningResources = () => {
       if (error) throw error;
       setSubjects(data || []);
     } catch (error) {
-      console.error('Error loading subjects:', error);
       showError(error, {
         context: {
           item: 'subjects',
@@ -154,7 +153,6 @@ const LearningResources = () => {
       if (error) throw error;
       setClasses(data || []);
     } catch (error) {
-      console.error('Error loading classes:', error);
       showError(error, {
         context: {
           item: 'classes',
@@ -192,7 +190,6 @@ const LearningResources = () => {
       });
       setSubjectStats(statsMap);
     } catch (error) {
-      console.error('Error loading subject stats:', error);
     }
   };
 
@@ -212,7 +209,6 @@ const LearningResources = () => {
         setSelectedClass(data.class_instance_id);
       }
     } catch (err) {
-      console.error('Error determining student class:', err);
     }
   };
 
@@ -227,7 +223,6 @@ const LearningResources = () => {
       
       // Check if user is available
       if (!user) {
-        console.warn('User not available for loading resources');
         setError('User not authenticated');
         return;
       }
@@ -258,7 +253,6 @@ const LearningResources = () => {
       setResources(result?.data || []);
       setTotalCount(result?.count || 0);
     } catch (error) {
-      console.error('Error loading resources:', error);
       setError(error.message || 'Failed to load resources');
       setResources([]);
       setTotalCount(0);
@@ -389,7 +383,6 @@ const LearningResources = () => {
       setSelectedFile(null);
       loadResources();
     } catch (error) {
-      console.error('Error saving resource:', error);
       showError(error, {
         useNotification: true,
         context: {
@@ -418,7 +411,6 @@ const LearningResources = () => {
           message.success('Resource deleted successfully');
           loadResources();
         } catch (error) {
-          console.error('Error deleting resource:', error);
           showError(error, {
             context: {
               item: 'resource',
@@ -448,7 +440,6 @@ const LearningResources = () => {
   // Render resource card based on type
   const renderResourceCard = (resource) => {
     if (!resource || !resource.id) {
-      console.warn('Invalid resource data:', resource);
       return null;
     }
 
@@ -467,7 +458,6 @@ const LearningResources = () => {
       case 'quiz':
         return <QuizResource key={resource.id} {...commonProps} />;
       default:
-        console.warn('Unknown resource type:', resource.resource_type);
         return null;
     }
   };
@@ -767,16 +757,14 @@ const LearningResources = () => {
       <div style={{ marginBottom: antdTheme.token.marginLG }}>
         <Row justify="space-between" align="middle">
           <Col>
-            <Title level={2} style={{ 
-              margin: 0, 
-              color: antdTheme.token.colorTextHeading, 
-              fontWeight: 600 
-            }}>
-              Learning Resources
-            </Title>
-            <Text type="secondary" style={{ fontSize: antdTheme.token.fontSizeLG }}>
-              Access educational materials, videos, documents, and interactive quizzes
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
+                <span>Home</span>
+                <span>/</span>
+                <span>Learning Resources</span>
+              </div>
+            </div>
           </Col>
           {canEdit && (
             <Col>

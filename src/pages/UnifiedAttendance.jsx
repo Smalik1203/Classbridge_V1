@@ -4,12 +4,14 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { supabase } from '../config/supabaseClient';
+import { useTheme } from '../contexts/ThemeContext';
 import { getUserRole, getSchoolCode, getStudentCode } from '../utils/metadata';
 import { AttendanceTag } from '../components/AttendanceStatusIndicator';
 import { 
   getAttendanceColor
 } from '../utils/attendanceColors';
 import EmptyState from '../ui/EmptyState';
+import { useHolidayCheck } from '../components/calendar/HolidayChecker';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -73,6 +75,7 @@ const StatusPillToggle = ({ studentId, value, onChange, disabled }) => {
 };
 
 const UnifiedAttendance = () => {
+  const { isDarkMode, theme } = useTheme();
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(''); // superadmin | admin | student
   const [schoolCode, setSchoolCode] = useState('');
@@ -104,6 +107,13 @@ const UnifiedAttendance = () => {
   const isStudent = role === 'student';
   const canMark = role === 'admin' || role === 'superadmin';
 
+  // Holiday checking
+  const { isHoliday, holidayInfo, loading: holidayLoading } = useHolidayCheck(
+    schoolCode, 
+    date, 
+    selectedClassId
+  );
+
   useEffect(() => {
     const fetchUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -127,9 +137,34 @@ const UnifiedAttendance = () => {
         if (isStudent) {
           // Fetch student profile to determine class
           const studentCode = getStudentCode(user);
-          const query = supabase.from('student').select('id, full_name, class_instance_id, school_code, email');
-          const { data: student, error } = await (studentCode ? query.eq('student_code', studentCode) : query.eq('email', user.email)).single();
-          if (error) throw error;
+          const studentSchoolCode = getSchoolCode(user);
+          
+          
+          if (!studentSchoolCode) {
+            throw new Error('School information not found in your profile. Please contact support.');
+          }
+          
+          let query = supabase.from('student').select('id, full_name, class_instance_id, school_code, email');
+          
+          // Apply filters
+          query = query.eq('school_code', studentSchoolCode);
+          
+          if (studentCode) {
+            query = query.eq('student_code', studentCode);
+          } else {
+            query = query.eq('email', user.email);
+          }
+          
+          const { data: student, error } = await query.single();
+          
+          if (error) {
+            throw error;
+          }
+          
+          if (!student) {
+            throw new Error('No student record found');
+          }
+          
           setStudentProfile(student);
           setSelectedClassId(student.class_instance_id);
           setSchoolCode(student.school_code || schoolCode);
@@ -137,19 +172,37 @@ const UnifiedAttendance = () => {
           const { data, error } = await supabase
             .from('class_instances')
             .select('id, grade, section')
-            .eq('class_teacher_id', user.id);
+            .eq('class_teacher_id', user.id)
+            .order('grade', { ascending: true })
+            .order('section', { ascending: true });
           if (error) throw error;
-          setClassInstances(data || []);
+          // Additional client-side sorting to ensure proper order
+          const sortedClasses = (data || []).sort((a, b) => {
+            if (a.grade !== b.grade) {
+              return a.grade - b.grade;
+            }
+            return a.section.localeCompare(b.section);
+          });
+          setClassInstances(sortedClasses);
         } else if (role === 'superadmin') {
           const { data, error } = await supabase
             .from('class_instances')
             .select('id, grade, section')
-            .eq('school_code', schoolCode);
+            .eq('school_code', schoolCode)
+            .order('grade', { ascending: true })
+            .order('section', { ascending: true });
           if (error) throw error;
-          setClassInstances(data || []);
+          // Additional client-side sorting to ensure proper order
+          const sortedClasses = (data || []).sort((a, b) => {
+            if (a.grade !== b.grade) {
+              return a.grade - b.grade;
+            }
+            return a.section.localeCompare(b.section);
+          });
+          setClassInstances(sortedClasses);
         }
       } catch (err) {
-        setAlert({ type: 'error', message: 'Failed to load classes. Please try again.' });
+        setAlert({ type: 'error', message: err.message || 'Failed to load classes. Please try again.' });
       } finally {
         setClassesLoading(false);
       }
@@ -214,7 +267,6 @@ const UnifiedAttendance = () => {
       } catch (err) {
         // If fetch fails, start with empty attendance
         setAttendance({});
-        console.error('Failed to fetch existing attendance:', err);
       }
     };
     
@@ -238,6 +290,17 @@ const UnifiedAttendance = () => {
     if (!canMark) return;
     if (!selectedClassId || students.length === 0) {
       setAlert({ type: 'warning', message: 'Select a class with students before saving.' });
+      return;
+    }
+
+    // Check if it's a holiday
+    if (isHoliday) {
+      const holidayTitle = holidayInfo?.title || 'Holiday';
+      const holidayDescription = holidayInfo?.description || 'This is a holiday. Attendance cannot be marked.';
+      setAlert({ 
+        type: 'error', 
+        message: `Cannot mark attendance on ${holidayTitle}. ${holidayDescription}` 
+      });
       return;
     }
 
@@ -411,7 +474,11 @@ const UnifiedAttendance = () => {
   };
 
   return (
-    <div style={{ padding: 16, background: '#fafafa', minHeight: '100vh' }}>
+    <div style={{ 
+      padding: 16, 
+      background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
+      minHeight: '100vh' 
+    }}>
       <style>
         {`
           .student-grid {
@@ -438,14 +505,16 @@ const UnifiedAttendance = () => {
         `}
       </style>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#262626', marginBottom: 2, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-              Attendance
-            </h1>
-            <p style={{ margin: 0, color: '#8c8c8c', fontSize: 13, wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-              {isStudent ? 'View history' : canMark ? 'Mark & manage attendance' : 'View attendance'}
-            </p>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
+                <span>Home</span>
+                <span>/</span>
+                <span>Attendance</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -456,6 +525,17 @@ const UnifiedAttendance = () => {
             showIcon
             closable
             onClose={() => setAlert(null)}
+            style={{ marginBottom: 12, fontSize: 13 }}
+            banner
+          />
+        )}
+
+        {/* Holiday Alert */}
+        {isHoliday && (
+          <Alert
+            type="warning"
+            message={`${holidayInfo?.title || 'Holiday'}: ${holidayInfo?.title === 'Sunday' ? 'Sunday is a weekend day. Attendance cannot be marked.' : 'This is a holiday. Attendance cannot be marked.'}`}
+            showIcon
             style={{ marginBottom: 12, fontSize: 13 }}
             banner
           />
@@ -605,7 +685,7 @@ const UnifiedAttendance = () => {
                         type="primary"
                         onClick={handleSubmit}
                         loading={saving}
-                        disabled={!canMark || progressStats.unmarked > 0}
+                        disabled={!canMark || progressStats.unmarked > 0 || isHoliday}
                         style={{
                           minWidth: 140,
                           height: 32

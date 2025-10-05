@@ -12,10 +12,10 @@ const Login = () => {
   const { user } = useAuth();
   
   // Redirect if already logged in
-  if (user) return <Navigate to="/dashboard" />;
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  if (user) return <Navigate to="/dashboard" />;
 
   // Handle form submission
   const handleLogin = async (values) => {
@@ -60,11 +60,11 @@ const Login = () => {
             width: '64px',
             height: '64px',
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+            background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(14, 165, 233, 0.3)',
+            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)',
             zIndex: 2
           }}>
             <BookOutlined style={{ fontSize: '28px', color: 'white' }} />
@@ -189,18 +189,18 @@ const Login = () => {
                     borderRadius: '12px',
                     fontSize: '16px',
                     fontWeight: '600',
-                    background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+                    background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
                     border: 'none',
-                    boxShadow: '0 4px 14px 0 rgba(14, 165, 233, 0.3)',
+                    boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.3)',
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
                     e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 6px 20px 0 rgba(14, 165, 233, 0.4)';
+                    e.target.style.boxShadow = '0 6px 20px 0 rgba(99, 102, 241, 0.4)';
                   }}
                   onMouseLeave={(e) => {
                     e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 14px 0 rgba(14, 165, 233, 0.3)';
+                    e.target.style.boxShadow = '0 4px 14px 0 rgba(99, 102, 241, 0.3)';
                   }}
                 >
                   {loading ? 'Signing In...' : 'Sign In'}
@@ -212,7 +212,7 @@ const Login = () => {
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <Text style={{ color: '#64748b', fontSize: '14px' }}>
                 Don't have an account?{' '}
-                <Text style={{ color: '#0ea5e9', fontWeight: '500', cursor: 'pointer' }}>
+                <Text style={{ color: '#6366F1', fontWeight: '500', cursor: 'pointer' }}>
                   Contact administrator
                 </Text>
               </Text>

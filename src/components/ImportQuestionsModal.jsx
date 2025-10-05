@@ -71,12 +71,10 @@ const ImportQuestionsModal = ({ visible, test, onClose, onImportComplete }) => {
         parseQuestions(content);
       };
       reader.onerror = (error) => {
-        console.error('File reading error:', error);
         message.error('Failed to read file');
       };
       reader.readAsText(actualFile);
     } else {
-      console.error('No file object found');
       message.error('No file selected');
     }
   };
@@ -135,7 +133,6 @@ const ImportQuestionsModal = ({ visible, test, onClose, onImportComplete }) => {
         message.warning(`Parsed ${questions.length} questions with ${errors.length} validation errors`);
       }
     } catch (error) {
-      console.error('Parse error:', error);
       message.error(`Failed to parse file: ${error.message}`);
       setParsedQuestions([]);
       setValidationErrors([]);
@@ -192,7 +189,6 @@ const ImportQuestionsModal = ({ visible, test, onClose, onImportComplete }) => {
             onClose();
           } else {
             message.warning(`Imported ${results.success} questions, ${results.failed} failed`);
-            console.error('Import errors:', results.errors);
             // Still close modal even if some failed
             onImportComplete?.();
             onClose();

@@ -48,7 +48,6 @@ export default function FeeComponents() {
           school_code,
         });
       } catch (e) { 
-        console.error("Error loading user context:", e);
         message.error(e.message || "Failed to load user context"); 
       }
     })();
@@ -70,7 +69,6 @@ export default function FeeComponents() {
       // Always filter by school_code for non-superadmin users
       if (me.role !== "superadmin") {
         if (!me.school_code) {
-          console.error("FeeComponents - No school_code found for user:", me);
           message.error("School information not found. Please contact administrator.");
           setLoading(false);
           return;
@@ -86,7 +84,6 @@ export default function FeeComponents() {
       
       setRows(data || []);
     } catch (e) { 
-      console.error("Error fetching rows:", e);
       message.error(e.message || "Failed to load components"); 
     }
     finally { setLoading(false); }
@@ -162,13 +159,6 @@ export default function FeeComponents() {
           <Text strong style={{ color: '#1e293b' }}>
             {name}
           </Text>
-          {record.school_code && (
-            <div>
-              <Text type="secondary" style={{ fontSize: '11px' }}>
-                School: {record.school_code}
-              </Text>
-            </div>
-          )}
         </div>
       )
     },

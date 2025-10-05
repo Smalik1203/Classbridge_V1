@@ -44,7 +44,6 @@ const SuperAdminCounter = () => {
         setSuperAdmins(usersData || []);
       }
     } catch (err) {
-      console.error('Error counting super admins:', err);
       setError('Failed to count super admins: ' + err.message);
     } finally {
       setLoading(false);
@@ -100,7 +99,6 @@ const SuperAdminCounter = () => {
                       {admin.email}
                     </div>
                     <div style={{ color: '#999', fontSize: '12px' }}>
-                      School: {admin.school_code || 'N/A'} | 
                       Created: {new Date(admin.created_at).toLocaleDateString()}
                     </div>
                   </div>

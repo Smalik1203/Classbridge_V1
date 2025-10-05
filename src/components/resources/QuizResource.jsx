@@ -61,7 +61,6 @@ const QuizResource = ({ resource, canEdit = false, onEdit, onDelete }) => {
         passingScore: 60
       };
     } catch (error) {
-      console.error('Error parsing quiz data:', error);
       return {
         questions: [],
         timeLimit: 300,

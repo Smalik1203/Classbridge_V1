@@ -1,11 +1,11 @@
 // Centralized chart theme configuration for consistent UI/UX
 export const chartTheme = {
   colors: {
-    primary: '#0ea5e9',
+    primary: '#6366F1',
     success: '#10b981',
     warning: '#f59e0b',
     error: '#ef4444',
-    info: '#06b6d4',
+    info: '#8B5CF6',
     collected: '#10b981',
     outstanding: '#ef4444',
     noPlan: '#e2e8f0',

@@ -11,12 +11,14 @@ import {
   ClockCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { Title, Text } = Typography;
 
 
 const SetupSchool = () => {
   const navigate = useNavigate();
+  const { isDarkMode, theme } = useTheme();
 
   const handleSetupAction = (link) => {
     navigate(link);
@@ -124,7 +126,9 @@ const SetupSchool = () => {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: isDarkMode 
+        ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+        : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
       padding: '20px 12px'
     }}>
       <div style={{ 

@@ -12,7 +12,6 @@ export const syllabusStructureService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error getting syllabus tree:', error);
       throw error;
     }
   },
@@ -29,7 +28,6 @@ export const syllabusStructureService = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error getting chapters:', error);
       throw error;
     }
   },
@@ -46,7 +44,6 @@ export const syllabusStructureService = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error getting topics:', error);
       throw error;
     }
   },
@@ -62,7 +59,6 @@ export const syllabusStructureService = {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error resolving syllabus item:', error);
       throw error;
     }
   },
@@ -85,7 +81,6 @@ export const syllabusStructureService = {
       }
       return data?.id;
     } catch (error) {
-      console.error('Error getting syllabus ID:', error);
       throw error;
     }
   },
@@ -110,7 +105,6 @@ export const syllabusStructureService = {
         syllabus_topics: (chapter.syllabus_topics || []).sort((a, b) => a.topic_no - b.topic_no)
       }));
     } catch (error) {
-      console.error('Error getting chapters with topics:', error);
       throw error;
     }
   },
@@ -165,7 +159,6 @@ export const syllabusStructureService = {
       
       return results;
     } catch (error) {
-      console.error('Error searching syllabus items:', error);
       throw error;
     }
   },
@@ -180,7 +173,6 @@ export const syllabusStructureService = {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error reordering chapters:', error);
       throw error;
     }
   },
@@ -195,7 +187,6 @@ export const syllabusStructureService = {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error reordering topics:', error);
       throw error;
     }
   }

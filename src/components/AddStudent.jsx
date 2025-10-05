@@ -74,7 +74,6 @@ const AddStudent = () => {
         .eq('school_code', school_code);
 
       if (error) {
-        console.error('Class instances error:', error);
         message.error('Failed to load classes: ' + error.message);
         setClassInstances([]);
       } else {
@@ -177,7 +176,6 @@ const AddStudent = () => {
       .limit(1);
 
     if (fetchError) {
-      console.error('Error fetching current student:', fetchError);
       message.error('Failed to fetch student data: ' + fetchError.message);
       return;
     }
@@ -562,10 +560,14 @@ const AddStudent = () => {
       }}>
         <Card
           title={
-            <Space>
-              <UserAddOutlined />
-              <Title level={3} style={{ margin: 0, color: '#1e293b', fontWeight: 600 }}>Add New Student</Title>
-            </Space>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
+                <span>Home</span>
+                <span>/</span>
+                <span>Add Student</span>
+              </div>
+            </div>
           }
           style={{
             borderRadius: '12px',
@@ -699,8 +701,8 @@ const AddStudent = () => {
                   loading={loading}
                   size="large"
                   style={{
-                    background: '#38bdf8',
-                    borderColor: '#38bdf8',
+                    background: '#8B5CF6',
+                    borderColor: '#8B5CF6',
                     borderRadius: '8px',
                     fontWeight: 500
                   }}
@@ -837,12 +839,7 @@ const AddStudent = () => {
         {/* Import Modal */}
         <Modal
           open={importModalVisible}
-          title={
-            <Space>
-              <UploadOutlined />
-              <span>Import Students from CSV</span>
-            </Space>
-          }
+          title="Import Students"
           onCancel={() => {
             setImportModalVisible(false);
             setImportData([]);

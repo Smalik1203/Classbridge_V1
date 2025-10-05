@@ -15,7 +15,6 @@ export const getQuestionsForTest = async (testId) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching questions:', error);
     throw error;
   }
 };
@@ -34,7 +33,6 @@ export const createQuestion = async (questionData) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error creating question:', error);
     throw error;
   }
 };
@@ -54,7 +52,6 @@ export const updateQuestion = async (questionId, questionData) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error updating question:', error);
     throw error;
   }
 };
@@ -72,7 +69,6 @@ export const deleteQuestion = async (questionId) => {
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error deleting question:', error);
     throw error;
   }
 };
@@ -100,7 +96,6 @@ export const getTestsForQuestions = async (schoolCode) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching tests for questions:', error);
     throw error;
   }
 };

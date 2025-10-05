@@ -27,6 +27,7 @@ import {
   TrophyOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { getSchoolCode, getUserRole, getStudentCode, getSchoolName } from '../utils/metadata';
@@ -35,6 +36,7 @@ const { Title, Text } = Typography;
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { isDarkMode, theme } = useTheme();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -220,7 +222,6 @@ const Dashboard = () => {
       }
 
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
     } finally {
       setLoading(false);
     }
@@ -349,7 +350,8 @@ const Dashboard = () => {
     <Card
       style={{
         borderRadius: 8,
-        border: '1px solid #e8e8e8',
+        border: `1px solid ${theme.token.colorBorder}`,
+        background: theme.token.colorBgContainer,
         height: '100%'
       }}
       bodyStyle={{ padding: 12 }}
@@ -431,7 +433,7 @@ const Dashboard = () => {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '70vh',
-        background: '#fafafa'
+        background: isDarkMode ? theme.token.colorBgLayout : '#fafafa'
       }}>
         <Spin size="large" />
       </div>
@@ -443,7 +445,11 @@ const Dashboard = () => {
     : 0;
 
   return (
-    <div style={{ padding: 16, background: '#fafafa', minHeight: '100vh' }}>
+    <div style={{ 
+      padding: 16, 
+      background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
+      minHeight: '100vh' 
+    }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <div style={{ marginBottom: 16 }}>
           <div style={{
@@ -465,10 +471,10 @@ const Dashboard = () => {
                 wordBreak: 'break-word',
                 overflowWrap: 'break-word'
               }}>
-                {getGreeting()}, {userName}
+                Dashboard
               </h1>
               <Text style={{ fontSize: 13, color: '#8c8c8c', display: 'block', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                {schoolInfo.name && `${schoolInfo.name} • `}{getISTDate()} • {getIST()}
+                {getGreeting()}, {userName} • {schoolInfo.name && `${schoolInfo.name} • `}{getISTDate()} • {getIST()}
               </Text>
               {schoolInfo.academicYear && (
                 <Tag color="blue" style={{ fontSize: 11, marginTop: 4 }}>

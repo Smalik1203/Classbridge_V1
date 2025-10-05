@@ -87,7 +87,6 @@ const CBAdminDashboard = () => {
         fetchGlobalStats()
       ]);
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
@@ -102,13 +101,11 @@ const CBAdminDashboard = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching schools:', error);
         throw error;
       }
 
       setSchools(data || []);
     } catch (err) {
-      console.error('Error fetching schools:', err);
       throw err;
     }
   };
@@ -126,13 +123,11 @@ const CBAdminDashboard = () => {
       if (superAdminError) {
         // Silently handle permission errors - these are expected due to RLS policies
         if (superAdminError.code !== '42501' && superAdminError.code !== 'PGRST116') {
-          console.error('Error fetching from super_admin table:', superAdminError);
         }
       } else if (superAdminData && superAdminData.length > 0) {
         allSuperAdmins = [...allSuperAdmins, ...superAdminData];
       }
     } catch (err) {
-      console.error('Error with super_admin table:', err);
     }
 
     try {
@@ -146,13 +141,11 @@ const CBAdminDashboard = () => {
       if (usersError) {
         // Silently handle permission errors - these are expected due to RLS policies
         if (usersError.code !== '42501' && usersError.code !== 'PGRST116') {
-          console.error('Error fetching from users table:', usersError);
         }
       } else if (usersData && usersData.length > 0) {
         allSuperAdmins = [...allSuperAdmins, ...usersData];
       }
     } catch (err) {
-      console.error('Error with users table:', err);
     }
 
     // Remove duplicates based on email (since both tables might have the same super admin)
@@ -180,7 +173,6 @@ const CBAdminDashboard = () => {
         totalClasses: classesResult.count || 0
       }));
     } catch (err) {
-      console.error('Error fetching global stats:', err);
       throw err;
     }
   };
@@ -191,7 +183,6 @@ const CBAdminDashboard = () => {
     display_name: school.school_name,
     display_email: school.school_email,
     display_phone: school.school_phone,
-    display_code: school.school_code,
     display_status: school.is_active ? 'Active' : 'Inactive'
   }));
 
@@ -226,16 +217,6 @@ const CBAdminDashboard = () => {
       title: 'Phone',
       dataIndex: 'display_phone',
       key: 'display_phone'
-    },
-    {
-      title: 'Code',
-      dataIndex: 'display_code',
-      key: 'display_code',
-      render: (code) => (
-        <Tag color="blue">
-          {code}
-        </Tag>
-      )
     },
     {
       title: 'Status',

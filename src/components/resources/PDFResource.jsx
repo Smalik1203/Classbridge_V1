@@ -29,7 +29,6 @@ const PDFResource = ({ resource, canEdit = false, onEdit, onDelete }) => {
       
       message.success('PDF downloaded successfully');
     } catch (error) {
-      console.error('Download error:', error);
       message.error('Failed to download PDF');
     } finally {
       setLoading(false);

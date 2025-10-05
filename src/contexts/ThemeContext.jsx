@@ -6,12 +6,11 @@ const ThemeContext = createContext();
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
-    console.error('useTheme must be used within a ThemeProvider');
     // Return a fallback theme to prevent crashes
     return {
       isDarkMode: false,
       theme: lightTheme,
-      toggleTheme: () => console.warn('Theme toggle not available'),
+      toggleTheme: () => {},
     };
   }
   return context;
@@ -28,7 +27,6 @@ export const ThemeProvider = ({ children }) => {
       // Check system preference
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch (error) {
-      console.warn('Error reading theme preference:', error);
       return false; // Default to light theme
     }
   });
@@ -46,8 +44,14 @@ export const ThemeProvider = ({ children }) => {
       
       // Update document body class for global styling
       document.body.className = isDarkMode ? 'dark-theme' : 'light-theme';
+      
+      // Force update all Ant Design components
+      const antdComponents = document.querySelectorAll('.ant-layout, .ant-card, .ant-table, .ant-input, .ant-select, .ant-btn, .ant-modal, .ant-drawer');
+      antdComponents.forEach(component => {
+        component.classList.toggle('dark-theme', isDarkMode);
+      });
     } catch (error) {
-      console.warn('Error saving theme preference:', error);
+      console.error('Error updating theme:', error);
     }
   }, [isDarkMode]);
 

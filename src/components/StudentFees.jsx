@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card, Table, Space, Typography, Alert, Spin, Tag, Progress, 
   Row, Col, Statistic, Descriptions, Divider, Empty, Skeleton
@@ -52,7 +52,6 @@ const StudentFees = () => {
         if (error) throw error;
         setStudent(data);
       } catch (err) {
-        console.error('Error fetching student:', err);
         setAlert({ type: 'error', message: 'Could not fetch student data. Please try again.' });
       } finally {
         setLoading(false);
@@ -163,7 +162,6 @@ const StudentFees = () => {
         });
 
       } catch (err) {
-        console.error('Error fetching fee data:', err);
         setAlert({ type: 'error', message: 'Failed to load fee information. Please try again.' });
       }
     };

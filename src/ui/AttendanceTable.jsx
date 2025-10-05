@@ -65,7 +65,7 @@ const AttendanceTable = ({
       )
     },
     {
-      title: 'Present',
+      title: 'Working Days',
       dataIndex: 'present_days',
       key: 'present_days',
       width: 100,
@@ -78,7 +78,7 @@ const AttendanceTable = ({
       )
     },
     {
-      title: 'Absent',
+      title: 'Holidays',
       dataIndex: 'absent_days',
       key: 'absent_days',
       width: 100,

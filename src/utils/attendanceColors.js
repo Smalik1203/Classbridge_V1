@@ -16,13 +16,6 @@ export const ATTENDANCE_COLORS = {
     text: '#cf1322',       // Dark red text
     tag: 'error'           // Ant Design tag color
   },
-  late: {
-    primary: '#faad14',    // Ant Design Warning Orange
-    light: '#fffbe6',      // Light orange background
-    border: '#ffe58f',     // Light orange border
-    text: '#d48806',       // Dark orange text
-    tag: 'warning'         // Ant Design tag color
-  },
   'no-data': {
     primary: '#d9d9d9',    // Ant Design Default Gray
     light: '#fafafa',      // Light gray background
@@ -86,7 +79,6 @@ export const getAttendanceChartColors = () => {
   return {
     present: ATTENDANCE_COLORS.present.primary,
     absent: ATTENDANCE_COLORS.absent.primary,
-    late: ATTENDANCE_COLORS.late.primary,
     noData: ATTENDANCE_COLORS['no-data'].primary
   };
 };
@@ -96,7 +88,6 @@ export const getAttendanceDisplayText = (status) => {
   const statusMap = {
     present: 'Present',
     absent: 'Absent',
-    late: 'Late',
     'no-data': 'No data available'
   };
   return statusMap[status] || status;
@@ -106,8 +97,7 @@ export const getAttendanceDisplayText = (status) => {
 export const getAttendanceIcon = (status) => {
   const iconMap = {
     present: '✓',
-    absent: '✗',
-    late: '⏰'
+    absent: '✗'
   };
   return iconMap[status] || '';
 };

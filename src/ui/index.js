@@ -15,6 +15,12 @@ export { default as EnhancedStudentTable } from './EnhancedStudentTable';
 export { default as AttendanceKPICard } from './AttendanceKPICard';
 export { default as AttendanceChart } from './AttendanceChart';
 export { default as AttendanceTable } from './AttendanceTable';
+
+// Analytics Components
+export { default as AnalyticsSection } from './AnalyticsSection';
+export { default as AnalyticsFilterBar } from './AnalyticsFilterBar';
+export { default as AnalyticsKPI } from './AnalyticsKPI';
+export { default as AnalyticsChart } from './AnalyticsChart';
 export { 
   lightTheme, 
   darkTheme, 

@@ -45,7 +45,6 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
       if (error) throw error;
       setSubjects(data || []);
     } catch (err) {
-      console.error(err);
       message.error('Failed to load subjects');
     } finally {
       setLoading(false);
@@ -71,7 +70,6 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
       message.success('Subject deleted');
       fetchSubjects();
     } catch (err) {
-      console.error(err);
       message.error('Failed to delete subject');
     }
   };
@@ -115,7 +113,6 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
         message.warning('Some subjects were duplicates and were skipped.');
         fetchSubjects();
       } else {
-        console.error(err);
         message.error('Failed to create subjects');
       }
     } finally {

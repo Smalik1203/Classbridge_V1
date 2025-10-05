@@ -12,7 +12,8 @@ import {
   message,
   Table,
   Tag,
-  Modal
+  Modal,
+  Switch
 } from 'antd';
 import {
   CalendarOutlined,
@@ -21,7 +22,7 @@ import {
   PlusOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
-import { getSchoolId, getSchoolCode, getSchoolName, getSuperAdminCode } from '../utils/metadata';
+import { getSchoolCode, getSchoolName, getSuperAdminCode } from '../utils/metadata';
 import { supabase } from '../config/supabaseClient';
 
 const { Title, Text } = Typography;
@@ -33,7 +34,6 @@ const AddSpecificClass = () => {
   // Debug user data structure (commented out for production)
   
   // Use comprehensive metadata extraction
-  const school_id = getSchoolId(user);
   const school_code = getSchoolCode(user);
   const school_name = getSchoolName(user);
   const super_admin_code = getSuperAdminCode(user);
@@ -56,6 +56,9 @@ const AddSpecificClass = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [editForm] = Form.useForm();
+  const [editYearModalVisible, setEditYearModalVisible] = useState(false);
+  const [editingYear, setEditingYear] = useState(null);
+  const [editYearForm] = Form.useForm();
 
   useEffect(() => {
     fetchAcademicYears();
@@ -72,13 +75,11 @@ const AddSpecificClass = () => {
         .order('year_start', { ascending: false });
       
       if (error) {
-        console.error('Error fetching academic years:', error);
         message.error('Failed to fetch academic years: ' + error.message);
       } else {
         setAcademicYears(data || []);
       }
     } catch (err) {
-      console.error('Exception in fetchAcademicYears:', err);
       message.error('Failed to fetch academic years');
     }
   };
@@ -124,7 +125,6 @@ const AddSpecificClass = () => {
       // Validate school data first
       if (!school_code || !school_name) {
         message.error('School information not found. Please ensure you are properly logged in.');
-        console.error('Missing school data - school_code:', school_code, 'school_name:', school_name);
         return;
       }
 
@@ -150,7 +150,6 @@ const AddSpecificClass = () => {
       }
 
       const insertData = {
-        school_id,
         school_code,
         school_name,
         year_start: start,
@@ -165,7 +164,6 @@ const AddSpecificClass = () => {
         .select();
 
       if (yearError) {
-        console.error('Error creating academic year:', yearError);
         message.error(yearError.message);
       } else {
         message.success('Academic year created successfully');
@@ -189,7 +187,6 @@ const AddSpecificClass = () => {
       // Validate school data first
       if (!school_code || !school_name || !super_admin_code) {
         message.error('School information not found. Please ensure you are properly logged in.');
-        console.error('Missing school data - school_code:', school_code, 'school_name:', school_name, 'super_admin_code:', super_admin_code);
         fetchClassInstances(); // Refresh data even on error
         return;
       }
@@ -371,6 +368,67 @@ const AddSpecificClass = () => {
     }
   };
 
+  // Academic Year Management Functions
+  const handleEditYear = (yearRecord) => {
+    setEditingYear(yearRecord);
+    editYearForm.setFieldsValue({
+      year_start: yearRecord.year_start,
+      year_end: yearRecord.year_end,
+      is_active: yearRecord.is_active
+    });
+    setEditYearModalVisible(true);
+  };
+
+  const handleEditYearSubmit = async (values) => {
+    try {
+      const { error } = await supabase
+        .from('academic_years')
+        .update({
+          year_start: parseInt(values.year_start),
+          year_end: parseInt(values.year_end),
+          is_active: values.is_active
+        })
+        .eq('id', editingYear.id);
+      
+      if (error) throw error;
+      
+      message.success('Academic year updated successfully');
+      setEditYearModalVisible(false);
+      setEditingYear(null);
+      editYearForm.resetFields();
+      fetchAcademicYears();
+    } catch (error) {
+      message.error(error.message || 'Failed to update academic year');
+    }
+  };
+
+  const handleDeleteYear = async (yearId) => {
+    try {
+      // Check if any classes are using this academic year
+      const { data: classesUsingYear } = await supabase
+        .from('class_instances')
+        .select('id')
+        .eq('academic_year_id', yearId);
+      
+      if (classesUsingYear && classesUsingYear.length > 0) {
+        message.error(`Cannot delete academic year. ${classesUsingYear.length} class(es) are using this academic year.`);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('academic_years')
+        .delete()
+        .eq('id', yearId);
+      
+      if (error) throw error;
+      
+      message.success('Academic year deleted successfully');
+      fetchAcademicYears();
+    } catch (error) {
+      message.error(error.message || 'Failed to delete academic year');
+    }
+  };
+
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -454,6 +512,81 @@ const AddSpecificClass = () => {
             </Form.Item>
           </Form>
         </Card>
+
+        {/* Current Academic Years Table */}
+        {academicYears.length > 0 && (
+          <Card
+            title={
+              <Space>
+                <CalendarOutlined />
+                <Title level={3} style={{ margin: 0, color: '#1e293b', fontWeight: 600 }}>
+                  Current Academic Years
+                </Title>
+              </Space>
+            }
+            style={{
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              background: '#ffffff',
+              marginBottom: '24px',
+            }}
+            styles={{ header: { borderBottom: '1px solid #e2e8f0' } }}
+          >
+            <Table
+              dataSource={academicYears}
+              columns={[
+                {
+                  title: 'Academic Year',
+                  dataIndex: 'year_start',
+                  key: 'year',
+                  render: (start, record) => `${start} - ${record.year_end}`,
+                },
+                {
+                  title: 'Status',
+                  dataIndex: 'is_active',
+                  key: 'status',
+                  render: (isActive) => (
+                    <Tag color={isActive ? 'green' : 'red'}>
+                      {isActive ? 'Active' : 'Inactive'}
+                    </Tag>
+                  ),
+                },
+                {
+                  title: 'Created At',
+                  dataIndex: 'created_at',
+                  key: 'created_at',
+                  render: (date) => new Date(date).toLocaleDateString(),
+                },
+                {
+                  title: 'Actions',
+                  key: 'actions',
+                  render: (_, record) => (
+                    <Space>
+                      <Button 
+                        size="small" 
+                        type="primary" 
+                        onClick={() => handleEditYear(record)}
+                      >
+                        Edit
+                      </Button>
+                      <Button 
+                        size="small" 
+                        danger 
+                        onClick={() => handleDeleteYear(record.id)}
+                      >
+                        Delete
+                      </Button>
+                    </Space>
+                  ),
+                },
+              ]}
+              rowKey="id"
+              pagination={{ pageSize: 10 }}
+              size="small"
+            />
+          </Card>
+        )}
 
         {/* Helpful guidance text */}
         <div style={{ 
@@ -567,8 +700,8 @@ const AddSpecificClass = () => {
                 size="large"
                 disabled={academicYears.length === 0}
                 style={{
-                  background: academicYears.length === 0 ? '#d1d5db' : '#38bdf8',
-                  borderColor: academicYears.length === 0 ? '#d1d5db' : '#38bdf8',
+                  background: academicYears.length === 0 ? '#d1d5db' : '#8B5CF6',
+                  borderColor: academicYears.length === 0 ? '#d1d5db' : '#8B5CF6',
                   borderRadius: '8px',
                   fontWeight: 500,
                 }}
@@ -692,6 +825,52 @@ const AddSpecificClass = () => {
                 </Option>
               ))}
             </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit Academic Year Modal */}
+      <Modal
+        title="Edit Academic Year"
+        open={editYearModalVisible}
+        onCancel={() => {
+          setEditYearModalVisible(false);
+          setEditingYear(null);
+          editYearForm.resetFields();
+        }}
+        onOk={() => editYearForm.submit()}
+        okText="Update"
+      >
+        <Form form={editYearForm} layout="vertical" onFinish={handleEditYearSubmit}>
+          <Form.Item
+            name="year_start"
+            label="Start Year"
+            rules={[
+              { required: true, message: 'Enter start year' },
+              { pattern: /^[0-9]{4}$/, message: 'Enter a valid 4-digit year' },
+            ]}
+          >
+            <Input placeholder="e.g., 2025" type="number" />
+          </Form.Item>
+          <Form.Item
+            name="year_end"
+            label="End Year"
+            rules={[
+              { required: true, message: 'Enter end year' },
+              { pattern: /^[0-9]{4}$/, message: 'Enter a valid 4-digit year' },
+            ]}
+          >
+            <Input placeholder="e.g., 2026" type="number" />
+          </Form.Item>
+          <Form.Item
+            name="is_active"
+            label="Status"
+            valuePropName="checked"
+          >
+            <Switch 
+              checkedChildren="Active" 
+              unCheckedChildren="Inactive" 
+            />
           </Form.Item>
         </Form>
       </Modal>

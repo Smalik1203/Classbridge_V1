@@ -47,7 +47,6 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
       await supabase.auth.signOut();
       navigate('/login');
     } catch (error) {
-      console.error('Error logging out:', error);
     }
   };
 
@@ -93,7 +92,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         key: '/analytics',
         icon: <BarChartOutlined />,
         label: 'Analytics',
-        roles: ['superadmin', 'admin']
+        roles: ['superadmin', 'admin', 'student']
       },
       {
         key: '/fees',
@@ -111,6 +110,12 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         key: '/timetable',
         icon: <ClockCircleOutlined />,
         label: 'Timetable',
+        roles: ['superadmin', 'admin']
+      },
+      {
+        key: '/calendar',
+        icon: <CalendarOutlined />,
+        label: 'Calendar',
         roles: ['superadmin', 'admin']
       },
       {
@@ -221,7 +226,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
             <Avatar
               size={40}
               style={{
-                background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+                background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
                 fontWeight: 700,
                 fontSize: '15px',
                 fontFamily: 'Geist Sans, sans-serif',
@@ -236,7 +241,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
                 fontSize: '18px',
                 color: antdTheme.token.colorPrimary,
                 fontWeight: 600,
-                background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+                background: 'linear-gradient(135deg, #6366F1 0%, #7C3AED 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text'
@@ -290,7 +295,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
             <Avatar
               size={32}
               style={{
-                background: 'linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)',
+                background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
                 fontWeight: 700,
                 fontSize: '12px',
                 fontFamily: 'Geist Sans, sans-serif',

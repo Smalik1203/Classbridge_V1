@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
+import { WorkingDaysService } from '../services/workingDaysService';
 import { getUserRole, getSchoolCode } from '../utils/metadata';
 import { 
   AttendanceKPICard, 
@@ -42,6 +43,7 @@ const AttendanceAnalyticsEnhanced = () => {
   ]);
   const [attendanceData, setAttendanceData] = useState([]);
   const [students, setStudents] = useState([]);
+  const [workingDaysData, setWorkingDaysData] = useState(null);
 
   // Fetch user data and classes
   useEffect(() => {
@@ -61,7 +63,6 @@ const AttendanceAnalyticsEnhanced = () => {
         // Load class instances
         await loadClassInstances(school_code);
       } catch (e) {
-        console.error('Error fetching user:', e);
         setAlert({ type: 'error', message: e.message || 'Failed to load user data' });
       }
     };
@@ -82,7 +83,6 @@ const AttendanceAnalyticsEnhanced = () => {
       if (error) throw error;
       setClassInstances(data || []);
     } catch (e) {
-      console.error('Error loading class instances:', e);
       setAlert({ type: 'error', message: 'Failed to load classes' });
     }
   };
@@ -114,13 +114,21 @@ const AttendanceAnalyticsEnhanced = () => {
 
       if (attendanceError) throw attendanceError;
 
+      // Calculate working days and holidays
+      const workingDaysResult = await WorkingDaysService.calculateWorkingDaysAndHolidays(
+        me.school_code, 
+        startDate, 
+        endDate, 
+        selectedClassId
+      );
+      setWorkingDaysData(workingDaysResult);
+
       // Process attendance data
       const processedData = processAttendanceData(studentsData, attendanceRecords);
       setAttendanceData(processedData);
       setStudents(studentsData || []);
 
     } catch (e) {
-      console.error('Error loading attendance data:', e);
       setAlert({ type: 'error', message: 'Failed to load attendance data' });
     } finally {
       setDataLoading(false);
@@ -193,13 +201,14 @@ const AttendanceAnalyticsEnhanced = () => {
 
   // Calculate analytics metrics
   const analytics = useMemo(() => {
-    if (!attendanceData.length) {
+    if (!attendanceData.length || !workingDaysData) {
       return {
         totalStudents: 0,
         averageAttendanceRate: 0,
+        workingDays: 0,
+        holidays: 0,
         presentCount: 0,
         absentCount: 0,
-        lateCount: 0,
         excellentCount: 0,
         goodCount: 0,
         warningCount: 0,
@@ -209,9 +218,14 @@ const AttendanceAnalyticsEnhanced = () => {
 
     const totalStudents = attendanceData.length;
     const averageAttendanceRate = attendanceData.reduce((sum, student) => sum + student.attendance_rate, 0) / totalStudents;
+    
+    // Use actual working days and holidays from calendar
+    const workingDays = workingDaysData.workingDays;
+    const holidays = workingDaysData.holidays;
+    
+    // Calculate attendance metrics on working days only
     const presentCount = attendanceData.reduce((sum, student) => sum + student.present_days, 0);
     const absentCount = attendanceData.reduce((sum, student) => sum + student.absent_days, 0);
-    const lateCount = attendanceData.reduce((sum, student) => sum + student.late_days, 0);
     
     const excellentCount = attendanceData.filter(s => s.status === 'excellent').length;
     const goodCount = attendanceData.filter(s => s.status === 'good').length;
@@ -221,35 +235,39 @@ const AttendanceAnalyticsEnhanced = () => {
     return {
       totalStudents,
       averageAttendanceRate,
+      workingDays,
+      holidays,
       presentCount,
       absentCount,
-      lateCount,
       excellentCount,
       goodCount,
       warningCount,
       criticalCount
     };
-  }, [attendanceData]);
+  }, [attendanceData, workingDaysData]);
 
   // Chart data for visualizations
   const chartData = useMemo(() => {
     if (!attendanceData.length) return [];
 
-    // Attendance type distribution (Present/Absent/Late)
-    const attendanceTypeData = [
-      { name: 'Present', value: analytics.presentCount, color: '#10b981' },
-      { name: 'Absent', value: analytics.absentCount, color: '#ef4444' },
-      { name: 'Late', value: analytics.lateCount, color: '#f59e0b' }
+    // Working days vs holidays distribution (from calendar)
+    const workingDaysTypeData = [
+      { name: 'working', value: analytics.workingDays, color: '#10b981' },
+      { name: 'holidays', value: analytics.holidays, color: '#ef4444' }
     ];
 
-    // Daily attendance breakdown
+    // Debug logging
+
+    // Daily attendance breakdown for bar chart
     const dailyData = [
-      { name: 'Present', value: analytics.presentCount, color: '#10b981' },
-      { name: 'Absent', value: analytics.absentCount, color: '#ef4444' },
-      { name: 'Late', value: analytics.lateCount, color: '#f59e0b' }
+      { 
+        name: 'Attendance Status',
+        present: analytics.presentCount,
+        absent: analytics.absentCount
+      }
     ];
 
-    return { attendanceTypeData, dailyData };
+    return { workingDaysTypeData, dailyData };
   }, [attendanceData, analytics]);
 
   // Export data
@@ -260,13 +278,12 @@ const AttendanceAnalyticsEnhanced = () => {
     }
 
     const csvContent = [
-      ['Student Name', 'Class', 'Present Days', 'Absent Days', 'Late Days', 'Attendance Rate (%)', 'Status'],
+      ['Student Name', 'Class', 'Working Days', 'Holidays', 'Attendance Rate (%)', 'Status'],
       ...attendanceData.map(student => [
         student.full_name,
         student.class_name,
         student.present_days,
         student.absent_days,
-        student.late_days,
         Math.round(student.attendance_rate),
         student.status
       ])
@@ -319,18 +336,29 @@ const AttendanceAnalyticsEnhanced = () => {
         </div>
       </Card>
 
-      {/* Filters */}
-      <Card style={{ marginBottom: 24, borderRadius: 12 }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text strong>Select Class</Text>
+      {/* Filter Bar */}
+      <Card 
+        style={{ 
+          marginBottom: 24, 
+          borderRadius: 8,
+          background: '#fafafa',
+          border: '1px solid #e5e7eb',
+          boxShadow: 'none'
+        }}
+        bodyStyle={{ padding: '16px 20px' }}
+      >
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} sm={10} md={8}>
+            <div>
+              <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: 6 }}>
+                Class
+              </Text>
               <Select
-                placeholder="Choose a class"
+                placeholder="Choose class..."
                 value={selectedClassId}
                 onChange={setSelectedClassId}
                 style={{ width: '100%' }}
-                size="large"
+                size="middle"
               >
                 {classInstances.map(ci => (
                   <Option key={ci.id} value={ci.id}>
@@ -338,33 +366,39 @@ const AttendanceAnalyticsEnhanced = () => {
                   </Option>
                 ))}
               </Select>
-            </Space>
+            </div>
           </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text strong>Date Range</Text>
+          <Col xs={24} sm={10} md={12}>
+            <div>
+              <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: 6 }}>
+                Date Range
+              </Text>
               <RangePicker
                 value={dateRange}
                 onChange={setDateRange}
                 style={{ width: '100%' }}
-                size="large"
+                size="middle"
+                format="DD/MM/YYYY"
                 suffixIcon={<CalendarOutlined />}
+                disabledDate={(current) => current && current > dayjs().endOf('day')}
+                maxDate={dayjs()}
+                placeholder={['Start date', 'End date']}
               />
-            </Space>
+            </div>
           </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text strong>Actions</Text>
-              <Button 
-                type="primary" 
-                onClick={loadAttendanceData}
-                loading={dataLoading}
-                size="large"
-                style={{ width: '100%' }}
-              >
-                Refresh Data
-              </Button>
-            </Space>
+          <Col xs={24} sm={4} md={4} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
+            <Button 
+              onClick={loadAttendanceData}
+              loading={dataLoading}
+              disabled={!selectedClassId || !dateRange}
+              size="middle"
+              style={{ 
+                marginTop: 18,
+                minWidth: 100
+              }}
+            >
+              Refresh
+            </Button>
           </Col>
         </Row>
       </Card>
@@ -390,90 +424,322 @@ const AttendanceAnalyticsEnhanced = () => {
         </Card>
       )}
 
+      {/* Loading and Date Range Display */}
+      {dataLoading && (
+        <Card 
+          style={{ 
+            marginBottom: 16, 
+            borderRadius: 8,
+            background: '#f0f9ff',
+            border: '1px solid #0ea5e9',
+            boxShadow: 'none'
+          }}
+          bodyStyle={{ padding: '12px 20px' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Spin size="small" />
+            <Text style={{ color: '#0369a1', fontSize: '14px', fontWeight: '500' }}>
+              Loading attendance data for {dateRange[0]?.format('DD/MM/YYYY')} to {dateRange[1]?.format('DD/MM/YYYY')}...
+            </Text>
+          </div>
+        </Card>
+      )}
+
+      {/* Current Date Range Display */}
+      {!dataLoading && selectedClassId && dateRange[0] && dateRange[1] && (
+        <Card 
+          style={{ 
+            marginBottom: 16, 
+            borderRadius: 8,
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            boxShadow: 'none'
+          }}
+          bodyStyle={{ padding: '12px 20px' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CalendarOutlined style={{ color: '#64748b', fontSize: '14px' }} />
+            <Text style={{ color: '#475569', fontSize: '14px', fontWeight: '500' }}>
+              Viewing data for: {dateRange[0]?.format('DD/MM/YYYY')} to {dateRange[1]?.format('DD/MM/YYYY')}
+            </Text>
+            {workingDaysData && (
+              <Text style={{ color: '#64748b', fontSize: '12px' }}>
+                ({workingDaysData.workingDays} working days, {workingDaysData.holidays} holidays)
+              </Text>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Analytics Content */}
       {selectedClassId && (
         <>
-          {/* KPI Cards - Even layout */}
-          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-            <Col xs={24} sm={12} md={6}>
-              <AttendanceKPICard
-                title="Total Students"
-                value={analytics.totalStudents}
-                prefix={<TeamOutlined />}
-                attendanceType="total"
-                status="info"
-                loading={dataLoading}
-              />
+          {/* KPI Cards - Professional Design */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={12} sm={6}>
+              <Card 
+                style={{ 
+                  borderRadius: 12, 
+                  border: 'none', 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)'
+                }}
+                bodyStyle={{ padding: '20px', textAlign: 'center' }}
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  marginBottom: 12 
+                }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    background: '#e0f2fe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12
+                  }}>
+                    <TeamOutlined style={{ color: '#0369a1', fontSize: 18 }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#1f2937', marginBottom: 4 }}>
+                  {analytics.totalStudents}
+                </div>
+                <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
+                  Total Students
+                </div>
+              </Card>
             </Col>
-            <Col xs={24} sm={12} md={6}>
-              <AttendanceKPICard
-                title="Average Attendance"
-                value={Math.round(analytics.averageAttendanceRate)}
-                suffix="%"
-                prefix={<CheckCircleOutlined />}
-                attendanceType="present"
-                status={analytics.averageAttendanceRate >= 80 ? 'success' : 
-                       analytics.averageAttendanceRate >= 60 ? 'warning' : 'error'}
-                loading={dataLoading}
-                trend={
-                  analytics.averageAttendanceRate >= 80 ? 
-                    <><RiseOutlined style={{ color: '#10b981' }} /> Excellent</> :
+            <Col xs={12} sm={6}>
+              <Card 
+                style={{ 
+                  borderRadius: 12, 
+                  border: 'none', 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  background: analytics.averageAttendanceRate >= 80 ? 
+                    'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)' :
                     analytics.averageAttendanceRate >= 60 ?
-                    <><RiseOutlined style={{ color: '#f59e0b' }} /> Good</> :
-                    <><FallOutlined style={{ color: '#ef4444' }} /> Needs Attention</>
-                }
-              />
+                    'linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)' :
+                    'linear-gradient(135deg, #fef2f2 0%, #ffffff 100%)'
+                }}
+                bodyStyle={{ padding: '20px', textAlign: 'center' }}
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  marginBottom: 12 
+                }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    background: analytics.averageAttendanceRate >= 80 ? '#dcfce7' :
+                               analytics.averageAttendanceRate >= 60 ? '#fef3c7' : '#fee2e2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12
+                  }}>
+                    <RiseOutlined style={{ 
+                      color: analytics.averageAttendanceRate >= 80 ? '#16a34a' :
+                             analytics.averageAttendanceRate >= 60 ? '#d97706' : '#dc2626', 
+                      fontSize: 18 
+                    }} />
+                  </div>
+                </div>
+                <div style={{ 
+                  fontSize: '28px', 
+                  fontWeight: 'bold', 
+                  color: analytics.averageAttendanceRate >= 80 ? '#16a34a' :
+                         analytics.averageAttendanceRate >= 60 ? '#d97706' : '#dc2626', 
+                  marginBottom: 4 
+                }}>
+                  {Math.round(analytics.averageAttendanceRate)}%
+                </div>
+                <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
+                  Average Attendance
+                </div>
+              </Card>
             </Col>
-            <Col xs={24} sm={12} md={6}>
-              <AttendanceKPICard
-                title="Present Days"
-                value={analytics.presentCount}
-                prefix={<CheckCircleOutlined />}
-                attendanceType="present"
-                status="success"
-                loading={dataLoading}
-              />
+            <Col xs={12} sm={6}>
+              <Card 
+                style={{ 
+                  borderRadius: 12, 
+                  border: 'none', 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)'
+                }}
+                bodyStyle={{ padding: '20px', textAlign: 'center' }}
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  marginBottom: 12 
+                }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    background: '#dcfce7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12
+                  }}>
+                    <CheckCircleOutlined style={{ color: '#16a34a', fontSize: 18 }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#16a34a', marginBottom: 4 }}>
+                  {analytics.workingDays}
+                </div>
+                <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
+                  Total Working Days
+                </div>
+              </Card>
             </Col>
-            <Col xs={24} sm={12} md={6}>
-              <AttendanceKPICard
-                title="Absent Days"
-                value={analytics.absentCount}
-                prefix={<CloseCircleOutlined />}
-                attendanceType="absent"
-                status="error"
-                loading={dataLoading}
-              />
+            <Col xs={12} sm={6}>
+              <Card 
+                style={{ 
+                  borderRadius: 12, 
+                  border: 'none', 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  background: 'linear-gradient(135deg, #fef2f2 0%, #ffffff 100%)'
+                }}
+                bodyStyle={{ padding: '20px', textAlign: 'center' }}
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  marginBottom: 12 
+                }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    background: '#fee2e2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12
+                  }}>
+                    <CloseCircleOutlined style={{ color: '#dc2626', fontSize: 18 }} />
+                  </div>
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc2626', marginBottom: 4 }}>
+                  {analytics.holidays}
+                </div>
+                <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
+                  Total Holidays
+                </div>
+              </Card>
             </Col>
           </Row>
 
-          {/* Charts Row */}
-          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          {/* Analytics Charts */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
             <Col xs={24} lg={12}>
-              <AttendanceChart
-                title="Attendance Distribution"
-                type="pie"
-                data={chartData.attendanceTypeData}
-              />
+              <Card 
+                style={{ 
+                  borderRadius: 12, 
+                  border: 'none', 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  background: '#ffffff'
+                }}
+                bodyStyle={{ padding: '20px' }}
+              >
+                <div style={{ marginBottom: 16 }}>
+                  <Title level={4} style={{ margin: 0, color: '#1f2937', fontSize: '18px' }}>
+                    Attendance Distribution
+                  </Title>
+                  <div style={{ fontSize: '14px', color: '#6b7280', marginTop: 4 }}>
+                    Working Days vs Holidays Distribution
+                  </div>
+                </div>
+                <div style={{ height: '300px' }}>
+                  <AttendanceChart
+                    type="pie"
+                    data={chartData.workingDaysTypeData}
+                  />
+                </div>
+              </Card>
             </Col>
             <Col xs={24} lg={12}>
-              <AttendanceChart
-                title="Attendance Breakdown"
-                type="bar"
-                data={chartData.dailyData}
-              />
+              <Card 
+                style={{ 
+                  borderRadius: 12, 
+                  border: 'none', 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  background: '#ffffff'
+                }}
+                bodyStyle={{ padding: '20px' }}
+              >
+                <div style={{ marginBottom: 16 }}>
+                  <Title level={4} style={{ margin: 0, color: '#1f2937', fontSize: '18px' }}>
+                    Performance Overview
+                  </Title>
+                  <div style={{ fontSize: '14px', color: '#6b7280', marginTop: 4 }}>
+                    Key attendance metrics
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <div style={{ 
+                    fontSize: '48px', 
+                    fontWeight: 'bold', 
+                    color: analytics.averageAttendanceRate >= 80 ? '#16a34a' :
+                           analytics.averageAttendanceRate >= 60 ? '#d97706' : '#dc2626', 
+                    marginBottom: '8px' 
+                  }}>
+                    {analytics.totalStudents > 0 ? Math.round(analytics.averageAttendanceRate) : 0}%
+                  </div>
+                  <div style={{ fontSize: '16px', color: '#6b7280', marginBottom: '4px' }}>
+                    Average Attendance Rate
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#9ca3af' }}>
+                    Across {analytics.totalStudents} students
+                  </div>
+                </div>
+              </Card>
             </Col>
           </Row>
 
-          {/* Student Table */}
-          <Card style={{ borderRadius: 6, border: '1px solid #e5e7eb' }} bodyStyle={{ padding: '16px' }}>
-            <div style={{ marginBottom: 12 }}>
-              <Title level={5} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6, fontSize: '14px' }}>
-                <TeamOutlined style={{ fontSize: '14px' }} />
-                Student Details
-              </Title>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Individual attendance performance
-              </Text>
+          {/* Student Details Table */}
+          <Card 
+            style={{ 
+              borderRadius: 12, 
+              border: 'none', 
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              background: '#ffffff'
+            }}
+            bodyStyle={{ padding: '20px' }}
+          >
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Title level={4} style={{ margin: 0, color: '#1f2937', fontSize: '18px' }}>
+                  Student Details
+                </Title>
+                <Button 
+                  type="primary" 
+                  icon={<DownloadOutlined />}
+                  onClick={handleExport}
+                  style={{ 
+                    borderRadius: 8,
+                    background: '#3b82f6',
+                    border: 'none',
+                    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                  }}
+                >
+                  Export Data
+                </Button>
+              </div>
+              <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                Individual attendance performance and status overview
+              </div>
             </div>
             
             <AttendanceTable

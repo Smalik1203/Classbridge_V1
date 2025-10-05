@@ -68,12 +68,14 @@ export const AddSchools = () => {
       }}>
         <Card
           title={
-            <Space>
-              <BankOutlined />
-              <Title level={3} style={{ margin: 0, color: '#1e293b', fontWeight: 600 }}>
-                Add School
-              </Title>
-            </Space>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {/* Breadcrumb */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
+                <span>Home</span>
+                <span>/</span>
+                <span>Add School</span>
+              </div>
+            </div>
           }
           style={{
             borderRadius: '12px',
@@ -162,8 +164,8 @@ export const AddSchools = () => {
                 style={{
                   fontSize: '14px',
                   height: '40px',
-                  background: '#38bdf8',
-                  borderColor: '#38bdf8',
+                  background: '#8B5CF6',
+                  borderColor: '#8B5CF6',
                   borderRadius: '8px',
                   fontWeight: 500,
                 }}

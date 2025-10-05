@@ -9,6 +9,7 @@ import {
   BankOutlined
 } from "@ant-design/icons";
 import { useAuth } from "../AuthProvider";
+import { useTheme } from "../contexts/ThemeContext";
 import { getUserRole, getSchoolCode } from "../utils/metadata";
 import { supabase } from "../config/supabaseClient";
 import FeeComponents from "../components/FeeComponents";
@@ -23,6 +24,7 @@ const { Title, Text } = Typography;
 export default function Fees() {
   // Force refresh to clear cache
   const { user } = useAuth();
+  const { isDarkMode, theme } = useTheme();
   const role = getUserRole(user);
   const [schoolCode, setSchoolCode] = useState(null);
   const [academicYear, setAcademicYear] = useState(null);
@@ -49,7 +51,6 @@ export default function Fees() {
           }
         }
       } catch (error) {
-        console.error("Error loading context:", error);
       } finally {
         setLoading(false);
       }
@@ -154,7 +155,11 @@ export default function Fees() {
 
   // For admins and superadmins, show the enhanced management interface
   return (
-    <div style={{ padding: "24px", background: '#f8fafc', minHeight: '100vh' }}>
+    <div style={{ 
+      padding: "24px", 
+      background: isDarkMode ? theme.token.colorBgLayout : '#f8fafc', 
+      minHeight: '100vh' 
+    }}>
       <ContextHeader />
       
       <Card 

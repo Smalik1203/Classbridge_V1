@@ -81,7 +81,6 @@ const StatusDistributionAnalytics = () => {
       setClasses(classesResult || []);
 
     } catch (error) {
-      console.error('Error fetching data:', error);
       setAlert({ type: 'error', message: error.message });
     } finally {
       setLoading(false);
@@ -310,31 +309,49 @@ const StatusDistributionAnalytics = () => {
         />
       )}
 
-      {/* Filters */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={8}>
-            <Space>
-              <Text strong>Date Range:</Text>
+      {/* Filter Bar */}
+      <Card 
+        style={{ 
+          marginBottom: '24px', 
+          borderRadius: '8px',
+          background: '#fafafa',
+          border: '1px solid #e5e7eb',
+          boxShadow: 'none'
+        }}
+        bodyStyle={{ padding: '16px 20px' }}
+      >
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} sm={12} md={12}>
+            <div>
+              <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: 6 }}>
+                Date Range
+              </Text>
               <RangePicker 
                 value={dateRange}
                 onChange={setDateRange}
-                style={{ width: 250 }}
+                style={{ width: '100%' }}
+                size="middle"
+                disabledDate={(current) => current && current > dayjs().endOf('day')}
+                maxDate={dayjs()}
+                placeholder={['Start date', 'End date']}
               />
-            </Space>
+            </div>
           </Col>
           <Col xs={24} sm={12} md={8}>
-            <Space>
-              <Text strong>Class:</Text>
+            <div>
+              <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: 6 }}>
+                Class
+              </Text>
               <Select
-                placeholder="All Classes"
+                placeholder="All classes..."
                 value={selectedClass || undefined}
                 onChange={setSelectedClass}
                 allowClear
-                style={{ width: 200 }}
+                style={{ width: '100%' }}
+                size="middle"
                 options={classOptions}
               />
-            </Space>
+            </div>
           </Col>
         </Row>
       </Card>

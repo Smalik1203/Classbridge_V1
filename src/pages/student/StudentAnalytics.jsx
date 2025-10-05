@@ -16,7 +16,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../../config/supabaseClient';
 import { useAuth } from '../../AuthProvider';
-import { getStudentCode } from '../../utils/metadata';
+import { getStudentCode, getSchoolCode } from '../../utils/metadata';
 import { AttendanceTag } from '../../components/AttendanceStatusIndicator';
 import { getAttendanceChartColors } from '../../utils/attendanceColors';
 import dayjs from 'dayjs';
@@ -45,17 +45,40 @@ const StudentAnalytics = () => {
       setLoading(true);
       try {
         const studentCode = getStudentCode(user);
-        const query = supabase.from('student').select('id, full_name, student_code, class_instance_id, school_code');
-        const { data, error } = await (studentCode ? 
-          query.eq('student_code', studentCode) : 
-          query.eq('email', user.email)
-        ).single();
+        const schoolCode = getSchoolCode(user);
+        
+        
+        if (!schoolCode) {
+          throw new Error('School information not found in your profile. Please contact support.');
+        }
 
-        if (error) throw error;
+        let query = supabase.from('student').select('id, full_name, student_code, class_instance_id, school_code');
+        
+        // Apply filters
+        query = query.eq('school_code', schoolCode);
+        
+        if (studentCode) {
+          query = query.eq('student_code', studentCode);
+        } else {
+          query = query.eq('email', user.email);
+        }
+        
+        const { data, error } = await query.single();
+
+        if (error) {
+          throw error;
+        }
+        
+        if (!data) {
+          throw new Error('No student record found');
+        }
+        
         setStudent(data);
       } catch (err) {
-        console.error('Error fetching student:', err);
-        setAlert({ type: 'error', message: 'Could not fetch student data. Please try again.' });
+        setAlert({ 
+          type: 'error', 
+          message: err.message || 'Could not fetch student data. Please try again.' 
+        });
       } finally {
         setLoading(false);
       }
@@ -82,7 +105,6 @@ const StudentAnalytics = () => {
       if (error) throw error;
       setAttendanceData(data || []);
     } catch (err) {
-      console.error('Error fetching attendance:', err);
       setAlert({ type: 'error', message: 'Failed to load attendance data. Please try again.' });
     } finally {
       setDataLoading(false);
@@ -96,7 +118,6 @@ const StudentAnalytics = () => {
         totalDays: 0,
         presentCount: 0,
         absentCount: 0,
-        lateCount: 0,
         attendanceRate: 0,
         streakDays: 0,
         bestStreak: 0,
@@ -111,8 +132,7 @@ const StudentAnalytics = () => {
     const totalDays = attendanceData.length;
     const presentCount = attendanceData.filter(r => r.status === 'present').length;
     const absentCount = attendanceData.filter(r => r.status === 'absent').length;
-    const lateCount = attendanceData.filter(r => r.status === 'late').length;
-    const attendanceRate = totalDays > 0 ? Math.round(((presentCount + lateCount) / totalDays) * 100) : 0;
+    const attendanceRate = totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0;
 
     // Calculate streaks
     let currentStreak = 0;
@@ -120,7 +140,7 @@ const StudentAnalytics = () => {
     let tempStreak = 0;
 
     attendanceData.forEach(record => {
-      if (record.status === 'present' || record.status === 'late') {
+      if (record.status === 'present') {
         tempStreak++;
         if (tempStreak > bestStreak) {
           bestStreak = tempStreak;
@@ -132,7 +152,7 @@ const StudentAnalytics = () => {
 
     // Current streak (from most recent)
     for (let i = attendanceData.length - 1; i >= 0; i--) {
-      if (attendanceData[i].status === 'present' || attendanceData[i].status === 'late') {
+      if (attendanceData[i].status === 'present') {
         currentStreak++;
       } else {
         break;
@@ -143,7 +163,7 @@ const StudentAnalytics = () => {
     const dailyStats = attendanceData.map(record => ({
       date: dayjs(record.date).format('MMM DD'),
       status: record.status,
-      isPresent: record.status === 'present' || record.status === 'late'
+      isPresent: record.status === 'present'
     }));
 
     // Weekly statistics
@@ -155,7 +175,7 @@ const StudentAnalytics = () => {
       const weekKey = weekStart.format('YYYY-MM-DD');
       
       if (!weekMap.has(weekKey)) {
-        weekMap.set(weekKey, { present: 0, absent: 0, late: 0, total: 0 });
+        weekMap.set(weekKey, { present: 0, absent: 0, total: 0 });
       }
       
       const stats = weekMap.get(weekKey);
@@ -168,9 +188,8 @@ const StudentAnalytics = () => {
         week: dayjs(weekKey).format('MMM DD'),
         present: stats.present,
         absent: stats.absent,
-        late: stats.late,
         total: stats.total,
-        rate: stats.total > 0 ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0
+        rate: stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0
       });
     });
 
@@ -182,7 +201,7 @@ const StudentAnalytics = () => {
       const monthKey = dayjs(record.date).format('YYYY-MM');
       
       if (!monthMap.has(monthKey)) {
-        monthMap.set(monthKey, { present: 0, absent: 0, late: 0, total: 0 });
+        monthMap.set(monthKey, { present: 0, absent: 0, total: 0 });
       }
       
       const stats = monthMap.get(monthKey);
@@ -195,17 +214,15 @@ const StudentAnalytics = () => {
         month: dayjs(monthKey).format('MMM YYYY'),
         present: stats.present,
         absent: stats.absent,
-        late: stats.late,
         total: stats.total,
-        rate: stats.total > 0 ? Math.round(((stats.present + stats.late) / stats.total) * 100) : 0
+        rate: stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0
       });
     });
 
     // Status distribution
     const statusDistribution = [
       { name: 'Present', value: presentCount, color: '#52c41a' },
-      { name: 'Absent', value: absentCount, color: '#ff4d4f' },
-      { name: 'Late', value: lateCount, color: '#faad14' }
+      { name: 'Absent', value: absentCount, color: '#ff4d4f' }
     ].filter(item => item.value > 0);
 
     // Trends (last 7 days)
@@ -218,7 +235,6 @@ const StudentAnalytics = () => {
       totalDays,
       presentCount,
       absentCount,
-      lateCount,
       attendanceRate,
       streakDays: currentStreak,
       bestStreak,
@@ -332,64 +348,74 @@ const StudentAnalytics = () => {
           />
         )}
 
-        {/* Filters */}
-        <Card style={{ marginBottom: 24, borderRadius: 12 }}>
-          <Row gutter={[24, 16]} align="middle">
-            <Col xs={24} md={12}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <CalendarOutlined style={{ color: '#666' }} />
-                <Text strong style={{ minWidth: 80 }}>Date Range:</Text>
+        {/* Filter Bar */}
+        <Card 
+          style={{ 
+            marginBottom: 24, 
+            borderRadius: 8,
+            background: '#fafafa',
+            border: '1px solid #e5e7eb',
+            boxShadow: 'none'
+          }}
+          bodyStyle={{ padding: '16px 20px' }}
+        >
+          <Row gutter={[12, 12]} align="middle">
+            <Col xs={24} sm={12} md={12}>
+              <div>
+                <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: 6 }}>
+                  Date Range
+                </Text>
                 <RangePicker
                   value={dateRange}
                   onChange={setDateRange}
-                  style={{ flex: 1 }}
+                  style={{ width: '100%' }}
+                  size="middle"
+                  disabledDate={(current) => current && current > dayjs().endOf('day')}
+                  maxDate={dayjs()}
+                  placeholder={['Start date', 'End date']}
                 />
               </div>
             </Col>
-            <Col xs={24} md={12}>
-              <Space>
-                <Button 
-                  type="primary"
-                  onClick={() => {
-                    if (dateRange && dateRange[0] && dateRange[1]) {
-                      fetchAttendanceData();
-                    } else {
-                      message.warning('Please select a date range before loading data');
-                    }
-                  }}
-                  disabled={!dateRange || !dateRange[0] || !dateRange[1]}
-                  loading={dataLoading}
-                >
-                  {dataLoading ? 'Loading...' : 'Load Data'}
-                </Button>
-                <Button 
-                  icon={<DownloadOutlined />} 
-                  onClick={() => exportData('daily')}
-                  disabled={!analytics.dailyStats.length}
-                  type="primary"
-                  ghost
-                >
-                  Export Daily
-                </Button>
-                <Button 
-                  icon={<DownloadOutlined />} 
-                  onClick={() => exportData('weekly')}
-                  disabled={!analytics.weeklyStats.length}
-                  type="primary"
-                  ghost
-                >
-                  Export Weekly
-                </Button>
-                <Button 
-                  icon={<DownloadOutlined />} 
-                  onClick={() => exportData('monthly')}
-                  disabled={!analytics.monthlyStats.length}
-                  type="primary"
-                  ghost
-                >
-                  Export Monthly
-                </Button>
-              </Space>
+            <Col xs={24} sm={12} md={12} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+              <Button 
+                onClick={() => {
+                  if (dateRange && dateRange[0] && dateRange[1]) {
+                    fetchAttendanceData();
+                  } else {
+                    message.warning('Please select a date range');
+                  }
+                }}
+                disabled={!dateRange || !dateRange[0] || !dateRange[1]}
+                loading={dataLoading}
+                size="middle"
+                style={{ marginTop: 18, minWidth: 80 }}
+              >
+                Refresh
+              </Button>
+              <Button 
+                icon={<DownloadOutlined />} 
+                onClick={() => exportData('daily')}
+                disabled={!analytics.dailyStats.length}
+                size="middle"
+                style={{ marginTop: 18 }}
+                title="Export Daily"
+              />
+              <Button 
+                icon={<DownloadOutlined />} 
+                onClick={() => exportData('weekly')}
+                disabled={!analytics.weeklyStats.length}
+                size="middle"
+                style={{ marginTop: 18 }}
+                title="Export Weekly"
+              />
+              <Button 
+                icon={<DownloadOutlined />} 
+                onClick={() => exportData('monthly')}
+                disabled={!analytics.monthlyStats.length}
+                size="middle"
+                style={{ marginTop: 18 }}
+                title="Export Monthly"
+              />
             </Col>
           </Row>
         </Card>
@@ -442,16 +468,6 @@ const StudentAnalytics = () => {
                 value={analytics.absentCount}
                 prefix={<CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
                 valueStyle={{ fontSize: '28px', fontWeight: 600, color: '#ff4d4f' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={12} md={6}>
-            <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <Statistic
-                title={<Text style={{ fontSize: '14px', color: '#666' }}>Late</Text>}
-                value={analytics.lateCount}
-                prefix={<ClockCircleOutlined style={{ color: '#faad14' }} />}
-                valueStyle={{ fontSize: '28px', fontWeight: 600, color: '#faad14' }}
               />
             </Card>
           </Col>
@@ -636,14 +652,6 @@ const StudentAnalytics = () => {
                             />
                             <Area 
                               type="monotone" 
-                              dataKey="late" 
-                              stackId="1" 
-                              stroke={STATUS_COLORS.late} 
-                              fill={STATUS_COLORS.late} 
-                              fillOpacity={0.6}
-                            />
-                            <Area 
-                              type="monotone" 
                               dataKey="absent" 
                               stackId="1" 
                               stroke={STATUS_COLORS.absent} 
@@ -720,7 +728,6 @@ const StudentAnalytics = () => {
                             />
                             <Legend />
                             <Bar dataKey="present" fill={STATUS_COLORS.present} radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="late" fill={STATUS_COLORS.late} radius={[4, 4, 0, 0]} />
                             <Bar dataKey="absent" fill={STATUS_COLORS.absent} radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
@@ -737,7 +744,6 @@ const StudentAnalytics = () => {
                           { title: 'Month', dataIndex: 'month', key: 'month' },
                           { title: 'Present', dataIndex: 'present', key: 'present' },
                           { title: 'Absent', dataIndex: 'absent', key: 'absent' },
-                          { title: 'Late', dataIndex: 'late', key: 'late' },
                           { title: 'Total', dataIndex: 'total', key: 'total' },
                           { 
                             title: 'Attendance Rate', 

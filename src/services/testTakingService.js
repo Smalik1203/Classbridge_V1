@@ -3,8 +3,15 @@
 // - Uses Supabase client imported from your config
 // - Defensive: tolerates schema differences (started_at, in_progress)
 // - All functions throw Error objects when unrecoverable; callers should catch and surface messages.
+// - ENHANCED: Includes tenant isolation security validation
 
 import { supabase } from '../config/supabaseClient.js';
+import { 
+  validateSchoolCode, 
+  getCurrentUserWithValidation, 
+  enforceTenantIsolation,
+  TenantSecurityError 
+} from '../utils/tenantSecurity.js';
 
 /**
  * Helper: resolve student row by studentCode or email.
@@ -30,7 +37,6 @@ async function resolveStudent({ schoolCode, studentCode, userEmail }) {
 
     return null;
   } catch (err) {
-    console.error('resolveStudent error', err);
     throw err;
   }
 }
@@ -38,10 +44,15 @@ async function resolveStudent({ schoolCode, studentCode, userEmail }) {
 /**
  * Get tests available to a student's class.
  * Returns array of test objects with minimal fields and test_questions (if present).
+ * ENHANCED: Includes tenant isolation security validation
  */
 export async function getAvailableTests(studentId, schoolCode, userEmail, studentCode) {
   try {
     if (!schoolCode) throw new Error('schoolCode is required');
+    
+    // SECURITY: Validate current user's school matches the requested school
+    const currentUser = await getCurrentUserWithValidation();
+    enforceTenantIsolation(schoolCode, currentUser);
 
     // Resolve student if class_instance_id unknown
     let classInstanceId = null;
@@ -55,7 +66,6 @@ export async function getAvailableTests(studentId, schoolCode, userEmail, studen
         .maybeSingle();
 
       if (sErr) {
-        console.warn('getAvailableTests: student lookup by id error', sErr);
       } else if (sData) {
         classInstanceId = sData.class_instance_id;
       }
@@ -72,11 +82,13 @@ export async function getAvailableTests(studentId, schoolCode, userEmail, studen
 
     if (!classInstanceId) return [];
 
-    // Fetch tests for class_instance
+    // Fetch tests for class_instance (only active tests that haven't passed their test date)
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
     const { data: tests, error: testsErr } = await supabase
       .from('tests')
       .select(
-        `id, title, description, test_type, time_limit_seconds, class_instance_id, created_at, allow_reattempts,
+        `id, title, description, test_type, time_limit_seconds, class_instance_id, created_at, allow_reattempts, test_date, status,
          class_instances(id,grade,section),
          subjects(id,subject_name),
          syllabus_chapters(id, chapter_no, title, description),
@@ -84,10 +96,11 @@ export async function getAvailableTests(studentId, schoolCode, userEmail, studen
       )
       .eq('class_instance_id', classInstanceId)
       .eq('school_code', schoolCode)
+      .eq('status', 'active')
+      .or(`test_date.is.null,test_date.gte.${today}`)
       .order('created_at', { ascending: false });
 
     if (testsErr) {
-      console.error('getAvailableTests - testsErr', testsErr);
       throw testsErr;
     }
 
@@ -102,13 +115,11 @@ export async function getAvailableTests(studentId, schoolCode, userEmail, studen
           .eq('status', 'completed');
 
         if (compErr) {
-          console.warn('getAvailableTests: could not fetch completed tests', compErr);
         } else if (completed) {
           completedIds = completed.map(r => r.test_id);
         }
       }
     } catch (err) {
-      console.warn('getAvailableTests: completed tests fallback error', err);
     }
 
     // Filter tests based on completion status and reattempt settings
@@ -124,7 +135,6 @@ export async function getAvailableTests(studentId, schoolCode, userEmail, studen
     
     return available;
   } catch (err) {
-    console.error('getAvailableTests fatal', err);
     throw err;
   }
 }
@@ -159,7 +169,6 @@ export async function getTestForTaking(testId, studentId, schoolCode, userEmail,
       .maybeSingle();
 
     if (testErr) {
-      console.error('getTestForTaking - testErr', testErr);
       throw testErr;
     }
     if (!test) throw new Error('Test not found');
@@ -176,18 +185,15 @@ export async function getTestForTaking(testId, studentId, schoolCode, userEmail,
         .limit(1);
 
       if (attemptsErr) {
-        console.warn('getTestForTaking: attempts lookup error (non-fatal)', attemptsErr);
       } else if (attempts && attempts.length > 0) {
         // prefer in_progress if present
         existingAttempt = attempts.find(a => a.status === 'in_progress') || attempts[0];
       }
     } catch (err) {
-      console.warn('getTestForTaking: attempts lookup exception', err);
     }
 
     return { test, existingAttempt: existingAttempt || null };
   } catch (err) {
-    console.error('getTestForTaking fatal', err);
     throw err;
   }
 }
@@ -217,7 +223,6 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
       .single();
 
     if (testErr) {
-      console.warn('startTestAttempt: test lookup warning', testErr);
     }
 
     const allowsReattempts = testData?.allow_reattempts === true;
@@ -233,7 +238,6 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
         .limit(1);
 
       if (attemptsErr) {
-        console.warn('startTestAttempt: existing lookup warning', attemptsErr);
       } else if (attempts && attempts.length > 0) {
         const latest = attempts[0];
         
@@ -258,7 +262,6 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
             .single();
 
           if (resetError) {
-            console.warn('startTestAttempt: reset attempt warning', resetError);
             // If reset fails, create a new attempt
           } else {
             return resetAttempt;
@@ -267,7 +270,6 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
         }
       }
     } catch (err) {
-      console.warn('startTestAttempt: existing lookup exception', err);
     }
 
     // Try to insert with in_progress + started_at (preferred)
@@ -288,7 +290,6 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
       return data;
     } catch (err) {
       // If server rejects (schema mismatch), fall back to 'submitted' insert without started_at
-      console.warn('startTestAttempt: insert with in_progress failed - falling back', err);
 
        const { data: fallback, error: fallbackErr } = await supabase
          .from('test_attempts')
@@ -302,13 +303,11 @@ export async function startTestAttempt(testId, studentId, schoolCode, userEmail,
          .single();
 
       if (fallbackErr) {
-        console.error('startTestAttempt: fallback insert failed', fallbackErr);
         throw fallbackErr;
       }
       return fallback;
     }
   } catch (err) {
-    console.error('startTestAttempt fatal', err);
     throw err;
   }
 }
@@ -349,7 +348,6 @@ export async function saveTestAnswer(attemptId, questionId, answer, studentId) {
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error('saveTestAnswer fatal', err);
     throw err;
   }
 }
@@ -440,7 +438,6 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
       .single();
 
     if (checkError) {
-      console.error('Error checking current attempt status:', checkError);
       throw checkError;
     }
 
@@ -496,18 +493,11 @@ export async function submitTestAttempt(attemptId, answers, studentId) {
       .single();
 
     if (updateErr) {
-      console.error('Update error details:', {
-        error: updateErr,
-        attemptId,
-        updateData,
-        currentAttempt
-      });
       throw updateErr;
     }
 
     return updated;
   } catch (err) {
-    console.error('submitTestAttempt fatal', err);
     throw err;
   }
 }
@@ -543,7 +533,6 @@ export async function allowTestReattempt(attemptId, studentId, schoolCode, userE
     if (error) throw error;
     return updated;
   } catch (err) {
-    console.error('allowTestReattempt fatal', err);
     throw err;
   }
 }
@@ -596,7 +585,6 @@ export async function getTestHistory(studentId, schoolCode, userEmail, studentCo
     
     return attempts || [];
   } catch (err) {
-    console.error('getTestHistory fatal', err);
     throw err;
   }
 }

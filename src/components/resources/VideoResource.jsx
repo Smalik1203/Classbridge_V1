@@ -17,7 +17,7 @@ const { Title, Text } = Typography;
  * - onEdit, onDelete optional callbacks
  */
 export default function VideoResource({ resource, canEdit = false, onEdit = () => {}, onDelete = () => {} }) {
-  const { user } = useAuth ? useAuth() : { user: null };
+  const { user } = useAuth();
   const [previewVisible, setPreviewVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const pendingRef = useRef(null); // last known progress (object)
@@ -45,7 +45,6 @@ export default function VideoResource({ resource, canEdit = false, onEdit = () =
         // saved, clear pending
         pendingRef.current = null;
       } catch (err) {
-        console.error('save progress failed', err);
       } finally {
         if (!isUnmountedRef.current) setSaving(false);
       }
@@ -65,7 +64,6 @@ export default function VideoResource({ resource, canEdit = false, onEdit = () =
       await upsertProgress(p.userId, p.resourceId, Math.floor(p.currentSeconds || 0), Math.floor(p.durationSeconds || 0));
       pendingRef.current = null;
     } catch (err) {
-      console.error('flush save failed', err);
     } finally {
       if (!isUnmountedRef.current) setSaving(false);
     }

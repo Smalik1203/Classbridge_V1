@@ -86,7 +86,6 @@ export default function CollectionsView() {
         setClasses(classData.map(c => ({ value: c.id, label: `${c.grade}-${c.section}` })));
 
       } catch (e) {
-        console.error("Bootstrap error:", e);
         showError(e, {
           useNotification: true,
           context: {
@@ -219,7 +218,6 @@ export default function CollectionsView() {
 
       setCollectionData(collectionData);
     } catch (e) {
-      console.error("Error loading collection data:", e);
       showError(e, {
         useNotification: true,
         context: {
@@ -277,7 +275,6 @@ export default function CollectionsView() {
         planItems: student.plan_items || []
       });
     } catch (e) {
-      console.error("Error loading ledger:", e);
       message.error(e.message || "Failed to load student ledger");
     }
   };
@@ -416,6 +413,9 @@ export default function CollectionsView() {
                   }
                 }}
                 placeholder={['Start Date', 'End Date']}
+                size="small"
+                disabledDate={(current) => current && current > dayjs().endOf('day')}
+                maxDate={dayjs()}
               />
             </div>
           </Col>

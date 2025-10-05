@@ -80,7 +80,6 @@ export const parseCSVQuestions = (csvContent) => {
       question.correct_index = findCorrectAnswerIndex(question.options, correctAnswer);
       
       if (question.correct_index === -1) {
-        console.warn(`Could not find exact match for correct answer "${correctAnswer}" in options:`, question.options);
         question.correct_index = 0; // Default to first option
       }
     }
@@ -148,6 +147,16 @@ export const parseTextQuestions = (textContent) => {
     if (trimmedLine.startsWith('Q:')) {
       // Save previous question
       if (currentQuestion) {
+        // Set correct_index for MCQ before saving
+        if (currentQuestion.question_type === 'mcq' && currentQuestion.options.length > 0) {
+          const correctAnswer = currentQuestion.correct_text;
+          currentQuestion.correct_index = currentQuestion.options.findIndex(opt => 
+            opt.trim().toLowerCase() === correctAnswer.toLowerCase()
+          );
+          if (currentQuestion.correct_index === -1) {
+            currentQuestion.correct_index = 0;
+          }
+        }
         questions.push(currentQuestion);
       }
       

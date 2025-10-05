@@ -3,7 +3,8 @@ import {
   Card, Tabs, Alert, DatePicker, Table, Typography, Space, Segmented, Statistic, Row, Col, Tag, Button, Skeleton, Empty
 } from 'antd';
 import { supabase } from '../../config/supabaseClient';
-import { getStudentCode } from '../../utils/metadata';
+import { useAuth } from '../../AuthProvider';
+import { getStudentCode, getSchoolCode } from '../../utils/metadata';
 import { Page, EmptyState } from '../../ui';
 import dayjs from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
@@ -31,7 +32,7 @@ import { CalendarOutlined } from '@ant-design/icons';
 const STATUS_COLORS = getAttendanceChartColors();
 
 const StudentAttendance = () => {
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true); // Single loading state for initial student fetch
   const [alert, setAlert] = useState(null);
@@ -48,29 +49,55 @@ const StudentAttendance = () => {
   // --- Initial Data Fetching ---
   useEffect(() => {
     const fetchUserAndStudent = async () => {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-
       if (!user) {
         setAlert({ type: 'error', message: 'You must be logged in to view this page.' });
         setLoading(false);
         return;
       }
 
-      const studentCode = getStudentCode(user);
-      const query = supabase.from('student').select('id, full_name, class_instance_id, school_code, student_code, email');
-      const { data, error } = await (studentCode ? query.eq('student_code', studentCode) : query.eq('email', user.email)).single();
+      setLoading(true);
+      try {
+        const studentCode = getStudentCode(user);
+        const schoolCode = getSchoolCode(user);
+        
+        
+        if (!schoolCode) {
+          throw new Error('School information not found in your profile. Please contact support.');
+        }
 
-      if (error) {
-        setAlert({ type: 'error', message: 'Could not find your student profile. Please contact support.' });
-      } else {
+        let query = supabase.from('student').select('id, full_name, class_instance_id, school_code, student_code, email');
+        
+        // Apply filters
+        query = query.eq('school_code', schoolCode);
+        
+        if (studentCode) {
+          query = query.eq('student_code', studentCode);
+        } else {
+          query = query.eq('email', user.email);
+        }
+        
+        const { data, error } = await query.single();
+
+        if (error) {
+          throw error;
+        }
+        
+        if (!data) {
+          throw new Error('No student record found');
+        }
+        
         setStudent(data);
+      } catch (err) {
+        setAlert({ 
+          type: 'error', 
+          message: err.message || 'Could not find your student profile. Please contact support.' 
+        });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchUserAndStudent();
-  }, []);
+  }, [user]);
 
   // --- Data Fetching Callbacks ---
   const fetchViewData = useCallback(async () => {
@@ -140,14 +167,13 @@ const StudentAttendance = () => {
     const total = validRecords.length;
     const present = validRecords.filter(r => r.status === 'present').length;
     const absent = validRecords.filter(r => r.status === 'absent').length;
-    const late = validRecords.filter(r => r.status === 'late').length;
-    const rate = total ? Math.round(((present + late) / total) * 100) : 0;
+    const rate = total ? Math.round((present / total) * 100) : 0;
     
     // Count total days including no-data days
     const totalDays = data.length;
     const noDataDays = data.filter(r => r.status === 'no-data').length;
     
-    return { total, present, absent, late, rate, totalDays, noDataDays };
+    return { total, present, absent, rate, totalDays, noDataDays };
   };
 
   const viewTotals = useMemo(() => calculateTotals(viewData), [viewData]);
@@ -166,7 +192,6 @@ const StudentAttendance = () => {
         label: viewMode === 'week' ? current.format('ddd') : current.format('D'),
         present: 0,
         absent: 0,
-        late: 0,
         noData: 0,
       });
       current = current.add(1, 'day');
@@ -324,11 +349,10 @@ const StudentAttendance = () => {
                       <Skeleton loading={viewLoading} active paragraph={{ rows: 2 }}>
                         <Card size="small" style={{ borderRadius: 10 }}>
                           <Row gutter={[16, 16]}>
-                            <Col xs={12} md={4}><Statistic title="Total Days" value={viewTotals.totalDays} /></Col>
-                            <Col xs={12} md={4}><Statistic title="Present" value={viewTotals.present} /></Col>
-                            <Col xs={12} md={4}><Statistic title="Absent" value={viewTotals.absent} /></Col>
-                            <Col xs={12} md={4}><Statistic title="Late" value={viewTotals.late} /></Col>
-                            <Col xs={12} md={4}><Statistic title="Attendance Rate" value={viewTotals.rate} suffix="%" /></Col>
+                            <Col xs={12} md={6}><Statistic title="Total Days" value={viewTotals.totalDays} /></Col>
+                            <Col xs={12} md={6}><Statistic title="Present" value={viewTotals.present} /></Col>
+                            <Col xs={12} md={6}><Statistic title="Absent" value={viewTotals.absent} /></Col>
+                            <Col xs={12} md={6}><Statistic title="Attendance Rate" value={viewTotals.rate} suffix="%" /></Col>
                           </Row>
                         </Card>
                       </Skeleton>
@@ -347,7 +371,6 @@ const StudentAttendance = () => {
                                 <Legend />
                                 <Bar dataKey="present" stackId="a" name="Present" fill={STATUS_COLORS.present} />
                                 <Bar dataKey="absent"  stackId="a" name="Absent"  fill={STATUS_COLORS.absent} />
-                                <Bar dataKey="late"    stackId="a" name="Late"    fill={STATUS_COLORS.late} />
                                 <Bar dataKey="noData"  stackId="a" name="No Data" fill={STATUS_COLORS.noData} />
                               </BarChart>
                             </ResponsiveContainer>

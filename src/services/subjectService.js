@@ -15,7 +15,6 @@ export const getSubjects = async (schoolCode) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching subjects:', error);
     throw error;
   }
 };

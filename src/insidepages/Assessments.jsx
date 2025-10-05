@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSupabaseQuery, useSupabaseMutation, useSupabaseSubscription } from '../hooks/useSupabaseQuery';
 import { 
   Layout, 
   Card, 
@@ -230,7 +231,6 @@ const Assessments = () => {
           await deleteAssessment(assessmentId);
           refetchAssessments();
         } catch (error) {
-          console.error('Error deleting assessment:', error);
         }
       }
     });
@@ -264,7 +264,6 @@ const Assessments = () => {
       form.resetFields();
       refetchAssessments();
     } catch (error) {
-      console.error('Error saving assessment:', error);
     }
   };
 

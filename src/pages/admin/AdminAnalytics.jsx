@@ -54,7 +54,6 @@ const AdminAnalytics = () => {
         
         setClassInstances(data || []);
       } catch (err) {
-        console.error('Error fetching classes:', err);
         setAlert({ type: 'error', message: 'Failed to load classes. Please try again.' });
       } finally {
         setLoading(false);
@@ -79,7 +78,6 @@ const AdminAnalytics = () => {
       if (error) throw error;
       setStudents(data || []);
     } catch (err) {
-      console.error('Error fetching students:', err);
       setAlert({ type: 'error', message: 'Failed to load students. Please try again.' });
     } finally {
       setDataLoading(false);
@@ -104,7 +102,6 @@ const AdminAnalytics = () => {
       if (error) throw error;
       setAttendanceData(data || []);
     } catch (err) {
-      console.error('Error fetching attendance:', err);
       setAlert({ type: 'error', message: 'Failed to load attendance data. Please try again.' });
     } finally {
       setDataLoading(false);
@@ -339,19 +336,30 @@ const AdminAnalytics = () => {
           />
         )}
 
-        {/* Filters */}
-        <Card style={{ marginBottom: 24, borderRadius: 12 }}>
-          <Row gutter={[24, 16]} align="middle">
-            <Col xs={24} md={8}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <FilterOutlined style={{ color: '#666' }} />
-                <Text strong style={{ minWidth: 60 }}>Class:</Text>
+        {/* Filter Bar */}
+        <Card 
+          style={{ 
+            marginBottom: 24, 
+            borderRadius: 8,
+            background: '#fafafa',
+            border: '1px solid #e5e7eb',
+            boxShadow: 'none'
+          }}
+          bodyStyle={{ padding: '16px 20px' }}
+        >
+          <Row gutter={[12, 12]} align="middle">
+            <Col xs={24} sm={10} md={7}>
+              <div>
+                <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: 6 }}>
+                  Class
+                </Text>
                 <Select
                   value={selectedClassId}
                   onChange={setSelectedClassId}
-                  style={{ flex: 1 }}
-                  placeholder="Select Class"
+                  style={{ width: '100%' }}
+                  placeholder="Choose class..."
                   loading={loading}
+                  size="middle"
                 >
                   {classInstances.map(cls => (
                     <Option key={cls.id} value={cls.id}>
@@ -361,53 +369,55 @@ const AdminAnalytics = () => {
                 </Select>
               </div>
             </Col>
-            <Col xs={24} md={8}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <CalendarOutlined style={{ color: '#666' }} />
-                <Text strong style={{ minWidth: 80 }}>Date Range:</Text>
+            <Col xs={24} sm={10} md={10}>
+              <div>
+                <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginBottom: 6 }}>
+                  Date Range
+                </Text>
                 <RangePicker
                   value={dateRange}
                   onChange={setDateRange}
-                  style={{ flex: 1 }}
+                  style={{ width: '100%' }}
+                  size="middle"
+                  disabledDate={(current) => current && current > dayjs().endOf('day')}
+                  maxDate={dayjs()}
+                  placeholder={['Start date', 'End date']}
                 />
               </div>
             </Col>
-            <Col xs={24} md={8}>
-              <Space>
-                <Button 
-                  type="primary"
-                  onClick={() => {
-                    if (selectedClassId && dateRange && dateRange[0] && dateRange[1]) {
-                      fetchStudents();
-                      fetchAttendanceData();
-                    } else {
-                      message.warning('Please select both class and date range before loading data');
-                    }
-                  }}
-                  disabled={!selectedClassId || !dateRange || !dateRange[0] || !dateRange[1]}
-                  loading={dataLoading}
-                >
-                  {dataLoading ? 'Loading...' : 'Load Data'}
-                </Button>
-                <Button 
-                  icon={<DownloadOutlined />} 
-                  onClick={() => exportData('daily')}
-                  disabled={!analytics.dailyStats.length}
-                  type="primary"
-                  ghost
-                >
-                  Export Daily
-                </Button>
-                <Button 
-                  icon={<DownloadOutlined />} 
-                  onClick={() => exportData('students')}
-                  disabled={!analytics.studentStats.length}
-                  type="primary"
-                  ghost
-                >
-                  Export Students
-                </Button>
-              </Space>
+            <Col xs={24} sm={4} md={7} style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 8 }}>
+              <Button 
+                onClick={() => {
+                  if (selectedClassId && dateRange && dateRange[0] && dateRange[1]) {
+                    fetchStudents();
+                    fetchAttendanceData();
+                  } else {
+                    message.warning('Please select both class and date range');
+                  }
+                }}
+                disabled={!selectedClassId || !dateRange || !dateRange[0] || !dateRange[1]}
+                loading={dataLoading}
+                size="middle"
+                style={{ marginTop: 18, minWidth: 80 }}
+              >
+                Refresh
+              </Button>
+              <Button 
+                icon={<DownloadOutlined />} 
+                onClick={() => exportData('daily')}
+                disabled={!analytics.dailyStats.length}
+                size="middle"
+                style={{ marginTop: 18 }}
+                title="Export Daily"
+              />
+              <Button 
+                icon={<DownloadOutlined />} 
+                onClick={() => exportData('students')}
+                disabled={!analytics.studentStats.length}
+                size="middle"
+                style={{ marginTop: 18 }}
+                title="Export Students"
+              />
             </Col>
           </Row>
         </Card>

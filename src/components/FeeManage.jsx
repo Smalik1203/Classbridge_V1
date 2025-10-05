@@ -126,7 +126,6 @@ export default function FeeManage() {
         if (compErr) throw compErr;
         setCatalog(comp || []);
       } catch (e) {
-        console.error("Bootstrap error:", e);
         message.error(e.message || "Failed to init");
       } finally {
         setBoot(false);
@@ -216,7 +215,6 @@ export default function FeeManage() {
         };
       }));
     } catch (e) {
-      console.error("Error loading students:", e);
       message.error(e.message || "Failed to load students");
     } finally {
       setLoading(false);
@@ -296,7 +294,6 @@ export default function FeeManage() {
         }))
       });
     } catch (e) {
-      console.error("Error opening editor:", e);
       message.error(e.message || "Failed to open editor");
     }
   };
@@ -345,7 +342,6 @@ export default function FeeManage() {
       setDrawer({ open: false, student: null, planId: null, items: [] });
       loadStudentsAndTotals(classId);
     } catch (e) {
-      console.error("Error saving plan:", e);
       message.error(e.message || "Failed to save plan");
     } finally {
       setSaving(false);
@@ -506,7 +502,6 @@ export default function FeeManage() {
       // Reload to recalc totals
       await loadStudentsAndTotals(classId);
     } catch (e) {
-      console.error("Error applying class plan:", e);
       message.error(e.message || "Failed to apply class plan");
     } finally {
       setSavingClass(false);
@@ -543,7 +538,6 @@ export default function FeeManage() {
       setSelectedRowKeys([]);
       loadStudentsAndTotals(classId);
     } catch (e) {
-      console.error("Error deleting plans:", e);
       message.error("Failed to delete plans");
     }
   };

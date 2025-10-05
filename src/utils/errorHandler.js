@@ -256,7 +256,6 @@ export function handleError(error, options = {}) {
   
   // Log raw error for debugging
   if (logError) {
-    console.error('Raw error:', error);
   }
   
   // Determine error type
@@ -317,7 +316,6 @@ export function handleError(error, options = {}) {
  * Note: This function is deprecated. Use the useErrorHandler hook instead.
  */
 export function showError(error, options = {}) {
-  console.warn('showError from errorHandler.js is deprecated. Use useErrorHandler hook instead.');
   return handleError(error, options);
 }
 

@@ -71,14 +71,26 @@ export default function RecordPayments() {
   // Prepare payment lines when opening modal
   useEffect(() => {
     if (paymentModal.open && paymentModal.student) {
-      const items = (paymentModal.student.plan_items || []).map((item) => ({
-        component_type_id: item.fee_component_types.id,
-        component_name: item.fee_component_types.name,
-        plan_amount_paise: Number(item.amount_paise || 0),
-        selected: false,
-        mode: 'full',
-        amount_inr: Number(item.amount_paise || 0) / 100
-      }));
+      const items = (paymentModal.student.plan_items || [])
+        .map((item) => {
+          // Calculate outstanding amount for this component
+          const planAmount = Number(item.amount_paise || 0);
+          const componentPayments = (paymentModal.student.payments || [])
+            .filter(payment => payment.component_type_id === item.fee_component_types.id)
+            .reduce((sum, payment) => sum + Number(payment.amount_paise || 0), 0);
+          const outstandingAmount = Math.max(0, planAmount - componentPayments);
+          
+          return {
+            component_type_id: item.fee_component_types.id,
+            component_name: item.fee_component_types.name,
+            plan_amount_paise: planAmount,
+            outstanding_amount_paise: outstandingAmount,
+            selected: false,
+            mode: 'full',
+            amount_inr: outstandingAmount / 100
+          };
+        })
+        .filter(item => item.outstanding_amount_paise > 0); // Only show components with outstanding amounts
       setPaymentLines(items);
     } else if (!paymentModal.open) {
       setPaymentLines([]);
@@ -109,7 +121,6 @@ export default function RecordPayments() {
         setClasses(classData.map(c => ({ value: c.id, label: `${c.grade}-${c.section}` })));
 
       } catch (e) {
-        console.error("Bootstrap error:", e);
         showError(e, {
           useNotification: true,
           context: {
@@ -237,7 +248,6 @@ export default function RecordPayments() {
       });
 
     } catch (e) {
-      console.error("Error loading students:", e);
       showError(e, {
         useNotification: true,
         context: {
@@ -274,7 +284,7 @@ export default function RecordPayments() {
       student_id: paymentModal.student.student_id,
       plan_id: paymentModal.student.plan_id,
       component_type_id: l.component_type_id,
-      amount_paise: toPaise(l.mode === 'full' ? (l.plan_amount_paise / 100) : Number(l.amount_inr || 0)),
+      amount_paise: toPaise(l.mode === 'full' ? (l.outstanding_amount_paise / 100) : Number(l.amount_inr || 0)),
       payment_date: values.payment_date && values.payment_date.format ? values.payment_date.format('YYYY-MM-DD') : values.payment_date,
       payment_method: values.payment_method,
       transaction_id: values.transaction_id,
@@ -307,7 +317,6 @@ export default function RecordPayments() {
         loadStudentsAndSummary(classId);
       }
     } catch (e) {
-      console.error("Error saving payment:", e);
       showError(e, {
         useNotification: true,
         context: {
@@ -404,7 +413,6 @@ export default function RecordPayments() {
           loadStudentsAndSummary(classId);
         }
       } catch (e) {
-        console.error("Bulk upload error:", e);
         message.error("Failed to process CSV file");
       }
     };
@@ -624,7 +632,7 @@ export default function RecordPayments() {
 
           <Divider>Components</Divider>
           {paymentLines.length === 0 ? (
-            <Empty description="No fee plan items found" />
+            <Empty description="No outstanding payments found - all fees are already paid" />
           ) : (
             <Table
               dataSource={paymentLines}
@@ -646,7 +654,7 @@ export default function RecordPayments() {
                   )
                 },
                 { title: 'Component', dataIndex: 'component_name', key: 'name' },
-                { title: 'Plan Amount', dataIndex: 'plan_amount_paise', key: 'plan', render: (v) => fmtINR(v) },
+                { title: 'Outstanding Amount', dataIndex: 'outstanding_amount_paise', key: 'outstanding', render: (v) => fmtINR(v) },
                 {
                   title: 'Mode',
                   key: 'mode',
@@ -667,7 +675,7 @@ export default function RecordPayments() {
                       min={0}
                       step={0.01}
                       disabled={record.mode === 'full'}
-                      value={record.mode === 'full' ? record.plan_amount_paise / 100 : record.amount_inr}
+                      value={record.mode === 'full' ? record.outstanding_amount_paise / 100 : record.amount_inr}
                       onChange={(val) => setPaymentLines(prev => prev.map(l => l.component_type_id === record.component_type_id ? { ...l, amount_inr: Number(val || 0) } : l))}
                       style={{ width: 140 }}
                     />

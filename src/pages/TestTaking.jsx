@@ -105,7 +105,6 @@ export default function TestTaking() {
       setAvailableTests(tests || []);
       setTestHistory(history || []);
     } catch (err) {
-      console.error('loadData error', err);
       showError(err, {
         useNotification: true,
         context: {
@@ -154,7 +153,6 @@ export default function TestTaking() {
 
       messageApi.success('Test started');
     } catch (err) {
-      console.error('handleStart error', err);
       showError(err, {
         useNotification: true,
         context: {
@@ -206,7 +204,6 @@ export default function TestTaking() {
         try {
           await saveTestAnswer(currentAttempt.id, currentQuestion.id, currentAnswer, studentId);
         } catch (err) {
-          console.warn('Failed to save answer before next question:', err);
           messageApi.error('Could not save answer. Please try again.');
         }
       }
@@ -223,7 +220,6 @@ export default function TestTaking() {
         try {
           await saveTestAnswer(currentAttempt.id, currentQuestion.id, currentAnswer, studentId);
         } catch (err) {
-          console.warn('Failed to save answer before previous question:', err);
           messageApi.error('Could not save answer. Please try again.');
         }
       }
@@ -273,7 +269,6 @@ export default function TestTaking() {
         
         await submit();
       } catch (error) {
-        console.error('Auto-submit error:', error);
         if (error.message.includes('not in progress')) {
           messageApi.warning('Test has already been submitted.');
         } else {
@@ -296,7 +291,6 @@ export default function TestTaking() {
           try {
             await saveTestAnswer(currentAttempt.id, currentQuestion.id, currentAnswer, studentId);
           } catch (err) {
-            console.warn('Failed to save final answer:', err);
             // Continue with submission even if save fails
           }
         }
@@ -315,7 +309,6 @@ export default function TestTaking() {
       await loadData();
       messageApi.success('Test submitted successfully');
     } catch (err) {
-      console.error('submit error', err);
       showError(err, {
         useNotification: true,
         context: {
@@ -384,7 +377,6 @@ export default function TestTaking() {
       messageApi.success('Test reattempt allowed. Student can now retake the test.');
       await loadData(); // Refresh the data
     } catch (err) {
-      console.error('Error allowing reattempt:', err);
       showError(err, {
         context: {
           item: 'test',

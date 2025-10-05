@@ -92,7 +92,6 @@ const SuperAdminAnalytics = () => {
       setSchools([]);
 
     } catch (error) {
-      console.error('Error fetching data:', error);
       setAlert({ type: 'error', message: error.message });
     } finally {
       setLoading(false);

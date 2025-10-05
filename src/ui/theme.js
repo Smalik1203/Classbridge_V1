@@ -5,11 +5,11 @@
 
 import { theme } from 'antd';
 
-// Enhanced Brand Colors - Professional blue and green palette
-const BRAND_PRIMARY = '#0ea5e9'; // Sky-500 - Professional and modern
-const BRAND_ACCENT = '#06b6d4'; // Cyan-500 - Clean accent
+// Enhanced Brand Colors - Modern indigo-purple palette
+const BRAND_PRIMARY = '#6366F1'; // Indigo-500 - Modern and vibrant
+const BRAND_ACCENT = '#8B5CF6'; // Purple-500 - Beautiful accent
 const BRAND_SECONDARY = '#10b981'; // Emerald-500 - Success actions
-const LOGO_BG = '#0284c7'; // Sky-600 - Deeper brand
+const LOGO_BG = '#5B21B6'; // Violet-800 - Deeper brand
 
 // Enhanced Neutral Color Scale - Optimized for readability and hierarchy
 const NEUTRALS = {
@@ -65,16 +65,16 @@ const STATUS_COLORS = {
 
 // Enhanced Data Visualization Palette - Professional color scheme
 const DATA_VIZ_PALETTE = [
-  '#0ea5e9', // Sky-500 - Primary
+  '#6366F1', // Indigo-500 - Primary
   '#10b981', // Emerald-500 - Success
   '#f59e0b', // Amber-500 - Warning
   '#ef4444', // Red-500 - Error
-  '#06b6d4', // Cyan-500 - Info
+  '#8B5CF6', // Purple-500 - Accent
   '#14b8a6', // Teal-500 - Teal
   '#f97316', // Orange-500 - Orange
   '#ec4899', // Pink-500 - Pink
-  '#06b6d4', // Violet-500 - Accent
-  '#38bdf8', // Indigo-500 - Secondary
+  '#7C3AED', // Violet-600 - Secondary
+  '#A78BFA', // Violet-400 - Light variant
 ];
 
 // Enhanced spacing system for better visual hierarchy
@@ -118,12 +118,12 @@ export const lightTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#0284c7',
-    colorPrimaryActive: '#0369a1',
-    colorPrimaryBg: 'hsl(199, 100%, 98%)',
-    colorPrimaryBgHover: 'hsl(199, 100%, 96%)',
-    colorPrimaryBorder: 'hsl(199, 100%, 92%)',
-    colorPrimaryBorderHover: 'hsl(199, 100%, 88%)',
+    colorPrimaryHover: '#7C3AED',
+    colorPrimaryActive: '#5B21B6',
+    colorPrimaryBg: 'hsl(244, 100%, 98%)',
+    colorPrimaryBgHover: 'hsl(244, 100%, 96%)',
+    colorPrimaryBorder: 'hsl(244, 90%, 92%)',
+    colorPrimaryBorderHover: 'hsl(244, 90%, 88%)',
 
     // Enhanced Base Colors - Cleaner, more professional
     colorBgBase: NEUTRALS.N25,
@@ -527,12 +527,12 @@ export const darkTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#38bdf8',
-    colorPrimaryActive: '#7dd3fc',
-    colorPrimaryBg: 'hsl(199, 95%, 6%)',
-    colorPrimaryBgHover: 'hsl(199, 95%, 8%)',
-    colorPrimaryBorder: 'hsl(199, 95%, 15%)',
-    colorPrimaryBorderHover: 'hsl(199, 95%, 20%)',
+    colorPrimaryHover: '#8B5CF6',
+    colorPrimaryActive: '#A78BFA',
+    colorPrimaryBg: 'hsl(244, 95%, 8%)',
+    colorPrimaryBgHover: 'hsl(244, 95%, 10%)',
+    colorPrimaryBorder: 'hsl(244, 95%, 18%)',
+    colorPrimaryBorderHover: 'hsl(244, 95%, 24%)',
 
     // Enhanced Base Colors - Better contrast and depth
     colorBgBase: NEUTRALS.N950,

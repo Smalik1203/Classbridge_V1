@@ -33,7 +33,6 @@ export const getStudents = async (schoolCode, filters = {}) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching students:', error);
     throw error;
   }
 };
@@ -61,7 +60,6 @@ export const getStudent = async (studentId) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error fetching student:', error);
     throw error;
   }
 };
@@ -85,7 +83,6 @@ export const getStudentsByClass = async (classInstanceId) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching students by class:', error);
     throw error;
   }
 };
@@ -123,7 +120,6 @@ export const searchStudents = async (schoolCode, searchTerm, filters = {}) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error searching students:', error);
     throw error;
   }
 };

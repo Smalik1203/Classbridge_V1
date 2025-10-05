@@ -44,7 +44,6 @@ const PreviewQuestionsModal = ({ visible, test, onClose }) => {
       const questionsData = await getQuestionsForTest(test.id);
       setQuestions(questionsData);
     } catch (error) {
-      console.error('Error loading questions:', error);
     } finally {
       setLoading(false);
     }

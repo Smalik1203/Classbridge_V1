@@ -11,7 +11,7 @@ export const ERROR_HANDLING_STATUS = {
     'src/pages/UnifiedTestManagement.jsx',
     'src/components/FeeCollections.jsx',
     'src/pages/LearningResources.jsx',
-    'src/components/timetable/ManageTab.jsx'
+    'src/pages/UnifiedTimetable.jsx'
   ],
 
   // 🔄 PARTIALLY COMPLETED - Components with some error handling updates
@@ -23,7 +23,6 @@ export const ERROR_HANDLING_STATUS = {
   pending: [
     'src/pages/AddSchools.jsx',
     'src/components/TestImportModal.jsx',
-    'src/components/SyllabusTracking.jsx',
     'src/components/FeeManage.jsx',
     'src/components/ImportQuestionsModal.jsx',
     'src/components/FeeComponents.jsx',

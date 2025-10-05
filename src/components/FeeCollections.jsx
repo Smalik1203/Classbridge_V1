@@ -132,7 +132,6 @@ export default function FeeCollections() {
         setClasses(classData.map(c => ({ value: c.id, label: `${c.grade}-${c.section}` })));
 
       } catch (e) {
-        console.error("Bootstrap error:", e);
         showError(e, {
           useNotification: true,
           context: {
@@ -259,7 +258,6 @@ export default function FeeCollections() {
 
       setCollectionData(collectionData);
     } catch (e) {
-      console.error("Error loading collection data:", e);
       showError(e, {
         useNotification: true,
         context: {
@@ -344,7 +342,6 @@ export default function FeeCollections() {
         loadCollectionData(classId, dateRange);
       }
     } catch (e) {
-      console.error("Error saving payment:", e);
       showError(e, {
         useNotification: true,
         context: {
@@ -445,7 +442,6 @@ export default function FeeCollections() {
           loadCollectionData(classId, dateRange);
         }
       } catch (e) {
-        console.error("Bulk upload error:", e);
         message.error("Failed to process CSV file");
       }
     };
@@ -490,7 +486,6 @@ export default function FeeCollections() {
         planItems: student.plan_items || []
       });
     } catch (e) {
-      console.error("Error loading ledger:", e);
       message.error(e.message || "Failed to load student ledger");
     }
   };
@@ -626,6 +621,9 @@ export default function FeeCollections() {
             placeholder={['Start Date', 'End Date']}
             value={dateRange}
             onChange={handleDateRangeChange}
+            size="small"
+            disabledDate={(current) => current && current > dayjs().endOf('day')}
+            maxDate={dayjs()}
           />
           <Button
             type="primary"

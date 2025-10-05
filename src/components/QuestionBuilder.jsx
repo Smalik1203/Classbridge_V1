@@ -99,7 +99,6 @@ const QuestionBuilder = ({ visible, test, onClose, onChange }) => {
       setAvailableTests(testsData);
     } catch (error) {
       message.error('Failed to load tests');
-      console.error('Error loading tests:', error);
     }
   };
 
@@ -110,7 +109,6 @@ const QuestionBuilder = ({ visible, test, onClose, onChange }) => {
       setQuestions(questionsData);
     } catch (error) {
       message.error('Failed to load questions');
-      console.error('Error loading questions:', error);
     } finally {
       setLoading(false);
     }
@@ -166,7 +164,6 @@ const QuestionBuilder = ({ visible, test, onClose, onChange }) => {
       } else {
         message.error('Failed to save question');
       }
-      console.error('Error saving question:', error);
     } finally {
       setSubmitting(false);
     }
@@ -197,7 +194,6 @@ const QuestionBuilder = ({ visible, test, onClose, onChange }) => {
       } else {
         message.error('Failed to delete question');
       }
-      console.error('Error deleting question:', error);
     }
   };
 

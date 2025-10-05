@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
+import { useTheme } from '../contexts/ThemeContext';
 import { getSchoolCode, getUserRole } from '../utils/metadata';
 import * as XLSX from 'xlsx';
 import EmptyState from '../ui/EmptyState';
@@ -31,6 +32,7 @@ function byText(field) {
 export default function SyllabusPage() {
   const [msg, ctx] = message.useMessage();
   const { user } = useAuth();
+  const { isDarkMode, theme } = useTheme();
   const { showError, showSuccess } = useErrorHandler();
 
   // Use centralized metadata utilities
@@ -208,7 +210,7 @@ export default function SyllabusPage() {
                 }
                 
                 // Continue with loading chapters
-                await loadChaptersForSyllabus(newSyl?.id || existing?.id);
+                await loadChaptersForSyllabus(newSyl?.id);
                 resolve();
               } catch (error) {
                 showError(error, {
@@ -905,7 +907,7 @@ export default function SyllabusPage() {
     <div style={{ 
       padding: '24px', 
       minHeight: '100vh',
-      background: '#f8fafc'
+      background: isDarkMode ? theme.token.colorBgLayout : '#f8fafc'
     }}>
       <div style={{ 
         maxWidth: '1400px', 
@@ -915,30 +917,22 @@ export default function SyllabusPage() {
         {ctx}
       
       {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            {/* Breadcrumb */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
+              <span>Home</span>
+              <span>/</span>
+              <span>Syllabus</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Card */}
       <Card style={{ marginBottom: 24 }}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div>
-            <Title level={2} style={{ 
-              margin: 0, 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 12,
-              fontSize: '28px',
-              lineHeight: '1.3'
-            }}>
-              <BookOutlined style={{ color: '#1890ff', fontSize: '24px' }} />
-              Syllabus Structure
-            </Title>
-            <Text type="secondary" style={{ 
-              fontSize: '16px',
-              lineHeight: '1.5',
-              display: 'block',
-              marginTop: '8px'
-            }}>
-              Create and manage chapters and topics for your subjects
-            </Text>
-          </div>
-
           {error && (
             <Alert 
               type="error" 

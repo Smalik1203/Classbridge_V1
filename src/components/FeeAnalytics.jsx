@@ -52,7 +52,6 @@ const FeeAnalytics = () => {
         const school_code = getSchoolCode(user) || null;
         setMe({ id: user.id, role, school_code });
       } catch (e) {
-        console.error("Error fetching user:", e);
         setAlert({ type: 'error', message: 'Failed to load user data' });
       }
     };
@@ -76,7 +75,6 @@ const FeeAnalytics = () => {
         
         setClassInstances(data || []);
       } catch (err) {
-        console.error('Error fetching classes:', err);
         setAlert({ type: 'error', message: 'Failed to load classes. Please try again.' });
       } finally {
         setLoading(false);
@@ -102,7 +100,6 @@ const FeeAnalytics = () => {
       if (error) throw error;
       setStudents(data || []);
     } catch (err) {
-      console.error('Error fetching students:', err);
       setAlert({ type: 'error', message: 'Failed to load students. Please try again.' });
     } finally {
       setDataLoading(false);
@@ -226,7 +223,6 @@ const FeeAnalytics = () => {
 
         setFeeData(feeData);
       } catch (err) {
-        console.error('Error fetching fee data:', err);
         setAlert({ type: 'error', message: 'Failed to load fee data. Please try again.' });
       } finally {
         setDataLoading(false);
@@ -453,7 +449,9 @@ const FeeAnalytics = () => {
                   value={dateRange}
                   onChange={setDateRange}
                   style={{ width: '100%' }}
-                  size="large"
+                  size="small"
+                  disabledDate={(current) => current && current > dayjs().endOf('day')}
+                  maxDate={dayjs()}
                 />
               </div>
             </Col>
@@ -494,7 +492,7 @@ const FeeAnalytics = () => {
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
               <Col xs={24} sm={12} md={6}>
                 <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: '#fff' }} bodyStyle={{ padding: '20px 16px' }}>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#0ea5e9', marginBottom: 4 }}>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#6366F1', marginBottom: 4 }}>
                     {analytics.totalStudents}
                   </div>
                   <Text style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Total Students</Text>
@@ -518,7 +516,7 @@ const FeeAnalytics = () => {
               </Col>
               <Col xs={24} sm={12} md={6}>
                 <Card style={{ borderRadius: 12, textAlign: 'center', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', background: '#fff' }} bodyStyle={{ padding: '20px 16px' }}>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#0ea5e9', marginBottom: 4 }}>
+                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#6366F1', marginBottom: 4 }}>
                     {analytics.overallCollectionRate}%
                   </div>
                   <Text style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Collection Rate</Text>

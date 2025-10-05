@@ -1,21 +1,37 @@
 // src/services/resourceService.js
 import { supabase } from '../config/supabaseClient.js';
 import { getSchoolCode } from '../utils/metadata.js';
+import { 
+  getCurrentUserWithValidation, 
+  createSecureFilters,
+  enforceTenantIsolation,
+  TenantSecurityError 
+} from '../utils/tenantSecurity.js';
+
+// Helper function for secure filters
+const secureFilters = (filters) => createSecureFilters(filters);
 
 /**
  * Get learning resources with filtering and pagination
+ * ENHANCED: Includes tenant isolation security validation
  */
 export const getLearningResources = async (filters = {}) => {
   try {
+    // SECURITY: Validate current user and enforce tenant isolation
+    const currentUser = await getCurrentUserWithValidation();
+    
+    // Create secure filters that include school_code validation
+    const secureFilters = createSecureFilters(filters, currentUser);
+    
     // First check if the table exists by trying a simple query
     const { data: tableCheck, error: tableError } = await supabase
       .from('learning_resources')
       .select('id')
+      .eq('school_code', secureFilters.school_code)
       .limit(1);
 
     if (tableError && tableError.code === 'PGRST116') {
       // Table doesn't exist, return empty result
-      console.warn('learning_resources table does not exist. Please run the migration first.');
       return {
         data: [],
         count: 0
@@ -37,42 +53,38 @@ export const getLearningResources = async (filters = {}) => {
           school_code
         )
       `, { count: 'exact' })
+      .eq('school_code', secureFilters.school_code) // SECURITY: Always filter by user's school
       .order('created_at', { ascending: false });
 
-    // Apply filters
-    if (filters.school_code) {
-      query = query.eq('school_code', filters.school_code);
+    // Apply additional filters (school_code is already applied securely)
+    if (secureFilters.class_instance_id) {
+      query = query.eq('class_instance_id', secureFilters.class_instance_id);
     }
     
-    if (filters.class_instance_id) {
-      query = query.eq('class_instance_id', filters.class_instance_id);
+    if (secureFilters.subject_id) {
+      query = query.eq('subject_id', secureFilters.subject_id);
     }
     
-    if (filters.subject_id) {
-      query = query.eq('subject_id', filters.subject_id);
-    }
-    
-    if (filters.resource_type) {
-      query = query.eq('resource_type', filters.resource_type);
+    if (secureFilters.resource_type) {
+      query = query.eq('resource_type', secureFilters.resource_type);
     }
     
 
     // Search functionality
-    if (filters.search) {
-      query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    if (secureFilters.search) {
+      query = query.or(`title.ilike.%${secureFilters.search}%,description.ilike.%${secureFilters.search}%`);
     }
 
     // Pagination
-    if (filters.page && filters.limit) {
-      const from = (filters.page - 1) * filters.limit;
-      const to = from + filters.limit - 1;
+    if (secureFilters.page && secureFilters.limit) {
+      const from = (secureFilters.page - 1) * secureFilters.limit;
+      const to = from + secureFilters.limit - 1;
       query = query.range(from, to);
     }
 
     const { data, error, count } = await query;
 
     if (error) {
-      console.error('Supabase error:', error);
       throw new Error(`Database error: ${error.message}`);
     }
     
@@ -81,7 +93,6 @@ export const getLearningResources = async (filters = {}) => {
       count: count || 0
     };
   } catch (error) {
-    console.error('Error fetching learning resources:', error);
     throw error;
   }
 };
@@ -112,7 +123,6 @@ export const getLearningResource = async (id) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error fetching learning resource:', error);
     throw error;
   }
 };
@@ -140,13 +150,11 @@ export const createLearningResource = async (resourceData) => {
       .single();
 
     if (error) {
-      console.error('Supabase error details:', error);
       throw new Error(`Database error: ${error.message} (Code: ${error.code})`);
     }
     
     return data;
   } catch (error) {
-    console.error('Error creating learning resource:', error);
     throw error;
   }
 };
@@ -166,7 +174,6 @@ export const updateLearningResource = async (id, updates) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error updating learning resource:', error);
     throw error;
   }
 };
@@ -184,40 +191,32 @@ export const deleteLearningResource = async (id) => {
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error deleting learning resource:', error);
     throw error;
   }
 };
 
 /**
  * Get resources for a specific student (based on their class assignments)
+ * ENHANCED: Includes tenant isolation security validation
  */
 export const getStudentResources = async (studentId, filters = {}) => {
   try {
+    // SECURITY: Validate current user and enforce tenant isolation
+    const currentUser = await getCurrentUserWithValidation();
+    
     // Check if learning_resources table exists
     const { data: tableCheck, error: tableError } = await supabase
       .from('learning_resources')
       .select('id')
+      .eq('school_code', currentUser.validatedSchoolCode)
       .limit(1);
 
     if (tableError && tableError.code === 'PGRST116') {
-      console.warn('learning_resources table does not exist. Please run the migration first.');
       return { data: [], count: 0 };
     }
 
-    // For now, we'll get all resources for the student's school
-    // In a more complex setup, you'd have student_class_assignments table
-    // For simplicity, we'll just filter by school_code from user metadata
-    
-    // Get user's school code from auth
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    
-    // Use centralized metadata utility
-    const schoolCode = getSchoolCode(userData.user);
-    if (!schoolCode) {
-      return { data: [], count: 0 };
-    }
+    // SECURITY: Use validated school code from current user
+    const schoolCode = currentUser.validatedSchoolCode;
 
     // Build query for resources
     let query = supabase
@@ -248,14 +247,14 @@ export const getStudentResources = async (studentId, filters = {}) => {
     }
 
     // Search functionality
-    if (filters.search) {
-      query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    if (secureFilters.search) {
+      query = query.or(`title.ilike.%${secureFilters.search}%,description.ilike.%${secureFilters.search}%`);
     }
 
     // Pagination
-    if (filters.page && filters.limit) {
-      const from = (filters.page - 1) * filters.limit;
-      const to = from + filters.limit - 1;
+    if (secureFilters.page && secureFilters.limit) {
+      const from = (secureFilters.page - 1) * secureFilters.limit;
+      const to = from + secureFilters.limit - 1;
       query = query.range(from, to);
     }
 
@@ -268,7 +267,6 @@ export const getStudentResources = async (studentId, filters = {}) => {
       count: count || 0
     };
   } catch (error) {
-    console.error('Error fetching student resources:', error);
     throw error;
   }
 };
@@ -302,7 +300,6 @@ export const getResourceStats = async (schoolCode, academicYearId) => {
 
     return stats;
   } catch (error) {
-    console.error('Error fetching resource stats:', error);
     throw error;
   }
 };

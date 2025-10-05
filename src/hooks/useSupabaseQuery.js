@@ -59,7 +59,6 @@ export const useSupabaseQuery = (table, options = {}) => {
 
         setData(result || []);
       } catch (err) {
-        console.error(`Error fetching ${table}:`, err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -68,6 +67,44 @@ export const useSupabaseQuery = (table, options = {}) => {
 
     fetchData();
   }, [table, JSON.stringify(filters), JSON.stringify(orderBy), limit, single, enabled, user]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      let query = supabase.from(table).select(select);
+
+      // Apply filters
+      filters.forEach(filter => {
+        if (filter.column && filter.operator && filter.value !== undefined) {
+          query = query[filter.operator](filter.column, filter.value);
+        }
+      });
+
+      // Apply ordering
+      if (orderBy) {
+        query = query.order(orderBy.column, { ascending: orderBy.ascending });
+      }
+
+      // Apply limit
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data: result, error: queryError } = await query;
+
+      if (queryError) {
+        throw queryError;
+      }
+
+      setData(single ? result[0] : result);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const refetch = () => {
     if (enabled && user) {
@@ -135,7 +172,6 @@ export const useSupabaseMutation = (table) => {
 
       return result;
     } catch (err) {
-      console.error(`Error inserting into ${table}:`, err);
       setError(err.message);
       throw err;
     } finally {
@@ -166,7 +202,6 @@ export const useSupabaseMutation = (table) => {
 
       return result;
     } catch (err) {
-      console.error(`Error updating ${table}:`, err);
       setError(err.message);
       throw err;
     } finally {
@@ -196,7 +231,6 @@ export const useSupabaseMutation = (table) => {
 
       return true;
     } catch (err) {
-      console.error(`Error deleting from ${table}:`, err);
       setError(err.message);
       throw err;
     } finally {

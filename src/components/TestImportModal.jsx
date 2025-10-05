@@ -68,12 +68,10 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
           message.warning(`Found ${errors.length} validation errors`);
         }
       } catch (error) {
-        console.error('Error processing file:', error);
         message.error('Error processing file: ' + error.message);
       }
     };
     reader.onerror = () => {
-      console.error('FileReader error');
       message.error('Failed to read file');
     };
     reader.readAsText(file);
@@ -153,7 +151,6 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
             
             if (!subject) {
               const errorMsg = `Test "${test.title}": No matching subject found for "${test.subject_name}". Available subjects: ${subjects.map(s => s.subject_name).join(', ')}`;
-              console.error(errorMsg);
               errors.push(errorMsg);
               errorCount++;
               continue;
@@ -175,7 +172,6 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
             await createTest(testData);
             successCount++;
           } catch (error) {
-            console.error('Error creating test:', error);
             errors.push(`Test "${test.title}": ${error.message}`);
             errorCount++;
           }
@@ -191,7 +187,6 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
 
         if (errorCount > 0) {
           message.error(`Failed to import ${errorCount} tests. Check console for details.`);
-          console.error('Import errors:', errors);
         }
       }
     });
@@ -274,13 +269,13 @@ const TestImportModal = ({ visible, onClose, onImportComplete, classInstances, s
                 placeholder="Select a class for all imported tests"
                 value={selectedClass?.id}
                 onChange={(value) => {
-                  const classInstance = classInstances.find(cls => cls.id === value);
+                  const classInstance = (classInstances || []).find(cls => cls.id === value);
                   setSelectedClass(classInstance);
                 }}
                 size="large"
                 style={{ width: '100%' }}
               >
-                {classInstances.map(cls => (
+                {(classInstances || []).map(cls => (
                   <Option key={cls.id} value={cls.id}>
                     Grade {cls.grade} {cls.section}
                   </Option>

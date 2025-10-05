@@ -13,7 +13,6 @@ export const chapterService = {
         .maybeSingle();
 
       if (syllabusError) {
-        console.error('Error fetching syllabus:', syllabusError);
         return [];
       }
 
@@ -29,13 +28,11 @@ export const chapterService = {
         .order('chapter_no', { ascending: true });
 
       if (chaptersError) {
-        console.error('Error fetching chapters:', chaptersError);
         return [];
       }
 
       return chapters || [];
     } catch (error) {
-      console.error('Error in getChaptersForClassSubject:', error);
       return [];
     }
   },
@@ -52,7 +49,6 @@ export const chapterService = {
       
       return chaptersMap;
     } catch (error) {
-      console.error('Error in getChaptersForSubjects:', error);
       return new Map();
     }
   },
@@ -71,7 +67,6 @@ export const chapterService = {
         .eq('class_instance_id', classInstanceId);
 
       if (syllabiError) {
-        console.error('Error fetching syllabi:', syllabiError);
         return [];
       }
 
@@ -95,7 +90,6 @@ export const chapterService = {
         .order('chapter_no', { ascending: true });
 
       if (chaptersError) {
-        console.error('Error fetching chapters:', chaptersError);
         return [];
       }
 
@@ -106,7 +100,6 @@ export const chapterService = {
         subject: subjectMap.get(chapter.syllabus_id)
       }));
     } catch (error) {
-      console.error('Error in getAllChaptersForClass:', error);
       return [];
     }
   },
@@ -128,7 +121,6 @@ export const chapterService = {
         .ilike('syllabus_chapters.title', `%${searchText}%`);
 
       if (error) {
-        console.error('Error searching chapters:', error);
         return [];
       }
 
@@ -146,7 +138,6 @@ export const chapterService = {
 
       return results;
     } catch (error) {
-      console.error('Error in searchChapters:', error);
       return [];
     }
   }

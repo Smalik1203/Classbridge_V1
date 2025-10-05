@@ -5,6 +5,7 @@ import {
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line
 } from 'recharts';
 import { chartTheme, chartColors, formatCurrencyTooltip, formatCurrencyLabel } from './chartTheme';
+import { formatINRCompact, formatPct } from '../utils/formatting';
 
 const { Title, Text } = Typography;
 
@@ -22,8 +23,24 @@ const EnhancedChart = ({
   loading = false,
   emptyMessage = 'No data available',
   style = {},
+  chartProps = {},
+  xAxisProps = {},
+  yAxisProps = {},
   ...props 
 }) => {
+  // Debug logging
+  console.log('=== ENHANCED CHART DEBUG ===');
+  console.log('Chart type:', type);
+  console.log('Data:', data);
+  console.log('Data length:', data?.length);
+  console.log('Data keys:', dataKeys);
+  console.log('Chart props:', chartProps);
+  console.log('XAxis props:', xAxisProps);
+  console.log('YAxis props:', yAxisProps);
+  console.log('Sample data item:', data?.[0]);
+  console.log('Data keys in sample:', data?.[0] ? Object.keys(data[0]) : 'No data');
+  console.log('============================');
+
   const renderChart = () => {
     if (!data || data.length === 0) {
       return (
@@ -48,24 +65,59 @@ const EnhancedChart = ({
       case 'bar':
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <BarChart {...commonProps}>
+            <BarChart 
+              {...commonProps}
+              layout={chartProps.layout || "horizontal"}
+              barCategoryGap={chartProps.barCategoryGap || "20%"}
+              barGap={chartProps.barGap || 4}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.colors.grid} />
               <XAxis 
-                dataKey={xAxisKey} 
+                dataKey={chartProps.layout === "horizontal" ? undefined : xAxisKey}
                 stroke={chartTheme.colors.textSecondary}
                 fontSize={chartTheme.chart.fontSize}
-                angle={-45}
-                textAnchor="end"
-                height={80}
+                type={chartProps.layout === "horizontal" ? (xAxisProps.type || "number") : (xAxisProps.type || "category")}
+                domain={chartProps.layout === "horizontal" ? (xAxisProps.domain || [0, 100]) : (xAxisProps.domain || [0, 'dataMax + 10%'])}
+                tickFormatter={chartProps.layout === "horizontal" ? (xAxisProps.tickFormatter || ((value) => value + '%')) : (xAxisProps.tickFormatter || ((value) => {
+                  if (value >= 10000000) return `₹${(value/10000000).toFixed(1)} Cr`;
+                  if (value >= 100000) return `₹${(value/100000).toFixed(1)} L`;
+                  if (value >= 1000) return `₹${(value/1000).toFixed(1)} K`;
+                  return `₹${value.toLocaleString('en-IN')}`;
+                }))}
+                angle={chartProps.layout === "horizontal" ? 0 : -30}
+                textAnchor={chartProps.layout === "horizontal" ? "middle" : "end"}
+                height={chartProps.layout === "horizontal" ? 40 : 80}
+                interval={0}
+                tickMargin={8}
               />
               <YAxis 
+                dataKey={chartProps.layout === "horizontal" ? (yAxisProps.dataKey || "name") : undefined}
                 stroke={chartTheme.colors.textSecondary}
                 fontSize={chartTheme.chart.fontSize}
-                tickFormatter={formatCurrencyLabel}
+                type={chartProps.layout === "horizontal" ? (yAxisProps.type || "category") : (yAxisProps.type || "number")}
+                width={yAxisProps.width || 60}
+                tickFormatter={chartProps.layout === "horizontal" ? undefined : (yAxisProps.tickFormatter || ((value) => {
+                  if (value >= 10000000) return `₹${(value/10000000).toFixed(1)} Cr`;
+                  if (value >= 100000) return `₹${(value/100000).toFixed(1)} L`;
+                  if (value >= 1000) return `₹${(value/1000).toFixed(1)} K`;
+                  return `₹${value.toLocaleString('en-IN')}`;
+                }))}
+                domain={chartProps.layout === "horizontal" ? undefined : (yAxisProps.domain || [0, 'dataMax + 10%'])}
+                allowDecimals={false}
               />
               {showTooltip && (
                 <Tooltip 
-                  formatter={formatCurrencyTooltip}
+                  formatter={(value, name, props) => {
+                    // For percentage charts, show both percentage and raw amount
+                    if (xAxisProps.type === "number" && xAxisProps.domain?.[1] === 100) {
+                      const rawValue = props.payload?.total ? 
+                        (name === 'collectedPct' ? 
+                          (props.payload.collected || 0) : 
+                          (props.payload.outstanding || 0)) : value;
+                      return [`${formatPct(value)} (${formatINRCompact(rawValue)})`, name === 'collectedPct' ? 'Collected' : 'Outstanding'];
+                    }
+                    return [formatINRCompact(value), name];
+                  }}
                   labelStyle={{ color: chartTheme.colors.text }}
                   contentStyle={{
                     backgroundColor: '#fff',
@@ -75,13 +127,15 @@ const EnhancedChart = ({
                   }}
                 />
               )}
-              {showLegend && <Legend />}
+              {showLegend && <Legend verticalAlign="bottom" height={36} />}
               {dataKeys.map((key, index) => (
                 <Bar 
                   key={key}
                   dataKey={key} 
                   fill={colors[index % colors.length]}
-                  radius={chartTheme.chart.barRadius}
+                  radius={chartProps.layout === "horizontal" ? [4, 4, 4, 4] : [6, 6, 0, 0]}
+                  maxBarSize={chartProps.maxBarSize || 28}
+                  stackId={chartProps.stackId}
                 />
               ))}
             </BarChart>
@@ -123,15 +177,29 @@ const EnhancedChart = ({
                 dataKey={xAxisKey} 
                 stroke={chartTheme.colors.textSecondary}
                 fontSize={chartTheme.chart.fontSize}
+                tickMargin={8}
               />
               <YAxis 
                 stroke={chartTheme.colors.textSecondary}
                 fontSize={chartTheme.chart.fontSize}
-                tickFormatter={formatCurrencyLabel}
+                tickFormatter={(value) => {
+                  if (value >= 10000000) return `₹${(value/10000000).toFixed(1)}Cr`;
+                  if (value >= 100000) return `₹${(value/100000).toFixed(1)}L`;
+                  if (value >= 1000) return `₹${(value/1000).toFixed(1)}k`;
+                  return `₹${value}`;
+                }}
+                domain={[0, 'dataMax + 10%']}
+                allowDecimals={false}
               />
               {showTooltip && (
                 <Tooltip 
-                  formatter={formatCurrencyTooltip}
+                  formatter={(value, name) => {
+                    const formattedValue = value >= 10000000 ? `₹${(value/10000000).toFixed(1)}Cr` :
+                                         value >= 100000 ? `₹${(value/100000).toFixed(1)}L` :
+                                         value >= 1000 ? `₹${(value/1000).toFixed(1)}k` :
+                                         `₹${value}`;
+                    return [formattedValue, name];
+                  }}
                   labelStyle={{ color: chartTheme.colors.text }}
                   contentStyle={{
                     backgroundColor: '#fff',
@@ -141,13 +209,12 @@ const EnhancedChart = ({
                   }}
                 />
               )}
-              {showLegend && <Legend />}
+              {showLegend && <Legend verticalAlign="bottom" height={36} />}
               {dataKeys.map((key, index) => (
                 <Area
                   key={key}
                   type="monotone"
                   dataKey={key}
-                  stackId="1"
                   stroke={colors[index % colors.length]}
                   fill={colors[index % colors.length]}
                   fillOpacity={0.6}
@@ -174,7 +241,7 @@ const EnhancedChart = ({
               />
               {showTooltip && (
                 <Tooltip 
-                  formatter={formatCurrencyTooltip}
+                  formatter={(value, name) => [formatINRCompact(value), name]}
                   labelStyle={{ color: chartTheme.colors.text }}
                   contentStyle={{
                     backgroundColor: '#fff',

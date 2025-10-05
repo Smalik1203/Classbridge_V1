@@ -165,7 +165,7 @@ const AdminDashboard = () => {
                     {stat.value}
                   </p>
                 </div>
-                <Icon style={{ width: '32px', height: '32px', color: stat.color === 'blue' ? '#38bdf8' : stat.color === 'green' ? '#10b981' : stat.color === 'purple' ? '#06b6d4' : '#f59e0b' }} />
+                <Icon style={{ width: '32px', height: '32px', color: stat.color === 'blue' ? '#8B5CF6' : stat.color === 'green' ? '#10b981' : stat.color === 'purple' ? '#6366F1' : '#f59e0b' }} />
               </div>
             </div>
           );
@@ -221,7 +221,7 @@ const AdminDashboard = () => {
               background: '#f8fafc', 
               borderRadius: '12px'
             }}>
-              <Clock style={{ width: '20px', height: '20px', color: '#38bdf8' }} />
+              <Clock style={{ width: '20px', height: '20px', color: '#8B5CF6' }} />
               <div>
                 <p style={{ 
                   color: '#1e293b', 
@@ -309,7 +309,7 @@ const AdminDashboard = () => {
               cursor: 'pointer',
               transition: 'background-color 0.2s'
             }}>
-              <Calendar style={{ width: '24px', height: '24px', color: '#38bdf8', marginBottom: '8px' }} />
+              <Calendar style={{ width: '24px', height: '24px', color: '#8B5CF6', marginBottom: '8px' }} />
               <p style={{ 
                 color: '#1e293b', 
                 fontSize: '14px', 

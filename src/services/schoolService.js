@@ -15,7 +15,6 @@ export const getClassInstances = async (schoolCode) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching classes:', error);
     throw error;
   }
 };

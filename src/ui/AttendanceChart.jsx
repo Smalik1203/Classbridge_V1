@@ -109,8 +109,8 @@ const AttendanceChart = ({
               }}
             />
             <Legend iconType="circle" />
-            {/* Only render bars for present, absent, late - no 'total' */}
-            {['present', 'absent', 'late'].map((key) => (
+            {/* Only render bars for present, absent - no 'total' */}
+            {['present', 'absent'].map((key) => (
               <Bar
                 key={key}
                 dataKey={key}
@@ -167,7 +167,7 @@ const AttendanceChart = ({
             />
             <Tooltip formatter={formatTooltip} />
             <Legend iconType="circle" />
-            {['present', 'absent', 'late'].map((key) => (
+            {['present', 'absent'].map((key) => (
               <Line
                 key={key}
                 type="monotone"
@@ -196,7 +196,7 @@ const AttendanceChart = ({
             />
             <Tooltip formatter={formatTooltip} />
             <Legend iconType="circle" />
-            {['present', 'absent', 'late'].map((key) => (
+            {['present', 'absent'].map((key) => (
               <Area
                 key={key}
                 type="monotone"

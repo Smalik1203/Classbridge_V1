@@ -101,7 +101,6 @@ const AddAdmin = () => {
         setAdminList(adminData || []);
       }
     } catch (err) {
-      console.error('Unexpected error in fetchAdmins:', err);
       message.error('Unexpected error loading admins: ' + err.message);
       setAdminList([]);
     } finally {
@@ -202,7 +201,6 @@ const AddAdmin = () => {
           .eq('id', editingAdmin.id);
 
         if (usersError) {
-          console.error('Both table updates failed:', usersError);
           message.error('Update failed: ' + usersError.message);
           return;
         }
@@ -216,7 +214,6 @@ const AddAdmin = () => {
       setRefreshTrigger(prev => prev + 1);
       
     } catch (err) {
-      console.error('Unexpected error during update:', err);
       message.error('Update failed: ' + err.message);
     }
   };
@@ -562,8 +559,8 @@ const AddAdmin = () => {
                   loading={loading}
                   size="large"
                   style={{
-                    background: '#38bdf8',
-                    borderColor: '#38bdf8',
+                    background: '#8B5CF6',
+                    borderColor: '#8B5CF6',
                     borderRadius: '8px',
                     fontWeight: 500,
                   }}

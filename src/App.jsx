@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ConfigProvider } from 'antd';
+import { Layout, ConfigProvider, App as AntApp } from 'antd';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { useAuth } from './AuthProvider';
 import Login from './pages/Login';
-import SignUpUser from './components/SignUpUser';
 import Dashboard from './pages/Dashboard';
 import CBAdminDashboard from './pages/CBAdminDashboard';
 import PrivateRoute from './components/PrivateRoute';
@@ -21,6 +20,7 @@ import AddSuperAdmin from './components/AddSuperAdmin';
 import AddSubjects from './components/AddSubjects';
 import Analytics from './pages/Analytics';
 import Timetable from './pages/Timetable';
+import Calendar from './pages/Calendar';
 import SyllabusPage from './pages/Syllabus';
 import LearningResources from './pages/LearningResources';
 import UnifiedTestManagement from './pages/UnifiedTestManagement';
@@ -39,7 +39,7 @@ const { Content } = Layout;
 
 // Global layout with sidebar
 function AppLayout({ children }) {
-  const { theme: antdTheme } = useTheme();
+  const { isDarkMode } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved ? JSON.parse(saved) : false;
@@ -53,7 +53,9 @@ function AppLayout({ children }) {
   return (
     <Layout style={{ 
       minHeight: '100vh',
-      background: antdTheme.token.colorBgLayout
+      background: isDarkMode 
+        ? 'linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(30, 41, 59) 100%)'
+        : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)'
     }}>
       <AppSidebar 
         collapsed={sidebarCollapsed} 
@@ -78,7 +80,7 @@ function AppLayout({ children }) {
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
 
   if (loading) {
     return (
@@ -87,7 +89,10 @@ function AppContent() {
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        background: theme.token.colorBgLayout
+        background: isDarkMode 
+          ? 'linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(30, 41, 59) 100%)'
+          : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)',
+        color: isDarkMode ? '#ffffff' : '#000000'
       }}>
         <div>Loading...</div>
       </div>
@@ -96,7 +101,8 @@ function AppContent() {
 
   return (
     <ConfigProvider theme={theme}>
-      <Router>
+      <AntApp>
+        <Router>
         {user && (
           <AppLayout>
             <Routes>
@@ -114,17 +120,17 @@ function AppContent() {
               <Route path="/add-specific-class" element={<PrivateRoute allowedRoles={routeAccess.addSpecificClass}><AddSpecificClass /></PrivateRoute>} />
               <Route path="/add-subjects" element={<PrivateRoute allowedRoles={routeAccess.addSubjects}><AddSubjects /></PrivateRoute>} />
               <Route path="/super-admin-count" element={<SuperAdminCounter />} />
-              <Route path="/signup" element={<SignUpUser />} />
 
               {/* Feature Routes */}
               <Route path="/attendance" element={<PrivateRoute allowedRoles={routeAccess.attendance}><Attendance /></PrivateRoute>} />
               <Route path="/fees" element={<PrivateRoute allowedRoles={routeAccess.fees}><Fees /></PrivateRoute>} />
-              <Route path="/analytics" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
+              <Route path="/analytics/*" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
               <Route path="/analytics/daily-trends" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
               <Route path="/analytics/student-performance" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
               <Route path="/analytics/class-comparison" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
               <Route path="/analytics/status-distribution" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
               <Route path="/timetable" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Timetable /></PrivateRoute>} />
+              <Route path="/calendar" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Calendar /></PrivateRoute>} />
               <Route path="/syllabus" element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
               <Route path="/learning-resources" element={<PrivateRoute allowedRoles={routeAccess.learningResources}><LearningResources /></PrivateRoute>} />
               <Route path="/test-management" element={<PrivateRoute allowedRoles={routeAccess.testManagement}><UnifiedTestManagement /></PrivateRoute>} />
@@ -145,11 +151,11 @@ function AppContent() {
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUpUser />} />
             <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
         )}
-      </Router>
+        </Router>
+      </AntApp>
     </ConfigProvider>
   );
 }
