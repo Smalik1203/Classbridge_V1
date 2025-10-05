@@ -133,6 +133,11 @@ serve(async (req)=>{
       headers: { "Content-Type": "application/json" }
     }), origin);
   }
+
+  // SECURITY: Validate that CB Admin is not trying to create a super admin for a school they shouldn't access
+  // CB Admin should be able to create super admins for any school (platform-level operation)
+  // But we should log this operation for audit purposes
+  console.log(`[SECURITY_AUDIT] CB Admin ${requester.email} creating super admin for school ${school_code}`);
   const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,

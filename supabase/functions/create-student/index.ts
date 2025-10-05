@@ -141,6 +141,9 @@ serve(async (req) => {
     }), origin);
   }
 
+  // SECURITY: Log the student creation operation for audit purposes
+  console.log(`[SECURITY_AUDIT] ${userRole} ${requester.email} creating student for school ${schoolCode}`);
+
   // Get school information from requester (check both app_metadata and user_metadata for backward compatibility)
   const schoolCode = requester.app_metadata?.school_code || requester.user_metadata?.school_code;
   const schoolName = requester.app_metadata?.school_name || requester.user_metadata?.school_name;
