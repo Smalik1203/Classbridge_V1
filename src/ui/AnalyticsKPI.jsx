@@ -51,12 +51,13 @@ const AnalyticsKPI = ({
         boxShadow: isDarkMode ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.1)',
         transition: 'all 0.2s ease',
         cursor: 'pointer',
-        minHeight: '8rem',
+        minHeight: window.innerWidth < 768 ? '6rem' : '8rem',
+        width: '100%',
         ...style
       }}
       styles={{ 
         body: { 
-          padding: '1rem',
+          padding: window.innerWidth < 768 ? '0.75rem' : '1rem',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -70,29 +71,31 @@ const AnalyticsKPI = ({
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        marginBottom: '0.75rem'
+        marginBottom: window.innerWidth < 768 ? '0.5rem' : '0.75rem'
       }}>
         {icon && (
           <div style={{
-            width: 32,
-            height: 32,
+            width: window.innerWidth < 768 ? 24 : 32,
+            height: window.innerWidth < 768 ? 24 : 32,
             borderRadius: '8px',
             background: '#f3f4f6',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '16px'
+            fontSize: window.innerWidth < 768 ? '12px' : '16px',
+            flexShrink: 0
           }}>
             {icon}
           </div>
         )}
         <Text style={{ 
-          fontSize: '0.875rem', 
+          fontSize: window.innerWidth < 768 ? '0.75rem' : '0.875rem', 
           color: secondaryTextColor,
           fontWeight: 500,
           textAlign: 'right',
           flex: 1,
-          marginLeft: icon ? '0.5rem' : 0
+          marginLeft: icon ? (window.innerWidth < 768 ? '0.25rem' : '0.5rem') : 0,
+          lineHeight: 1.2
         }}>
           {label}
         </Text>
@@ -100,11 +103,12 @@ const AnalyticsKPI = ({
 
       {/* Value */}
       <div style={{ 
-        fontSize: '1.5rem', 
+        fontSize: window.innerWidth < 768 ? '1.25rem' : '1.5rem', 
         fontWeight: 600, 
         color: color,
         lineHeight: 1.2,
-        marginBottom: '0.5rem'
+        marginBottom: window.innerWidth < 768 ? '0.25rem' : '0.5rem',
+        wordBreak: 'break-word'
       }}>
         {loading ? '...' : `${value}${suffix}`}
       </div>
@@ -112,12 +116,13 @@ const AnalyticsKPI = ({
       {/* Trend/Delta */}
       {(trend !== null || delta) && (
         <div style={{ 
-          fontSize: '0.75rem', 
+          fontSize: window.innerWidth < 768 ? '0.625rem' : '0.75rem', 
           color: trend !== null ? getTrendColor() : secondaryTextColor,
           fontWeight: 500,
           display: 'flex',
           alignItems: 'center',
-          gap: '0.25rem'
+          gap: '0.25rem',
+          flexWrap: 'wrap'
         }}>
           {trend !== null && (
             <>

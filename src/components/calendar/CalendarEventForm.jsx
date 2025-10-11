@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, DatePicker, TimePicker, Switch, ColorPicker, Button, Space, message, Typography } from 'antd';
 import { CalendarOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { useTheme } from '../../contexts/ThemeContext';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -18,6 +19,7 @@ export default function CalendarEventForm({
   onCancel,
   onSuccess
 }) {
+  const { theme } = useTheme();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [isAllDay, setIsAllDay] = useState(true);
@@ -41,7 +43,7 @@ export default function CalendarEventForm({
           is_all_day: event.is_all_day,
           start_time: event.start_time ? dayjs(event.start_time, 'HH:mm') : null,
           end_time: event.end_time ? dayjs(event.end_time, 'HH:mm') : null,
-          color: event.color || '#1890ff',
+          color: event.color || theme.token.colorPrimary,
           is_active: event.is_active
         });
         setIsAllDay(event.is_all_day);
@@ -53,7 +55,7 @@ export default function CalendarEventForm({
           class_instance_id: null, // Default to school-wide
           start_date: dayjs(),
           is_all_day: true,
-          color: isHoliday ? '#ff4d4f' : '#1890ff',
+          color: isHoliday ? theme.token.colorError : theme.token.colorPrimary,
           is_active: true
         });
         setIsAllDay(true);
@@ -129,14 +131,14 @@ export default function CalendarEventForm({
   const getEventTypeColor = (eventType) => {
     // Default colors for common event types
     const colors = {
-      holiday: '#0369a1',
-      assembly: '#1890ff',
-      exam: '#faad14',
-      ptm: '#52c41a',
-      'sports day': '#722ed1',
-      'cultural event': '#eb2f96'
+      holiday: theme.token.colorInfo,
+      assembly: theme.token.colorPrimary,
+      exam: theme.token.colorWarning,
+      ptm: theme.token.colorSuccess,
+      'sports day': theme.token.colorPrimary,
+      'cultural event': theme.token.colorPrimary
     };
-    return colors[eventType?.toLowerCase()] || '#8c8c8c';
+    return colors[eventType?.toLowerCase()] || theme.token.colorTextSecondary;
   };
 
   return (

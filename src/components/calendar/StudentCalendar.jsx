@@ -15,11 +15,13 @@ import dayjs from 'dayjs';
 import { useAuth } from '../../AuthProvider';
 import { getSchoolCode, getUserRole } from '../../utils/metadata';
 import { getStudentCalendarData } from '../../services/calendarIntegrationService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const { Title, Text } = Typography;
 
 const StudentCalendar = () => {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [currentDate, setCurrentDate] = useState(dayjs());
   const [calendarData, setCalendarData] = useState(null);
@@ -81,7 +83,7 @@ const StudentCalendar = () => {
           type: 'timetable',
           title: `${slot.subjects?.subject_name || 'Subject'} - Period ${slot.period_number}`,
           time: `${slot.start_time?.slice(0, 5)} - ${slot.end_time?.slice(0, 5)}`,
-          color: '#13c2c2',
+          color: theme.token.colorInfo,
           icon: <ClockCircleOutlined />
         });
       }
@@ -94,7 +96,7 @@ const StudentCalendar = () => {
           type: 'test',
           title: `${test.title} (${test.test_type})`,
           time: test.time_limit_seconds ? `${Math.floor(test.time_limit_seconds / 60)} min` : 'Test',
-          color: '#faad14',
+          color: theme.token.colorWarning,
           icon: <TrophyOutlined />,
           test: test
         });
@@ -111,7 +113,7 @@ const StudentCalendar = () => {
           type: 'event',
           title: event.title,
           time: event.start_time ? `${event.start_time} - ${event.end_time}` : 'All Day',
-          color: event.color || '#1890ff',
+          color: event.color || theme.token.colorPrimary,
           icon: <CalendarOutlined />
         });
       }
@@ -293,19 +295,19 @@ const StudentCalendar = () => {
                   key={index}
                   style={{
                     minHeight: '100px',
-                    borderRight: '1px solid #f0f0f0',
-                    borderBottom: '1px solid #f0f0f0',
+                    borderRight: `1px solid ${theme.token.colorBorder}`,
+                    borderBottom: `1px solid ${theme.token.colorBorder}`,
                     padding: '8px',
-                    backgroundColor: isSelected ? '#e6f7ff' : isToday ? '#fff7e6' : '#fff',
+                    backgroundColor: isSelected ? theme.token.colorPrimaryBg : isToday ? theme.token.colorWarningBg : theme.token.colorBgContainer,
                     cursor: 'pointer',
                     position: 'relative',
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f5f5f5';
+                    e.currentTarget.style.backgroundColor = theme.token.colorFillTertiary;
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = isSelected ? '#e6f7ff' : isToday ? '#fff7e6' : '#fff';
+                    e.currentTarget.style.backgroundColor = isSelected ? theme.token.colorPrimaryBg : isToday ? theme.token.colorWarningBg : theme.token.colorBgContainer;
                   }}
                   onClick={() => handleDateSelect(day)}
                 >

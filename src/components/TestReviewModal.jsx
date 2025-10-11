@@ -167,7 +167,7 @@ const TestReviewModal = ({ visible, testAttempt, onClose }) => {
               key={question.id}
               style={{ 
                 marginBottom: '16px',
-                border: isCorrect ? '2px solid #52c41a' : '2px solid #ff4d4f'
+                border: isCorrect ? `2px solid ${antdTheme.token.colorSuccess}` : `2px solid ${antdTheme.token.colorError}`
               }}
             >
               <div style={{ marginBottom: '16px' }}>
@@ -188,10 +188,10 @@ const TestReviewModal = ({ visible, testAttempt, onClose }) => {
 
               {/* Your Answer */}
               <div style={{ marginBottom: '12px' }}>
-                <Text strong style={{ color: isCorrect ? '#52c41a' : '#ff4d4f' }}>
+                <Text strong style={{ color: isCorrect ? antdTheme.token.colorSuccess : antdTheme.token.colorError }}>
                   Your Answer:
                 </Text>
-                <div style={{ marginTop: '4px', padding: '8px', background: '#f5f5f5', borderRadius: '4px' }}>
+                <div style={{ marginTop: '4px', padding: '8px', background: antdTheme.token.colorBgContainer, borderRadius: '4px', border: `1px solid ${antdTheme.token.colorBorder}` }}>
                   {userAnswer ? (
                     <Text>{userAnswer}</Text>
                   ) : (
@@ -202,10 +202,10 @@ const TestReviewModal = ({ visible, testAttempt, onClose }) => {
 
               {/* Correct Answer */}
               <div style={{ marginBottom: '12px' }}>
-                <Text strong style={{ color: '#52c41a' }}>
+                <Text strong style={{ color: antdTheme.token.colorSuccess }}>
                   Correct Answer:
                 </Text>
-                <div style={{ marginTop: '4px', padding: '8px', background: '#f6ffed', borderRadius: '4px', border: '1px solid #b7eb8f' }}>
+                <div style={{ marginTop: '4px', padding: '8px', background: antdTheme.token.colorSuccessBg, borderRadius: '4px', border: `1px solid ${antdTheme.token.colorSuccessBorder}` }}>
                   <Text>{correctAnswer}</Text>
                 </div>
               </div>

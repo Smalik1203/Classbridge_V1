@@ -60,7 +60,7 @@ const SuperAdminAnalytics = () => {
       // Fetch attendance data
       const { data: attendanceResult, error: attendanceError } = await supabase
         .from('attendance')
-        .select('*')
+        .select('date, status, class_instance_id')
         .eq('school_code', schoolCode)
         .gte('date', dayjs().subtract(30, 'day').format('YYYY-MM-DD'))
         .lte('date', dayjs().format('YYYY-MM-DD'))
@@ -72,7 +72,7 @@ const SuperAdminAnalytics = () => {
       // Fetch students
       const { data: studentsResult, error: studentsError } = await supabase
         .from('student')
-        .select('*')
+        .select('id')
         .eq('school_code', schoolCode);
 
       if (studentsError) throw studentsError;
@@ -81,7 +81,7 @@ const SuperAdminAnalytics = () => {
       // Fetch classes
       const { data: classesResult, error: classesError } = await supabase
         .from('class_instances')
-        .select('*')
+        .select('id, grade, section')
         .eq('school_code', schoolCode);
 
       if (classesError) throw classesError;

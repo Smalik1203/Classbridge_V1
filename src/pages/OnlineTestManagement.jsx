@@ -39,6 +39,7 @@ import {
   PlayCircleOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../AuthProvider';
+import dayjs from 'dayjs';
 import { useTheme } from '../contexts/ThemeContext';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import { 
@@ -106,7 +107,8 @@ const OnlineTestManagement = () => {
         ...values,
         test_mode: 'online',
         created_by: user.id,
-        school_code: user.school_code
+        school_code: user.school_code,
+        test_date: values.test_date ? dayjs(values.test_date).format('YYYY-MM-DD') : null
       };
       
       await createTest(testData);
@@ -124,7 +126,10 @@ const OnlineTestManagement = () => {
   const handleEditTest = async (values) => {
     try {
       setLoading(true);
-      await updateTest(editingTest.id, values);
+      await updateTest(editingTest.id, {
+        ...values,
+        test_date: values.test_date ? dayjs(values.test_date).format('YYYY-MM-DD') : null
+      });
       showSuccess('Online test updated successfully');
       setEditModalVisible(false);
       setEditingTest(null);
@@ -185,7 +190,7 @@ const OnlineTestManagement = () => {
       subject_id: test.subject_id,
       class_instance_id: test.class_instance_id,
       academic_year_id: test.academic_year_id,
-      test_date: test.test_date ? new Date(test.test_date) : null,
+      test_date: test.test_date ? dayjs(test.test_date).startOf('day') : null,
       time_limit_seconds: test.time_limit_seconds,
       max_attempts: test.max_attempts
     });
@@ -267,7 +272,7 @@ const OnlineTestManagement = () => {
       render: (date) => (
         <Space>
           <CalendarOutlined />
-          {date ? new Date(date).toLocaleDateString() : 'Not set'}
+          {date ? dayjs(date).format('DD MMM, YYYY') : 'Not set'}
         </Space>
       ),
     },
@@ -499,7 +504,7 @@ const OnlineTestManagement = () => {
             name="test_date"
             label="Test Date"
           >
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
           </Form.Item>
 
           <Form.Item
@@ -585,7 +590,7 @@ const OnlineTestManagement = () => {
             name="test_date"
             label="Test Date"
           >
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
           </Form.Item>
 
           <Form.Item

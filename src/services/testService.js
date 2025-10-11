@@ -13,8 +13,7 @@ export const getTests = async (schoolCode) => {
       .select(`
         *,
         class_instances(grade, section, school_code),
-        subjects(subject_name, school_code),
-        syllabus_chapters(id, chapter_no, title, description)
+        subjects(subject_name, school_code)
       `)
       .eq('school_code', schoolCode)
       .order('created_at', { ascending: false });
@@ -186,7 +185,7 @@ export const getClassInstances = async (schoolCode) => {
   try {
     const { data, error } = await supabase
       .from('class_instances')
-      .select('*')
+      .select('id, grade, section, school_code')
       .eq('school_code', schoolCode)
       .order('grade', { ascending: true });
 
@@ -204,7 +203,7 @@ export const getSubjects = async (schoolCode) => {
   try {
     const { data, error } = await supabase
       .from('subjects')
-      .select('*')
+      .select('id, subject_name, school_code')
       .eq('school_code', schoolCode)
       .order('subject_name', { ascending: true });
 
@@ -344,7 +343,13 @@ export const deleteTestMark = async (markId) => {
  */
 export const getAvailableTestsForStudents = async (classInstanceId, schoolCode) => {
   try {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Use IST date for comparisons to avoid UTC day shifts
+    const dayjs = (await import('dayjs')).default;
+    const tz = (await import('dayjs/plugin/timezone')).default;
+    const utc = (await import('dayjs/plugin/utc')).default;
+    dayjs.extend(utc);
+    dayjs.extend(tz);
+    const today = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     
     const { data: tests, error } = await supabase
       .from('tests')

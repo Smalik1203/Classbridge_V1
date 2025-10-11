@@ -22,6 +22,7 @@ import {
   getTestsForDate,
   getCalendarEventsForDateRange
 } from '../../services/calendarIntegrationService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const { Title, Text } = Typography;
 // Removed TabPane - using items prop in Tabs component
@@ -35,6 +36,7 @@ const IntegratedCalendar = ({
   refreshKey = 0
 }) => {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [dayData, setDayData] = useState(null);
   const [classes, setClasses] = useState([]);
@@ -92,15 +94,15 @@ const IntegratedCalendar = ({
 
   const getEventTypeColor = (type) => {
     const colors = {
-      exam: '#faad14',
-      holiday: '#0369a1',
-      assembly: '#1890ff',
-      ptm: '#52c41a',
-      'sports day': '#722ed1',
-      'cultural event': '#eb2f96',
-      timetable: '#13c2c2'
+      exam: theme.token.colorWarning,
+      holiday: theme.token.colorInfo,
+      assembly: theme.token.colorPrimary,
+      ptm: theme.token.colorSuccess,
+      'sports day': theme.token.colorPrimary,
+      'cultural event': theme.token.colorPrimary,
+      timetable: theme.token.colorInfo
     };
-    return colors[type] || '#8c8c8c';
+    return colors[type] || theme.token.colorTextSecondary;
   };
 
   const getEventTypeIcon = (type) => {

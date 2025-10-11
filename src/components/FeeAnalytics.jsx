@@ -18,6 +18,7 @@ import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
 import { getUserRole, getSchoolCode } from '../utils/metadata';
 import { fmtINR } from '../utils/money';
+import { useTheme } from '../contexts/ThemeContext';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -27,6 +28,7 @@ const { Option } = Select;
 
 const FeeAnalytics = () => {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [alert, setAlert] = useState(null);
@@ -360,13 +362,13 @@ const FeeAnalytics = () => {
       title: 'Collected',
       dataIndex: 'collected',
       key: 'collected',
-      render: (value) => <Text style={{ color: '#52c41a', fontWeight: '500' }}>{fmtINR(value)}</Text>
+      render: (value) => <Text style={{ color: theme.token.colorSuccess, fontWeight: '500' }}>{fmtINR(value)}</Text>
     },
     {
       title: 'Outstanding',
       dataIndex: 'outstanding',
       key: 'outstanding',
-      render: (value) => <Text style={{ color: '#ff4d4f', fontWeight: '500' }}>{fmtINR(value)}</Text>
+      render: (value) => <Text style={{ color: theme.token.colorError, fontWeight: '500' }}>{fmtINR(value)}</Text>
     },
     {
       title: 'Collection Rate',
@@ -377,7 +379,7 @@ const FeeAnalytics = () => {
           <Progress 
             percent={value} 
             size="small" 
-            strokeColor={value >= 90 ? '#52c41a' : value >= 75 ? '#faad14' : '#ff4d4f'}
+            strokeColor={value >= 90 ? theme.token.colorSuccess : value >= 75 ? theme.token.colorWarning : theme.token.colorError}
             showInfo={false}
           />
           <Text type="secondary" style={{ fontSize: '12px' }}>{value}%</Text>
@@ -388,7 +390,7 @@ const FeeAnalytics = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: 24, background: '#fafafa', minHeight: '100vh' }}>
+      <div style={{ padding: 24, background: theme.token.colorBgLayout, minHeight: '100vh' }}>
         <Card style={{ maxWidth: 1200, margin: '0 auto' }}>
           <Skeleton active paragraph={{ rows: 6 }} />
         </Card>
@@ -397,14 +399,14 @@ const FeeAnalytics = () => {
   }
 
   return (
-    <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
+    <div style={{ padding: 24, background: theme.token.colorBgLayout, minHeight: '100vh' }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600, color: '#1e293b', marginBottom: 4 }}>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 600, color: theme.token.colorTextHeading, marginBottom: 4 }}>
             Fee Analytics
           </h1>
-          <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
+          <p style={{ margin: 0, color: theme.token.colorTextSecondary, fontSize: '15px' }}>
             Monitor fee collection and track outstanding payments
           </p>
         </div>
@@ -421,11 +423,11 @@ const FeeAnalytics = () => {
         )}
 
         {/* Filters */}
-        <Card style={{ marginBottom: 24, borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} bodyStyle={{ padding: '20px' }}>
+        <Card style={{ marginBottom: 24, borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} styles={{ body: { padding: '20px' } }}>
           <Row gutter={[16, 16]} align="middle">
             <Col xs={24} sm={12} md={8}>
               <div>
-                <Text strong style={{ display: 'block', marginBottom: 8, color: '#475569' }}>Class</Text>
+                <Text strong style={{ display: 'block', marginBottom: 8, color: theme.token.colorTextSecondary }}>Class</Text>
                 <Select
                   value={selectedClassId}
                   onChange={setSelectedClassId}
@@ -444,7 +446,7 @@ const FeeAnalytics = () => {
             </Col>
             <Col xs={24} sm={12} md={8}>
               <div>
-                <Text strong style={{ display: 'block', marginBottom: 8, color: '#475569' }}>Date Range</Text>
+                <Text strong style={{ display: 'block', marginBottom: 8, color: theme.token.colorTextSecondary }}>Date Range</Text>
                 <RangePicker
                   value={dateRange}
                   onChange={setDateRange}
@@ -595,12 +597,12 @@ const FeeAnalytics = () => {
                   <div style={{ height: 300 }}>
                     <ResponsiveContainer>
                       <BarChart data={analytics.componentStats}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} stroke="#6b7280" />
-                        <YAxis stroke="#6b7280" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={theme.token.colorBorder} />
+                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} stroke={theme.token.colorTextSecondary} />
+                        <YAxis stroke={theme.token.colorTextSecondary} />
                         <Tooltip />
-                        <Bar dataKey="collected" fill="#52c41a" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="outstanding" fill="#ff4d4f" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="collected" fill={theme.token.colorSuccess} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="outstanding" fill={theme.token.colorError} radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -623,7 +625,7 @@ const FeeAnalytics = () => {
 
         {/* Empty State */}
         {!feeData.length && !dataLoading && (
-          <Card style={{ borderRadius: 12, border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} bodyStyle={{ padding: '48px 24px' }}>
+          <Card style={{ borderRadius: 12, border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }} styles={{ body: { padding: '48px 24px' } }}>
             <EmptyState
               title="No fee data loaded"
               description="Select a class and date range, then click 'Load Data' to view fee analytics and insights."

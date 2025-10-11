@@ -62,12 +62,15 @@ export default function CalendarEventList({
       title: 'Event',
       dataIndex: 'title',
       key: 'title',
+      onCell: () => ({
+        style: { whiteSpace: 'normal', wordBreak: 'break-word' }
+      }),
       render: (text, record) => (
-        <div>
-          <Text strong>{text}</Text>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <Text strong style={{ whiteSpace: 'normal' }}>{text}</Text>
           {record.description && (
-            <div>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
+            <div style={{ marginTop: 2 }}>
+              <Text type="secondary" style={{ fontSize: '12px', whiteSpace: 'normal' }}>
                 {record.description}
               </Text>
             </div>
@@ -79,7 +82,7 @@ export default function CalendarEventList({
       title: 'Type',
       dataIndex: 'event_type',
       key: 'event_type',
-      width: 120,
+      width: 90,
       render: (type) => (
         <Tag color={getEventTypeColor(type)}>
           {getEventTypeLabel(type)}
@@ -90,16 +93,16 @@ export default function CalendarEventList({
       title: 'Date',
       dataIndex: 'start_date',
       key: 'start_date',
-      width: 120,
+      width: 150,
       render: (date, record) => (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <CalendarOutlined style={{ fontSize: '12px', color: '#8c8c8c' }} />
-            <Text>{dayjs(date).format('MMM DD, YYYY')}</Text>
+            <Text>{dayjs(date).format('DD MMM, YYYY')}</Text>
           </div>
           {record.end_date && record.end_date !== record.start_date && (
             <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
-              to {dayjs(record.end_date).format('MMM DD, YYYY')}
+              to {dayjs(record.end_date).format('DD MMM, YYYY')}
             </div>
           )}
         </div>
@@ -109,17 +112,30 @@ export default function CalendarEventList({
       title: 'Time',
       dataIndex: 'start_time',
       key: 'start_time',
-      width: 100,
+      width: 120,
+      onCell: () => ({
+        style: { whiteSpace: 'nowrap', textAlign: 'center' }
+      }),
       render: (time, record) => {
-        if (!time) return <Text type="secondary">All Day</Text>;
-        
+        const formatTime = (t) => {
+          if (!t) return null;
+          // Accept HH:mm or HH:mm:ss; fall back to raw if parsing fails
+          const parsed = dayjs(t, ['HH:mm', 'HH:mm:ss'], true);
+          return parsed.isValid() ? parsed.format('HH:mm') : String(t);
+        };
+
+        const start = formatTime(record.start_time);
+        const end = formatTime(record.end_time);
+
+        if (!start && !end) return <Text type="secondary">All Day</Text>;
+
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <ClockCircleOutlined style={{ fontSize: '12px', color: '#8c8c8c' }} />
-            <Text>{time}</Text>
-            {record.end_time && record.end_time !== time && (
-              <Text type="secondary">- {record.end_time}</Text>
-            )}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ClockCircleOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
+            <Text>
+              {start}
+              {end && end !== start ? ` – ${end}` : ''}
+            </Text>
           </div>
         );
       },
@@ -128,7 +144,7 @@ export default function CalendarEventList({
       title: 'Status',
       dataIndex: 'is_active',
       key: 'is_active',
-      width: 80,
+      width: 90,
       render: (isActive) => (
         <Tag color={isActive ? 'green' : 'red'}>
           {isActive ? 'Active' : 'Inactive'}
@@ -138,7 +154,7 @@ export default function CalendarEventList({
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 100,
       render: (_, record) => (
         <Space>
           <Tooltip title="Edit Event">
@@ -210,8 +226,9 @@ export default function CalendarEventList({
           showTotal: (total, range) => 
             `${range[0]}-${range[1]} of ${total} events`,
         }}
-        scroll={{ x: 800 }}
-        size="small"
+        scroll={{ x: 'max-content' }}
+        size="middle"
+        tableLayout="fixed"
       />
     </div>
   );

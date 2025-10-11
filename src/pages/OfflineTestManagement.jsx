@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import dayjs from 'dayjs';
 import {
   Card,
   Button,
@@ -127,7 +128,8 @@ const OfflineTestManagement = () => {
         test_mode: 'offline',
         created_by: user.id,
         school_code: schoolCode,
-        status: 'active'
+        status: 'active',
+        test_date: values.test_date ? dayjs(values.test_date).format('YYYY-MM-DD') : null
       };
       
       await createTest(testData);
@@ -147,7 +149,10 @@ const OfflineTestManagement = () => {
   const handleEditTest = async (values) => {
     try {
       setLoading(true);
-      await updateTest(editingTest.id, values);
+      await updateTest(editingTest.id, {
+        ...values,
+        test_date: values.test_date ? dayjs(values.test_date).format('YYYY-MM-DD') : null
+      });
       showSuccess('Offline test updated successfully');
       setEditModalVisible(false);
       setEditingTest(null);
@@ -193,7 +198,7 @@ const OfflineTestManagement = () => {
       subject_id: test.subject_id,
       class_instance_id: test.class_instance_id,
       academic_year_id: test.academic_year_id,
-      test_date: test.test_date ? new Date(test.test_date) : null,
+      test_date: test.test_date ? dayjs(test.test_date).startOf('day') : null,
       max_marks: test.max_marks
     });
     setEditModalVisible(true);
@@ -247,7 +252,7 @@ const OfflineTestManagement = () => {
       render: (date) => (
         <Space>
           <CalendarOutlined />
-          {date ? new Date(date).toLocaleDateString() : 'Not set'}
+          {date ? dayjs(date).format('DD MMM, YYYY') : 'Not set'}
         </Space>
       ),
     },
@@ -500,7 +505,7 @@ const OfflineTestManagement = () => {
             name="test_date"
             label="Test Date"
           >
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
           </Form.Item>
 
           <Form.Item
@@ -580,7 +585,7 @@ const OfflineTestManagement = () => {
             name="test_date"
             label="Test Date"
           >
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
           </Form.Item>
 
           <Form.Item

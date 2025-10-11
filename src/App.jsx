@@ -54,7 +54,7 @@ function AppLayout({ children }) {
     <Layout style={{ 
       minHeight: '100vh',
       background: isDarkMode 
-        ? 'linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(30, 41, 59) 100%)'
+        ? '#000000'
         : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)'
     }}>
       <AppSidebar 

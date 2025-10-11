@@ -26,6 +26,7 @@ import {
   chartTheme,
   getCollectionRateColor
 } from '../ui';
+import { useTheme } from '../contexts/ThemeContext';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -34,6 +35,7 @@ const { Option } = Select;
 
 const FeeAnalyticsEnhanced = () => {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [alert, setAlert] = useState(null);
@@ -842,12 +844,12 @@ const FeeAnalyticsEnhanced = () => {
   };
 
   return (
-    <div style={{ padding: 24, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+    <div style={{ padding: 24, backgroundColor: theme.token.colorBgLayout, minHeight: '100vh' }}>
       <div style={{ marginBottom: 16 }}>
-        <Title level={2} style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>
+        <Title level={2} style={{ margin: 0, fontSize: 24, fontWeight: 700, color: theme.token.colorTextHeading, marginBottom: 4 }}>
           Fee Analytics
         </Title>
-        <Text type="secondary" style={{ fontSize: 14, color: '#64748b' }}>
+        <Text type="secondary" style={{ fontSize: 14, color: theme.token.colorTextSecondary }}>
           {isStudent(me.user) ? 'View your fee details' : 'Fee collection insights & payment tracking'}
         </Text>
       </div>
@@ -856,9 +858,9 @@ const FeeAnalyticsEnhanced = () => {
       <div style={{ 
         marginBottom: 16, 
         padding: '12px 16px', 
-        backgroundColor: '#f8fafc', 
+        backgroundColor: theme.token.colorBgContainer, 
           borderRadius: 8,
-        border: '1px solid #e2e8f0',
+        border: `1px solid ${theme.token.colorBorder}`,
         display: 'flex',
         alignItems: 'center',
         gap: 16,

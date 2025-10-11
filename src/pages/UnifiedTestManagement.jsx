@@ -328,7 +328,7 @@ const UnifiedTestManagement = () => {
       render: (date) => (
         <Space>
           <ClockCircleOutlined />
-          {date ? new Date(date).toLocaleDateString() : 'Not set'}
+          {date ? dayjs(date).format('DD MMM, YYYY') : 'Not set'}
         </Space>
       ),
     },

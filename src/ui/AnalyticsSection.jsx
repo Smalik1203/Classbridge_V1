@@ -41,33 +41,64 @@ const AnalyticsSection = ({
         boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
         background: theme.token.colorBgContainer,
         height: '100%',
+        width: '100%',
         ...style
       }}
-      styles={{ body: { padding: '20px', height: '100%', display: 'flex', flexDirection: 'column' } }}
+      styles={{ 
+        body: { 
+          padding: window.innerWidth < 768 ? '16px' : '20px', 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column' 
+        } 
+      }}
     >
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'flex-start', 
+          justifyContent: 'space-between', 
+          marginBottom: 8,
+          flexWrap: 'wrap',
+          gap: 8
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: window.innerWidth < 768 ? 8 : 12,
+            flex: 1,
+            minWidth: '200px'
+          }}>
             {icon && (
               <div style={{
-                width: 40,
-                height: 40,
+                width: window.innerWidth < 768 ? 32 : 40,
+                height: window.innerWidth < 768 ? 32 : 40,
                 borderRadius: '50%',
                 background: '#f0f9ff',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                flexShrink: 0
               }}>
                 {icon}
               </div>
             )}
-            <div>
-              <Title level={4} style={{ margin: 0, color: theme.token.colorTextHeading, fontSize: '18px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Title level={4} style={{ 
+                margin: 0, 
+                color: theme.token.colorTextHeading, 
+                fontSize: window.innerWidth < 768 ? '16px' : '18px',
+                lineHeight: 1.2
+              }}>
                 {title}
               </Title>
               {description && (
-                <Text type="secondary" style={{ fontSize: '14px', color: theme.token.colorTextSecondary }}>
+                <Text type="secondary" style={{ 
+                  fontSize: window.innerWidth < 768 ? '12px' : '14px', 
+                  color: theme.token.colorTextSecondary,
+                  lineHeight: 1.4
+                }}>
                   {description}
                 </Text>
               )}
@@ -81,10 +112,12 @@ const AnalyticsSection = ({
               style={{ 
                 color: '#3b82f6',
                 fontWeight: 500,
-                padding: 0
+                padding: 0,
+                fontSize: window.innerWidth < 768 ? '12px' : '14px',
+                flexShrink: 0
               }}
             >
-              View Details
+              {window.innerWidth < 768 ? 'View' : 'View Details'}
             </Button>
           )}
         </div>
@@ -119,8 +152,12 @@ const AnalyticsSection = ({
                   className="analytics-kpi-grid"
                   style={{ 
                     display: 'grid', 
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gap: 16,
+                    gridTemplateColumns: window.innerWidth < 768 
+                      ? 'repeat(2, 1fr)' 
+                      : window.innerWidth < 1024 
+                        ? 'repeat(3, 1fr)' 
+                        : 'repeat(4, 1fr)',
+                    gap: window.innerWidth < 768 ? 12 : 16,
                     marginBottom: 16
                   }}
                 >

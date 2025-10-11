@@ -18,10 +18,35 @@ const { Option } = Select;
 
 const STATUS_OPTIONS = ['present', 'absent'];
 
-const StatusPillToggle = ({ studentId, value, onChange, disabled }) => {
+const StatusPillToggle = ({ studentId, value, onChange, disabled, theme }) => {
   const isPresent = value === 'present';
   const isAbsent = value === 'absent';
   const isUnmarked = !value;
+  
+  // Theme-aware colors
+  const getColors = () => {
+    if (isPresent) {
+      return {
+        bg: theme.token.colorSuccessBg,
+        border: theme.token.colorSuccessBorder,
+        text: theme.token.colorSuccess
+      };
+    } else if (isAbsent) {
+      return {
+        bg: theme.token.colorErrorBg,
+        border: theme.token.colorErrorBorder,
+        text: theme.token.colorError
+      };
+    } else {
+      return {
+        bg: theme.token.colorBgContainer,
+        border: theme.token.colorBorder,
+        text: theme.token.colorTextSecondary
+      };
+    }
+  };
+  
+  const colors = getColors();
   
   return (
     <div
@@ -38,8 +63,8 @@ const StatusPillToggle = ({ studentId, value, onChange, disabled }) => {
       style={{
         padding: '4px 8px',
         borderRadius: '6px',
-        backgroundColor: isPresent ? '#dcfce7' : isAbsent ? '#fef2f2' : '#f8fafc',
-        border: `1px solid ${isPresent ? '#22c55e' : isAbsent ? '#ef4444' : '#e2e8f0'}`,
+        backgroundColor: colors.bg,
+        border: `1px solid ${colors.border}`,
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'all 0.2s ease',
         opacity: disabled ? 0.6 : 1,
@@ -52,7 +77,7 @@ const StatusPillToggle = ({ studentId, value, onChange, disabled }) => {
       onMouseEnter={(e) => {
         if (!disabled) {
           e.target.style.transform = 'scale(1.02)';
-          e.target.style.boxShadow = '0 1px 4px rgba(0,0,0,0.1)';
+          e.target.style.boxShadow = `0 1px 4px ${theme.token.colorPrimary}20`;
         }
       }}
       onMouseLeave={(e) => {
@@ -64,7 +89,7 @@ const StatusPillToggle = ({ studentId, value, onChange, disabled }) => {
     >
       <Text style={{ 
         fontSize: '10px', 
-        color: isPresent ? '#22c55e' : isAbsent ? '#ef4444' : '#64748b',
+        color: colors.text,
         fontWeight: '500',
         margin: 0
       }}>
@@ -113,6 +138,10 @@ const UnifiedAttendance = () => {
     date, 
     selectedClassId
   );
+
+  // Treat Sundays as holidays as an explicit guard
+  const isSunday = !!date && typeof date.day === 'function' && date.day() === 0;
+  const isHolidayOrSunday = isHoliday || isSunday;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -293,14 +322,11 @@ const UnifiedAttendance = () => {
       return;
     }
 
-    // Check if it's a holiday
-    if (isHoliday) {
-      const holidayTitle = holidayInfo?.title || 'Holiday';
-      const holidayDescription = holidayInfo?.description || 'This is a holiday. Attendance cannot be marked.';
-      setAlert({ 
-        type: 'error', 
-        message: `Cannot mark attendance on ${holidayTitle}. ${holidayDescription}` 
-      });
+    // Check if it's a holiday or Sunday
+    if (isHolidayOrSunday) {
+      const holidayTitle = isSunday ? 'Sunday' : (holidayInfo?.title || 'Holiday');
+      const holidayDescription = isSunday ? 'Sunday is a weekend day. Attendance cannot be marked.' : (holidayInfo?.description || 'This is a holiday. Attendance cannot be marked.');
+      setAlert({ type: 'error', message: `Cannot mark attendance on ${holidayTitle}. ${holidayDescription}` });
       return;
     }
 
@@ -331,14 +357,7 @@ const UnifiedAttendance = () => {
       const roleCode = user?.user_metadata?.admin_code || user?.user_metadata?.super_admin_code || '';
       const dateStr = date.format('YYYY-MM-DD');
       
-      // First, delete existing records for this class and date
-      await supabase
-        .from('attendance')
-        .delete()
-        .eq('class_instance_id', selectedClassId)
-        .eq('date', dateStr);
-      
-      // Then insert new records
+      // Build full set of records for upsert (idempotent)
       const records = students.map(s => ({
         student_id: s.id,
         class_instance_id: selectedClassId,
@@ -349,7 +368,10 @@ const UnifiedAttendance = () => {
         school_code: schoolCode,
       }));
 
-      const { error } = await supabase.from('attendance').insert(records);
+      // Upsert using composite unique key (school_code, class_instance_id, student_id, date)
+      const { error } = await supabase.from('attendance').upsert(records, {
+        onConflict: 'school_code,class_instance_id,student_id,date'
+      });
       if (error) throw error;
       
       // Show success toast with class and date details
@@ -400,11 +422,12 @@ const UnifiedAttendance = () => {
       <div className="student-grid">
         {students.map((student) => (
           <div key={student.id} className="student-item">
-            <span style={{ fontWeight: '500', color: '#1e293b' }}>{student.full_name}</span>
+            <span style={{ fontWeight: '500', color: theme.token.colorTextHeading }}>{student.full_name}</span>
             <StatusPillToggle
               studentId={student.id}
               value={attendance[student.id]}
-              disabled={!canMark}
+              disabled={!canMark || isHolidayOrSunday}
+              theme={theme}
               onChange={(val) => setAttendance(a => ({ ...a, [student.id]: val }))}
             />
           </div>
@@ -531,10 +554,10 @@ const UnifiedAttendance = () => {
         )}
 
         {/* Holiday Alert */}
-        {isHoliday && (
+        {isHolidayOrSunday && (
           <Alert
             type="warning"
-            message={`${holidayInfo?.title || 'Holiday'}: ${holidayInfo?.title === 'Sunday' ? 'Sunday is a weekend day. Attendance cannot be marked.' : 'This is a holiday. Attendance cannot be marked.'}`}
+            message={`${isSunday ? 'Sunday' : (holidayInfo?.title || 'Holiday')}: ${isSunday ? 'Sunday is a weekend day. Attendance cannot be marked.' : 'This is a holiday. Attendance cannot be marked.'}`}
             showIcon
             style={{ marginBottom: 12, fontSize: 13 }}
             banner
@@ -542,18 +565,48 @@ const UnifiedAttendance = () => {
         )}
 
         <Card style={{ borderRadius: 8 }} bodyStyle={{ padding: 16 }}>
+          <style jsx>{`
+            .student-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+              gap: 12px;
+              margin-top: 16px;
+            }
+            
+            .student-item {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 12px 16px;
+              background: ${theme.token.colorBgContainer};
+              border: 1px solid ${theme.token.colorBorder};
+              border-radius: 8px;
+              transition: all 0.2s ease;
+            }
+            
+            .student-item:hover {
+              border-color: ${theme.token.colorPrimary};
+              box-shadow: 0 2px 8px ${theme.token.colorPrimary}20;
+            }
+            
+            @media (max-width: 768px) {
+              .student-grid {
+                grid-template-columns: 1fr;
+              }
+            }
+          `}</style>
           <Tabs activeKey={isStudent ? 'view' : activeTab} onChange={setActiveTab} size="middle">
           {!isStudent && (
             <Tabs.TabPane tab="Mark Attendance" key="mark">
               <Card
                 size="small"
-                style={{ marginBottom: 12, border: '1px solid #e8e8e8', backgroundColor: '#fafafa' }}
+                style={{ marginBottom: 12, border: `1px solid ${theme.token.colorBorder}`, backgroundColor: theme.token.colorBgContainer }}
                 bodyStyle={{ padding: 12 }}
               >
                 <Row gutter={12} align="middle">
                   <Col xs={24} sm={12}>
                     <div style={{ marginBottom: 6 }}>
-                      <Text strong style={{ color: '#595959', fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Class</Text>
+                      <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Class</Text>
                     </div>
                     {classesLoading ? (
                       <Skeleton.Input active style={{ width: '100%', height: 40 }} />
@@ -575,7 +628,7 @@ const UnifiedAttendance = () => {
                   </Col>
                   <Col xs={24} sm={12}>
                     <div style={{ marginBottom: 6 }}>
-                      <Text strong style={{ color: '#595959', fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Date</Text>
+                      <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Date</Text>
                     </div>
                     <DatePicker
                       value={date}
@@ -591,92 +644,119 @@ const UnifiedAttendance = () => {
 
               {selectedClassId && (
                 <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
-                  <div style={{ marginBottom: 8 }}>
-                    <Row justify="space-between" align="middle">
-                      <Col flex="auto">
-                        <Row align="middle" gutter={12} style={{ flexWrap: 'wrap' }}>
-                          <Col flex="auto" style={{ minWidth: 0 }}>
-                            <div style={{ overflow: 'hidden' }}>
-                              <Text strong style={{ color: '#595959', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: '100%' }}>
-                                Students ({progressStats.total})
-                              </Text>
-                              {progressStats.total > 0 && (
-                                <Text type="secondary" style={{ fontSize: 11, marginLeft: 8, whiteSpace: 'nowrap' }}>
-                                  {progressStats.unmarked > 0
-                                    ? `${progressStats.marked} · ${progressStats.unmarked} unmarked`
-                                    : 'All marked'
-                                  }
-                                </Text>
-                              )}
-                            </div>
-                          </Col>
-                          <Col style={{ flexShrink: 0 }}>
-                            <Space size={6} wrap>
-                              <Button
-                                onClick={() => markAll('present')}
-                                size="small"
-                                type="primary"
-                                style={{
-                                  backgroundColor: '#52c41a',
-                                  borderColor: '#52c41a',
-                                  fontSize: 12,
-                                  height: 26,
-                                  padding: '0 10px'
-                                }}
-                              >
-                                <span style={{ whiteSpace: 'nowrap' }}>All Present</span>
-                              </Button>
-                              <Button
-                                onClick={() => markAll('absent')}
-                                size="small"
-                                danger
-                                style={{
-                                  fontSize: 12,
-                                  height: 26,
-                                  padding: '0 10px'
-                                }}
-                              >
-                                <span style={{ whiteSpace: 'nowrap' }}>All Absent</span>
-                              </Button>
-                              <Button
-                                onClick={resetAttendance}
-                                size="small"
-                                style={{
-                                  fontSize: 12,
-                                  height: 26,
-                                  padding: '0 10px'
-                                }}
-                              >
-                                <span style={{ whiteSpace: 'nowrap' }}>Reset</span>
-                              </Button>
-                            </Space>
+                  {isHolidayOrSunday ? (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px 20px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                      <div style={{ fontSize: '18px', fontWeight: '600', color: '#0c4a6e', marginBottom: '8px' }}>
+                        Holiday – attendance not applicable
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>
+                        {(isSunday ? 'Sunday' : (holidayInfo?.title || 'Holiday'))} • {date.format('MMMM DD, YYYY')}
+                      </div>
+                      <Button 
+                        type="link"
+                        onClick={() => { window.location.href = '/calendar'; }}
+                        style={{ color: '#0369a1' }}
+                      >
+                        View Calendar
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: 8 }}>
+                        <Row justify="space-between" align="middle">
+                          <Col flex="auto">
+                            <Row align="middle" gutter={12} style={{ flexWrap: 'wrap' }}>
+                              <Col flex="auto" style={{ minWidth: 0 }}>
+                                <div style={{ overflow: 'hidden' }}>
+                                  <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'inline-block', maxWidth: '100%' }}>
+                                    Students ({progressStats.total})
+                                  </Text>
+                                  {progressStats.total > 0 && (
+                                    <Text type="secondary" style={{ fontSize: 11, marginLeft: 8, whiteSpace: 'nowrap' }}>
+                                      {progressStats.unmarked > 0
+                                        ? `${progressStats.marked} · ${progressStats.unmarked} unmarked`
+                                        : 'All marked'
+                                      }
+                                    </Text>
+                                  )}
+                                </div>
+                              </Col>
+                              <Col style={{ flexShrink: 0 }}>
+                                <Space size={6} wrap>
+                                  <Button
+                                    onClick={() => markAll('present')}
+                                    size="small"
+                                    type="primary"
+                                    style={{
+                                      backgroundColor: theme.token.colorSuccess,
+                                      borderColor: theme.token.colorSuccess,
+                                      fontSize: 12,
+                                      height: 26,
+                                      padding: '0 10px'
+                                    }}
+                                  >
+                                    <span style={{ whiteSpace: 'nowrap' }}>All Present</span>
+                                  </Button>
+                                  <Button
+                                    onClick={() => markAll('absent')}
+                                    size="small"
+                                    danger
+                                    style={{
+                                      fontSize: 12,
+                                      height: 26,
+                                      padding: '0 10px'
+                                    }}
+                                  >
+                                    <span style={{ whiteSpace: 'nowrap' }}>All Absent</span>
+                                  </Button>
+                                  <Button
+                                    onClick={resetAttendance}
+                                    size="small"
+                                    style={{
+                                      fontSize: 12,
+                                      height: 26,
+                                      padding: '0 10px'
+                                    }}
+                                  >
+                                    <span style={{ whiteSpace: 'nowrap' }}>Reset</span>
+                                  </Button>
+                                </Space>
+                              </Col>
+                            </Row>
+                            {progressStats.total > 0 && (
+                              <div style={{ marginTop: 6 }}>
+                                <Progress
+                                  percent={progressStats.percentage}
+                                  size="small"
+                                  strokeColor={progressStats.percentage === 100 ? theme.token.colorSuccess : theme.token.colorPrimary}
+                                  showInfo={false}
+                                  style={{ width: 160 }}
+                                />
+                              </div>
+                            )}
                           </Col>
                         </Row>
-                        {progressStats.total > 0 && (
-                          <div style={{ marginTop: 6 }}>
-                            <Progress
-                              percent={progressStats.percentage}
-                              size="small"
-                              strokeColor={progressStats.percentage === 100 ? '#52c41a' : '#1890ff'}
-                              showInfo={false}
-                              style={{ width: 160 }}
-                            />
-                          </div>
-                        )}
-                      </Col>
-                    </Row>
-                  </div>
-                  {renderStudentGrid()}
+                      </div>
+                      {renderStudentGrid()}
+                    </>
+                  )}
                 </Card>
               )}
 
-              {selectedClassId && students.length > 0 && (
+              {selectedClassId && students.length > 0 && !isHolidayOrSunday && (
                 <div style={{
                   position: 'sticky',
                   bottom: 0,
-                  backgroundColor: '#fff',
+                  backgroundColor: theme.token.colorBgContainer,
                   padding: '10px 0',
-                  borderTop: '1px solid #e8e8e8',
+                  borderTop: `1px solid ${theme.token.colorBorder}`,
                   marginTop: 12
                 }}>
                   <Row justify="center">
@@ -685,7 +765,7 @@ const UnifiedAttendance = () => {
                         type="primary"
                         onClick={handleSubmit}
                         loading={saving}
-                        disabled={!canMark || progressStats.unmarked > 0 || isHoliday}
+                        disabled={!canMark || progressStats.unmarked > 0 || isHolidayOrSunday}
                         style={{
                           minWidth: 140,
                           height: 32
@@ -710,11 +790,11 @@ const UnifiedAttendance = () => {
                       textAlign: 'center', 
                       marginTop: 8, 
                       padding: '8px 12px', 
-                      backgroundColor: '#fff7ed', 
-                      border: '1px solid #fed7aa', 
+                      backgroundColor: theme.token.colorWarningBg, 
+                      border: `1px solid ${theme.token.colorWarningBorder}`, 
                       borderRadius: 6 
                     }}>
-                      <Text style={{ fontSize: '12px', color: '#ea580c' }}>
+                      <Text style={{ fontSize: '12px', color: theme.token.colorWarning }}>
                         Attendance already exists for this date. Are you sure you want to resubmit?
                       </Text>
                       <div style={{ marginTop: 6 }}>
@@ -747,7 +827,7 @@ const UnifiedAttendance = () => {
             <Row gutter={[12, 12]} align="bottom">
               <Col span={12}>
                 <div style={{ marginBottom: 6 }}>
-                  <Text strong style={{ color: '#595959', fontSize: 13 }}>Date</Text>
+                  <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13 }}>Date</Text>
                 </div>
                 <DatePicker
                   value={historyDate}
@@ -760,7 +840,7 @@ const UnifiedAttendance = () => {
               {!isStudent && (
                 <Col span={12}>
                   <div style={{ marginBottom: 6 }}>
-                    <Text strong style={{ color: '#595959', fontSize: 13 }}>Class</Text>
+                    <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13 }}>Class</Text>
                   </div>
                   <Select
                     placeholder="Select Class"
@@ -822,7 +902,7 @@ const UnifiedAttendance = () => {
           </Text>
           
           <div style={{ 
-            background: '#f8fafc', 
+            background: theme.token.colorBgContainer, 
             padding: '16px', 
             borderRadius: '8px', 
             marginBottom: '16px' 
@@ -833,12 +913,12 @@ const UnifiedAttendance = () => {
                   <div style={{ 
                     fontSize: '24px', 
                     fontWeight: 'bold', 
-                    color: '#22c55e',
+                    color: theme.token.colorSuccess,
                     marginBottom: '4px'
                   }}>
                     {progressStats.marked - (Object.values(attendance).filter(status => status === 'absent').length)}
                   </div>
-                  <Text style={{ color: '#22c55e', fontWeight: '500' }}>🟢 Present</Text>
+                  <Text style={{ color: theme.token.colorSuccess, fontWeight: '500' }}>🟢 Present</Text>
                 </div>
               </Col>
               <Col span={8}>
@@ -846,12 +926,12 @@ const UnifiedAttendance = () => {
                   <div style={{ 
                     fontSize: '24px', 
                     fontWeight: 'bold', 
-                    color: '#ef4444',
+                    color: theme.token.colorError,
                     marginBottom: '4px'
                   }}>
                     {Object.values(attendance).filter(status => status === 'absent').length}
                   </div>
-                  <Text style={{ color: '#ef4444', fontWeight: '500' }}>🔴 Absent</Text>
+                  <Text style={{ color: theme.token.colorError, fontWeight: '500' }}>🔴 Absent</Text>
                 </div>
               </Col>
               <Col span={8}>
@@ -859,12 +939,12 @@ const UnifiedAttendance = () => {
                   <div style={{ 
                     fontSize: '24px', 
                     fontWeight: 'bold', 
-                    color: '#64748b',
+                    color: theme.token.colorTextSecondary,
                     marginBottom: '4px'
                   }}>
                     {progressStats.total}
                   </div>
-                  <Text style={{ color: '#64748b', fontWeight: '500' }}>👥 Total</Text>
+                  <Text style={{ color: theme.token.colorTextSecondary, fontWeight: '500' }}>👥 Total</Text>
                 </div>
               </Col>
             </Row>

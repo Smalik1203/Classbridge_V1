@@ -20,6 +20,7 @@ import { getSchoolCode, getUserRole } from '../utils/metadata';
 import { useHolidayCheck } from '../components/calendar/HolidayChecker';
 import { useErrorHandler } from '../hooks/useErrorHandler.jsx';
 import { useSyllabusLoader } from '../components/timetable/SyllabusLoader';
+import { getProgressForDate, markSlotTaught, unmarkSlotTaught } from '../services/syllabusProgressService';
 import EmptyState from '../ui/EmptyState';
 
 const { Text, Title } = Typography;
@@ -27,16 +28,19 @@ const { TextArea } = Input;
 
 // Removed status tracking - no longer needed
 
-const DURATION_COLORS = {
-  short: '#52c41a',    // Green for short sessions
-  medium: '#1890ff',   // Blue for medium sessions  
-  long: '#722ed1'      // Purple for long sessions
-};
+// Duration colors will be defined inside the component to use theme colors
 
 export default function UnifiedTimetable() {
   const [msg, ctx] = message.useMessage();
   const { showError, showSuccess } = useErrorHandler();
   const { isDarkMode, theme } = useTheme();
+  
+  // Theme-aware duration colors
+  const DURATION_COLORS = {
+    short: theme.token.colorSuccess,    // Green for short sessions
+    medium: theme.token.colorPrimary,   // Blue for medium sessions  
+    long: theme.token.colorWarning      // Orange for long sessions
+  };
 
   // Auth context
   const [me, setMe] = useState(null);
@@ -52,6 +56,7 @@ export default function UnifiedTimetable() {
   const [subjects, setSubjects] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [daySlots, setDaySlots] = useState([]);
+  const [taughtBySlotId, setTaughtBySlotId] = useState(new Set());
   
   // Syllabus data using custom hook
   const { chaptersById, syllabusContentMap, loading: syllabusLoading, refetch: refetchSyllabus } = useSyllabusLoader(classId, me?.school_code);
@@ -215,6 +220,17 @@ export default function UnifiedTimetable() {
 
       if (error) throw error;
       setDaySlots(data || []);
+      // Load taught state for this date
+      if (me?.school_code) {
+        try {
+          const progress = await getProgressForDate(me.school_code, classId, dateStr);
+          const taughtIds = new Set((progress || []).map(p => p.timetable_slot_id));
+          setTaughtBySlotId(taughtIds);
+        } catch (e) {
+          // Non-blocking
+          console.warn('Failed to load syllabus progress for date', e);
+        }
+      }
     } catch (e) {
       showError(e, { context: { item: 'timetable slots' } });
       setDaySlots([]);
@@ -462,9 +478,47 @@ export default function UnifiedTimetable() {
       ...slot,
       subjectName: subjectName(slot.subject_id),
       teacherName: adminName(slot.teacher_id),
-      syllabusContent: getSyllabusContent(slot)
+      syllabusContent: getSyllabusContent(slot),
+      isTaught: taughtBySlotId.has(slot.id)
     }));
-  }, [daySlots, subjects, admins, syllabusContentMap]);
+  }, [daySlots, subjects, admins, syllabusContentMap, taughtBySlotId]);
+
+  const taughtCounts = useMemo(() => {
+    const totalPeriods = daySlots.filter(s => s.slot_type === 'period').length;
+    const taughtPeriods = daySlots.filter(s => s.slot_type === 'period' && taughtBySlotId.has(s.id)).length;
+    return { taughtPeriods, totalPeriods };
+  }, [daySlots, taughtBySlotId]);
+
+  const handleToggleTaught = async (slot) => {
+    if (!me?.school_code) return;
+    try {
+      const isCurrentlyTaught = taughtBySlotId.has(slot.id);
+      if (isCurrentlyTaught) {
+        await unmarkSlotTaught({ schoolCode: me.school_code, timetableSlotId: slot.id });
+        const next = new Set(taughtBySlotId);
+        next.delete(slot.id);
+        setTaughtBySlotId(next);
+        showSuccess('Marked as not taught');
+      } else {
+        await markSlotTaught({
+          schoolCode: me.school_code,
+          timetableSlotId: slot.id,
+          classInstanceId: slot.class_instance_id,
+          date: slot.class_date,
+          subjectId: slot.subject_id,
+          teacherId: slot.teacher_id,
+          syllabusChapterId: slot.syllabus_chapter_id || null,
+          syllabusTopicId: slot.syllabus_topic_id || null,
+        });
+        const next = new Set(taughtBySlotId);
+        next.add(slot.id);
+        setTaughtBySlotId(next);
+        showSuccess('Marked as taught');
+      }
+    } catch (e) {
+      showError(e, { context: { item: 'syllabus progress' } });
+    }
+  };
 
   if (authLoading) {
     return (
@@ -620,6 +674,13 @@ export default function UnifiedTimetable() {
           </div>
         ) : scheduleData.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Daily progress summary */}
+            <Alert
+              type="info"
+              showIcon
+              message={`Taught ${taughtCounts.taughtPeriods} / ${taughtCounts.totalPeriods} periods`}
+              style={{ marginBottom: 8 }}
+            />
             {scheduleData.map((slot, index) => {
               const isBreak = slot.slot_type === 'break';
               const isActualPeriod = slot.slot_type === 'period';
@@ -691,6 +752,18 @@ export default function UnifiedTimetable() {
                     {/* Actions */}
                     <Col>
                       <Space>
+                        {isActualPeriod && (
+                          <Tooltip title={slot.isTaught ? 'Unmark taught' : 'Mark as taught'}>
+                            <Button
+                              type={slot.isTaught ? 'primary' : 'default'}
+                              icon={<CheckOutlined />}
+                              size="small"
+                              onClick={() => handleToggleTaught(slot)}
+                            >
+                              {slot.isTaught ? 'Taught' : 'Mark Taught'}
+                            </Button>
+                          </Tooltip>
+                        )}
                         <Tooltip title="Edit">
                           <Button
                             type="text"
@@ -746,8 +819,8 @@ export default function UnifiedTimetable() {
           </Empty>
         )}
 
-        {/* Add Period Button */}
-        {classId && !isHoliday && (
+        {/* Add Period Button - only show when there are existing items to avoid duplicate CTA in empty state */}
+        {classId && !isHoliday && scheduleData.length > 0 && (
           <div style={{ 
             marginTop: 16, 
             padding: '16px 0', 

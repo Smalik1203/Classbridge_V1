@@ -112,16 +112,15 @@ const Dashboard = () => {
           return;
         }
 
-        const [attendanceResult, feeResult, testResult, timetableResult] = await Promise.all([
+        const [attendanceResult, testsCount, timetableCount, feesSummary] = await Promise.all([
           supabase.from('attendance').select('status', { count: 'exact' }).eq('student_id', studentData.id).eq('date', today).maybeSingle(),
-          supabase.from('fee_student_plans').select('fee_student_plan_items(amount_paise)').eq('student_id', studentData.id).eq('school_code', schoolCode).maybeSingle(),
-          supabase.from('tests').select('id', { count: 'exact', head: true }).eq('class_instance_id', studentData.class_instance_id).gte('scheduled_date', today),
-          supabase.from('timetable_slots').select('id', { count: 'exact', head: true }).eq('class_instance_id', studentData.class_instance_id).eq('date', today)
+          supabase.from('tests').select('id', { count: 'exact', head: true }).eq('class_instance_id', studentData.class_instance_id).gte('test_date', today),
+          supabase.from('timetable_slots').select('id', { count: 'exact', head: true }).eq('class_instance_id', studentData.class_instance_id).eq('date', today),
+          supabase.rpc('fees_student_summary', { p_school_code: schoolCode, p_student_id: studentData.id })
         ]);
 
-        const totalFees = feeResult.data?.fee_student_plan_items?.reduce((sum, item) => sum + (item.amount_paise || 0), 0) || 0;
-        const { data: payments } = await supabase.from('fee_payments').select('amount_paise').eq('student_id', studentData.id).eq('school_code', schoolCode);
-        const paidFees = payments?.reduce((sum, p) => sum + (p.amount_paise || 0), 0) || 0;
+        const totalFees = feesSummary?.data?.[0]?.total_planned ?? 0;
+        const paidFees = feesSummary?.data?.[0]?.total_paid ?? 0;
 
         const { count: totalAttendance } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentData.id);
         const { count: presentCount } = await supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('student_id', studentData.id).eq('status', 'present');
@@ -133,8 +132,8 @@ const Dashboard = () => {
           todayAttendanceTotal: totalAttendance || 0,
           attendancePercentage: totalAttendance > 0 ? Math.round((presentCount / totalAttendance) * 100) : 0,
           pendingFees: (totalFees - paidFees) / 100,
-          upcomingTests: testResult.count || 0,
-          todayClasses: timetableResult.count || 0
+          upcomingTests: testsCount.count || 0,
+          todayClasses: timetableCount.count || 0
         });
       } else if (role === 'admin') {
         const { data: adminClasses } = await supabase
@@ -165,7 +164,7 @@ const Dashboard = () => {
           supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today).eq('status', 'present'),
           supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today),
           supabase.from('fee_student_plans').select('student_id, fee_student_plan_items(amount_paise)').eq('school_code', schoolCode),
-          supabase.from('tests').select('id', { count: 'exact', head: true }).in('class_instance_id', classIds).gte('scheduled_date', today)
+          supabase.from('tests').select('id', { count: 'exact', head: true }).in('class_instance_id', classIds).gte('test_date', today)
         ]);
 
         setStats({
@@ -179,22 +178,17 @@ const Dashboard = () => {
           todayClasses: classIds.length
         });
       } else if (role === 'superadmin') {
-        const [studentsResult, classesResult, subjectsResult, attendanceResult, attendanceTotalResult, feeResult, testResult] = await Promise.all([
+        const [studentsResult, classesResult, subjectsResult, attendanceResult, attendanceTotalResult, schoolFees, testResult] = await Promise.all([
           supabase.from('student').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
           supabase.from('class_instances').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
           supabase.from('subjects').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode),
           supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today).eq('status', 'present'),
           supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today),
-          supabase.from('fee_student_plans').select('student_id, fee_student_plan_items(amount_paise)').eq('school_code', schoolCode),
-          supabase.from('tests').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).gte('scheduled_date', today)
+          supabase.rpc('fees_school_summary', { p_school_code: schoolCode }),
+          supabase.from('tests').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).gte('test_date', today)
         ]);
-
-        const totalFees = feeResult.data?.reduce((sum, plan) => {
-          return sum + (plan.fee_student_plan_items?.reduce((s, item) => s + (item.amount_paise || 0), 0) || 0);
-        }, 0) || 0;
-
-        const { data: payments } = await supabase.from('fee_payments').select('amount_paise').eq('school_code', schoolCode);
-        const paidFees = payments?.reduce((sum, p) => sum + (p.amount_paise || 0), 0) || 0;
+        const totalFees = 0; // not displayed here; keep prior behavior only for pending fees calculation below
+        const paidFees = schoolFees?.data?.[0]?.total_paid ?? 0;
 
         setStats({
           totalStudents: studentsResult.count || 0,

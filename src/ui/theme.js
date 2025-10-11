@@ -521,9 +521,10 @@ export const lightTheme = {
   },
 };
 
-// Enhanced Dark Theme Tokens - Professional dark mode
+// Enhanced Dark Theme Tokens - True Black Theme
 export const darkTheme = {
   algorithm: theme.darkAlgorithm,
+  hashed: false,
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
@@ -534,27 +535,27 @@ export const darkTheme = {
     colorPrimaryBorder: 'hsl(244, 95%, 18%)',
     colorPrimaryBorderHover: 'hsl(244, 95%, 24%)',
 
-    // Enhanced Base Colors - Better contrast and depth
-    colorBgBase: NEUTRALS.N950,
-    colorBgContainer: NEUTRALS.N900,
-    colorBgElevated: NEUTRALS.N800,
-    colorBgLayout: NEUTRALS.N950,
-    colorBgSpotlight: NEUTRALS.N900,
-    colorBgMask: 'rgba(0, 0, 0, 0.65)',
+    // Enhanced Base Colors - True black theme with high contrast
+    colorBgBase: '#000000',        // Pure black base
+    colorBgContainer: '#0a0a0a',   // Near-black containers
+    colorBgElevated: '#1a1a1a',    // Dark gray elevated elements
+    colorBgLayout: '#000000',      // Pure black layout
+    colorBgSpotlight: '#0a0a0a',   // Near-black spotlight
+    colorBgMask: 'rgba(0, 0, 0, 0.8)',
 
-    // Enhanced Text Colors - Improved readability
-    colorText: NEUTRALS.N50,
-    colorTextSecondary: NEUTRALS.N300,
-    colorTextTertiary: NEUTRALS.N400,
-    colorTextQuaternary: NEUTRALS.N500,
-    colorTextPlaceholder: NEUTRALS.N500,
-    colorTextDisabled: NEUTRALS.N600,
-    colorTextHeading: NEUTRALS.N25,
+    // Enhanced Text Colors - High contrast on black background
+    colorText: '#ffffff',           // Pure white text
+    colorTextSecondary: '#d1d5db',  // Light gray secondary
+    colorTextTertiary: '#9ca3af',   // Medium gray tertiary
+    colorTextQuaternary: '#6b7280', // Darker gray quaternary
+    colorTextPlaceholder: '#6b7280', // Placeholder text
+    colorTextDisabled: '#4b5563',   // Disabled text
+    colorTextHeading: '#ffffff',    // Pure white headings
 
-    // Border Colors
-    colorBorder: NEUTRALS.N700,
-    colorBorderSecondary: NEUTRALS.N800,
-    colorSplit: NEUTRALS.N800,
+    // Border Colors - High contrast on black
+    colorBorder: '#404040',         // Medium gray borders
+    colorBorderSecondary: '#2a2a2a', // Darker borders
+    colorSplit: '#2a2a2a',          // Split lines
 
     // Status Colors (adjusted for dark)
     colorSuccess: '#22c55e',

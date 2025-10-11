@@ -1,35 +1,32 @@
 // src/pages/analytics/AnalyticsHub.jsx
-// Main analytics hub page with aggregated summaries
+// Unified analytics hub with percentage-first design
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Row, Col, Typography, Alert, Spin, Card } from 'antd';
-import { 
-  TeamOutlined, 
-  DollarOutlined, 
-  FileTextOutlined, 
-  BookOutlined,
-  BarChartOutlined,
-  CalendarOutlined
-} from '@ant-design/icons';
+import { Row, Col, Typography, Alert } from 'antd';
 import { useAuth } from '../../AuthProvider';
 import { getUserRole, getSchoolCode } from '../../utils/metadata';
 import { supabase } from '../../config/supabaseClient';
 import { useTheme } from '../../contexts/ThemeContext';
+import AnalyticsCard from '../../ui/AnalyticsCard';
+import CompactFilterBar from '../../ui/CompactFilterBar';
 import { 
-  AnalyticsSection, 
-  AnalyticsFilterBar, 
-  AnalyticsChart 
-} from '../../ui';
-import { 
-  getAttendanceSummary, 
-  getFeesSummary, 
-  getExamsSummary, 
-  getLearningSummary 
-} from '../../services/analyticsSummaryServiceEnhanced';
+  useAttendanceAnalytics,
+  useFeesAnalytics,
+  useExamsAnalytics,
+  useLearningAnalytics
+} from '../../hooks';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+import '../../styles/analytics-responsive.css';
+
+// Configure dayjs for IST timezone
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Title, Text } = Typography;
+const IST_TIMEZONE = 'Asia/Kolkata';
 
 const AnalyticsHub = () => {
   const navigate = useNavigate();
@@ -39,22 +36,25 @@ const AnalyticsHub = () => {
   const userRole = getUserRole(user);
   const schoolCode = getSchoolCode(user);
 
-  // URL state management
+  // URL state management with IST timezone
   const [dateRange, setDateRange] = useState(() => {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
-    return from && to ? [dayjs(from), dayjs(to)] : [dayjs().subtract(30, 'days'), dayjs()];
+    if (from && to) {
+      return [
+        dayjs(from).tz(IST_TIMEZONE),
+        dayjs(to).tz(IST_TIMEZONE)
+      ];
+    }
+    return [
+      dayjs().tz(IST_TIMEZONE).subtract(30, 'days'),
+      dayjs().tz(IST_TIMEZONE)
+    ];
   });
   const [selectedClassId, setSelectedClassId] = useState(searchParams.get('class_id') || 'all');
 
-  // Data state
+  // Classes state
   const [classes, setClasses] = useState([]);
-  const [attendanceData, setAttendanceData] = useState(null);
-  const [feesData, setFeesData] = useState(null);
-  const [examsData, setExamsData] = useState(null);
-  const [learningData, setLearningData] = useState(null);
-  const [dataLoading, setDataLoading] = useState(false);
-  const [error, setError] = useState(null);
 
   // Update URL when filters change
   useEffect(() => {
@@ -105,73 +105,30 @@ const AnalyticsHub = () => {
     }
   }, [userRole, schoolCode, user?.id]);
 
-  // Load all analytics data
-  useEffect(() => {
-    const loadAnalyticsData = async () => {
-      if (!dateRange[0] || !dateRange[1]) return;
+  // Use analytics hooks
+  const attendanceAnalytics = useAttendanceAnalytics({
+    startDate: dateRange[0],
+    endDate: dateRange[1],
+    classId: selectedClassId
+  });
 
-      setDataLoading(true);
-      setError(null);
+  const feesAnalytics = useFeesAnalytics({
+    startDate: dateRange[0],
+    endDate: dateRange[1],
+    classId: selectedClassId
+  });
 
-      try {
-        const promises = [];
+  const examsAnalytics = useExamsAnalytics({
+    startDate: dateRange[0],
+    endDate: dateRange[1],
+    classId: selectedClassId
+  });
 
-        // Convert 'all' to null for school-wide analytics
-        const classFilter = selectedClassId === 'all' ? null : selectedClassId;
-
-        // Load attendance summary
-        promises.push(
-          getAttendanceSummary(schoolCode, dateRange, classFilter, user)
-            .then(setAttendanceData)
-            .catch(err => {
-              console.error('Attendance summary error:', err);
-              setAttendanceData({ error: 'Failed to load attendance data' });
-            })
-        );
-
-        // Load fees summary
-        promises.push(
-          getFeesSummary(schoolCode, dateRange, classFilter, user)
-            .then(setFeesData)
-            .catch(err => {
-              console.error('Fees summary error:', err);
-              setFeesData({ error: 'Failed to load fees data' });
-            })
-        );
-
-        // Load exams summary
-        promises.push(
-          getExamsSummary(schoolCode, dateRange, classFilter, user)
-            .then(setExamsData)
-            .catch(err => {
-              console.error('Exams summary error:', err);
-              setExamsData({ error: 'Failed to load exams data' });
-            })
-        );
-
-        // Load learning summary
-        promises.push(
-          getLearningSummary(schoolCode, dateRange, classFilter, user)
-            .then(setLearningData)
-            .catch(err => {
-              console.error('Learning summary error:', err);
-              setLearningData({ error: 'Failed to load learning data' });
-            })
-        );
-
-        await Promise.all(promises);
-      } catch (error) {
-        setError('Failed to load analytics data');
-        console.error('Analytics loading error:', error);
-      } finally {
-        setDataLoading(false);
-      }
-    };
-
-    if (schoolCode && dateRange[0] && dateRange[1]) {
-      loadAnalyticsData();
-    }
-  }, [schoolCode, dateRange, selectedClassId]);
+  const learningAnalytics = useLearningAnalytics({
+    startDate: dateRange[0],
+    endDate: dateRange[1],
+    classId: selectedClassId
+  });
 
   // Filter handlers
   const handleDateRangeChange = (dates) => {
@@ -183,7 +140,8 @@ const AnalyticsHub = () => {
   };
 
   const handleRefresh = () => {
-    // Data will reload automatically due to useEffect dependency
+    // Data will reload automatically due to hook dependencies
+    window.location.reload();
   };
 
   // Role-based visibility
@@ -192,198 +150,154 @@ const AnalyticsHub = () => {
   const canViewExams = ['superadmin', 'admin', 'student'].includes(userRole);
   const canViewLearning = ['superadmin', 'admin', 'student'].includes(userRole);
 
+  // Check if any analytics are loading
+  const anyLoading = attendanceAnalytics.loading || feesAnalytics.loading || 
+                    examsAnalytics.loading || learningAnalytics.loading;
+
   return (
-    <div style={{ 
-      padding: '16px', 
-      background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
-      minHeight: '100vh' 
-    }}>
+    <div 
+      className="analytics-hub-container"
+      style={{ 
+        padding: '16px 20px', 
+        background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
+        minHeight: '100vh',
+        maxWidth: '100%',
+        overflowX: 'hidden'
+      }}
+    >
       {/* Header */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ 
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'flex-start', 
+          flexWrap: 'wrap', 
+          gap: 16 
+        }}>
+          <div style={{ flex: 1, minWidth: '280px' }}>
+            <Title level={2} style={{ 
               margin: 0, 
-              fontSize: 24, 
+              fontSize: window.innerWidth < 768 ? 20 : 28, 
               fontWeight: 600, 
               color: theme.token.colorTextHeading, 
-              marginBottom: 4 
+              marginBottom: 8,
+              lineHeight: 1.2
             }}>
               📊 Analytics Hub
-            </h1>
+            </Title>
             <Text type="secondary" style={{ 
-              fontSize: 14, 
-              color: theme.token.colorTextSecondary 
+              fontSize: window.innerWidth < 768 ? 13 : 16, 
+              color: theme.token.colorTextSecondary,
+              lineHeight: 1.4
             }}>
-              Executive overview of all analytics modules
+              Unified percentage-based analytics across all modules
             </Text>
           </div>
         </div>
       </div>
 
-      {/* Global Filters */}
-      <AnalyticsFilterBar
+      {/* Compact Filter Bar */}
+      <CompactFilterBar
         dateRange={dateRange}
         selectedClassId={selectedClassId}
         classes={classes}
         onDateRangeChange={handleDateRangeChange}
         onClassChange={handleClassChange}
         onRefresh={handleRefresh}
-        loading={dataLoading}
-        showClassFilter={true}
+        loading={anyLoading}
       />
 
-      {/* Error Alert */}
-      {error && (
-        <Alert
-          message="Error"
-          description={error}
-          type="error"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-      )}
-
-      {/* Analytics Grid */}
-      <Row gutter={[16, 16]}>
+      {/* Analytics Grid - 2x2 on desktop, 1x4 on mobile */}
+      <Row gutter={[20, 20]}>
         {/* Attendance Analytics */}
         {canViewAttendance && (
-          <Col xs={24} lg={12}>
-            <AnalyticsSection
-              title="Attendance Analytics"
-              description="Student attendance overview"
-              icon={<TeamOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
-              link="/analytics/attendance/overview"
-              loading={dataLoading}
-              error={attendanceData?.error}
-              kpis={attendanceData?.kpis?.map(kpi => ({
-                ...kpi,
-                icon: kpi.icon || <TeamOutlined style={{ color: '#3b82f6' }} />
-              }))}
-              chart={
-                attendanceData?.chartData && (
-                  <AnalyticsChart
-                    type={attendanceData.chartType}
-                    data={attendanceData.chartData}
-                    height={200}
-                  />
-                )
-              }
+          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+            <AnalyticsCard
+              title="Attendance"
+              primaryPercent={attendanceAnalytics.data?.primaryPercent || 0}
+              primaryLabel={attendanceAnalytics.data?.primaryLabel || 'Present'}
+              secondaryPercent={attendanceAnalytics.data?.secondaryPercent || 0}
+              secondaryLabel={attendanceAnalytics.data?.secondaryLabel || 'Absent'}
+              supporting={attendanceAnalytics.data?.supporting || []}
+              onViewDetails={() => navigate('/analytics/attendance/overview')}
+              loading={attendanceAnalytics.loading}
+              error={attendanceAnalytics.error}
             />
           </Col>
         )}
 
         {/* Fees Analytics */}
         {canViewFees && (
-          <Col xs={24} lg={12}>
-            <AnalyticsSection
-              title="Fees Analytics"
-              description="Fee collection overview"
-              icon={<DollarOutlined style={{ color: '#16a34a', fontSize: 18 }} />}
-              link="/fees"
-              loading={dataLoading}
-              error={feesData?.error}
-              kpis={feesData?.kpis?.map(kpi => ({
-                ...kpi,
-                icon: kpi.icon || <DollarOutlined style={{ color: '#16a34a' }} />
-              }))}
-              chart={
-                feesData?.chartData && (
-                  <AnalyticsChart
-                    type={feesData.chartType}
-                    data={feesData.chartData}
-                    height={200}
-                  />
-                )
-              }
+          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+            <AnalyticsCard
+              title="Fees"
+              primaryPercent={feesAnalytics.data?.primaryPercent || 0}
+              primaryLabel={feesAnalytics.data?.primaryLabel || 'Collected'}
+              secondaryPercent={feesAnalytics.data?.secondaryPercent || 0}
+              secondaryLabel={feesAnalytics.data?.secondaryLabel || 'Outstanding'}
+              supporting={feesAnalytics.data?.supporting || []}
+              onViewDetails={() => navigate('/fees')}
+              loading={feesAnalytics.loading}
+              error={feesAnalytics.error}
             />
           </Col>
         )}
 
         {/* Exams Analytics */}
         {canViewExams && (
-          <Col xs={24} lg={12}>
-            <AnalyticsSection
-              title="Exams Analytics"
-              description="Test performance overview"
-              icon={<FileTextOutlined style={{ color: '#ef4444', fontSize: 18 }} />}
-              link="/test-management"
-              loading={dataLoading}
-              error={examsData?.error}
-              kpis={examsData?.kpis?.map(kpi => ({
-                ...kpi,
-                icon: kpi.icon || <FileTextOutlined style={{ color: '#ef4444' }} />
-              }))}
-              chart={
-                examsData?.chartData && (
-                  <AnalyticsChart
-                    type={examsData.chartType}
-                    data={examsData.chartData}
-                    height={200}
-                  />
-                )
-              }
+          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+            <AnalyticsCard
+              title="Exams"
+              primaryPercent={examsAnalytics.data?.primaryPercent || 0}
+              primaryLabel={examsAnalytics.data?.primaryLabel || 'Pass'}
+              secondaryPercent={examsAnalytics.data?.secondaryPercent || 0}
+              secondaryLabel={examsAnalytics.data?.secondaryLabel || 'Fail'}
+              supporting={examsAnalytics.data?.supporting || []}
+              onViewDetails={() => navigate('/test-management')}
+              loading={examsAnalytics.loading}
+              error={examsAnalytics.error}
             />
           </Col>
         )}
 
         {/* Learning Analytics */}
         {canViewLearning && (
-          <Col xs={24} lg={12}>
-            <AnalyticsSection
-              title="Learning Analytics"
-              description="Learning resources overview"
-              icon={<BookOutlined style={{ color: '#8b5cf6', fontSize: 18 }} />}
-              link="/learning-resources"
-              loading={dataLoading}
-              error={learningData?.error}
-              kpis={learningData?.kpis?.map(kpi => ({
-                ...kpi,
-                icon: kpi.icon || <BookOutlined style={{ color: '#8b5cf6' }} />
-              }))}
-              chart={
-                learningData?.chartData && (
-                  <AnalyticsChart
-                    type={learningData.chartType}
-                    data={learningData.chartData}
-                    height={200}
-                  />
-                )
-              }
+          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
+            <AnalyticsCard
+              title="Learning"
+              primaryPercent={learningAnalytics.data?.primaryPercent || 0}
+              primaryLabel={learningAnalytics.data?.primaryLabel || 'Completed'}
+              secondaryPercent={learningAnalytics.data?.secondaryPercent || 0}
+              secondaryLabel={learningAnalytics.data?.secondaryLabel || 'Pending'}
+              supporting={learningAnalytics.data?.supporting || []}
+              onViewDetails={() => navigate('/learning-resources')}
+              loading={learningAnalytics.loading}
+              error={learningAnalytics.error}
             />
           </Col>
         )}
       </Row>
 
-      {/* Quick Stats Summary */}
-      {!dataLoading && !error && (
-        <Card 
-          style={{ 
-            marginTop: 24,
-            borderRadius: 12, 
-            border: `1px solid ${theme.token.colorBorder}`, 
-            boxShadow: isDarkMode ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
-            background: theme.token.colorBgContainer
-          }}
-          styles={{ body: { padding: '20px' } }}
-        >
-          <div style={{ textAlign: 'center' }}>
-            <Title level={4} style={{ 
-              margin: 0, 
-              color: theme.token.colorTextHeading, 
-              marginBottom: 8 
-            }}>
-              📈 Executive Summary
-            </Title>
-            <Text type="secondary" style={{ 
-              fontSize: '14px',
-              color: theme.token.colorTextSecondary
-            }}>
-              {dateRange[0]?.format('DD/MM/YYYY')} to {dateRange[1]?.format('DD/MM/YYYY')}
-              {selectedClassId && ` • ${selectedClassId === 'all' ? 'All Classes' : classes.find(c => c.id === selectedClassId)?.class_name || 'Selected Class'}`}
-            </Text>
-          </div>
-        </Card>
+      {/* Date Range Summary */}
+      {dateRange[0] && dateRange[1] && (
+        <div style={{ 
+          marginTop: 24,
+          textAlign: 'center',
+          padding: '16px',
+          background: theme.token.colorBgContainer,
+          borderRadius: 12,
+          border: `1px solid ${theme.token.colorBorder}`
+        }}>
+          <Text type="secondary" style={{ 
+            fontSize: '14px',
+            color: theme.token.colorTextSecondary
+          }}>
+            📅 Showing data from {dateRange[0].format('DD MMM YYYY')} to {dateRange[1].format('DD MMM YYYY')}
+            {selectedClassId !== 'all' && (
+              <span> • {classes.find(c => c.id === selectedClassId)?.class_name || 'Selected Class'}</span>
+            )}
+          </Text>
+        </div>
       )}
     </div>
   );

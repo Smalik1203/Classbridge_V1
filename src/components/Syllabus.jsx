@@ -58,6 +58,9 @@ export default function SyllabusPage() {
   const [syllabus, setSyllabus] = useState(null);
   const [chapters, setChapters] = useState([]);
   const [expandedChapters, setExpandedChapters] = useState(new Set()); // Start empty - no chapters expanded by default
+  const [taughtChapters, setTaughtChapters] = useState(new Set());
+  const [taughtTopics, setTaughtTopics] = useState(new Set());
+  const [progressLoading, setProgressLoading] = useState(false);
 
   // Modal states
   const [chapterModal, setChapterModal] = useState({ visible: false, editing: null });
@@ -234,6 +237,8 @@ export default function SyllabusPage() {
         setSyllabus(syl);
         // Load chapters for existing syllabus
         await loadChaptersForSyllabus(syl.id);
+        // Load taught progress for this class/subject
+        await loadTaughtProgress();
       }
     } catch (e) {
       showError(e, {
@@ -282,6 +287,36 @@ export default function SyllabusPage() {
           resource: 'syllabus chapters'
         }
       });
+    }
+  };
+
+  // Load taught progress for selected class/subject
+  const loadTaughtProgress = async () => {
+    try {
+      if (!school_code || !classInstanceId || !subjectId) return;
+      setProgressLoading(true);
+      const { data, error } = await supabase
+        .from('syllabus_progress')
+        .select('syllabus_chapter_id, syllabus_topic_id')
+        .eq('school_code', school_code)
+        .eq('class_instance_id', classInstanceId)
+        .eq('subject_id', subjectId);
+      if (error) throw error;
+      const tch = new Set();
+      const ttp = new Set();
+      (data || []).forEach(r => {
+        if (r.syllabus_chapter_id) tch.add(r.syllabus_chapter_id);
+        if (r.syllabus_topic_id) ttp.add(r.syllabus_topic_id);
+      });
+      setTaughtChapters(tch);
+      setTaughtTopics(ttp);
+    } catch (e) {
+      // non-blocking
+      console.warn('Failed to load syllabus progress:', e?.message || e);
+      setTaughtChapters(new Set());
+      setTaughtTopics(new Set());
+    } finally {
+      setProgressLoading(false);
     }
   };
 
@@ -1076,6 +1111,12 @@ export default function SyllabusPage() {
               }}>
                 {chapters.length} chapter{chapters.length !== 1 ? 's' : ''} • {' '}
                 {chapters.reduce((total, ch) => total + (ch.syllabus_topics?.length || 0), 0)} topics
+                {chapters.length > 0 && (
+                  <>
+                    {' '}• {' '}
+                    {Array.from(taughtTopics).length} taught
+                  </>
+                )}
               </Text>
             </div>
             {canEdit && (
@@ -1188,6 +1229,9 @@ export default function SyllabusPage() {
                       }}>
                         {chapter.title}
                       </Title>
+                      {taughtChapters.has(chapter.id) && (
+                        <Tag color="green" style={{ fontSize: '12px' }}>Taught</Tag>
+                      )}
                       {chapter.ref_code && (
                         <Tag color="geekblue" style={{ fontSize: '12px' }}>
                           {chapter.ref_code}
@@ -1266,6 +1310,9 @@ export default function SyllabusPage() {
                               <Text strong style={{ fontSize: '14px' }}>
                                 {topic.title}
                               </Text>
+                              {taughtTopics.has(topic.id) && (
+                                <Tag color="green">Taught</Tag>
+                              )}
                               {topic.ref_code && (
                                 <Tag color="lime">{topic.ref_code}</Tag>
                               )}
