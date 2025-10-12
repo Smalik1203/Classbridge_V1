@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Form, Button, message, Typography, Table, Popconfirm, Card, Select, Input, Space, Tag, Tooltip } from 'antd';
-import { Trash2 } from 'lucide-react';
+import { Form, Button, message, Typography, Table, Popconfirm, Card, Select, Input, Space, Tag, Tooltip, Modal } from 'antd';
+import { Trash2, Edit } from 'lucide-react';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
 import EmptyState from '../ui/EmptyState';
@@ -28,6 +28,9 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [editForm] = Form.useForm();
 
   // Prefer deriving write access from backend settings/RLS; fallback to role check.
   const canWrite = typeof canWriteProp === 'boolean' ? canWriteProp : role === 'superadmin';
@@ -71,6 +74,53 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
       fetchSubjects();
     } catch (err) {
       message.error('Failed to delete subject');
+    }
+  };
+
+  const handleEdit = (subject) => {
+    if (!canWrite) return message.error('Only superadmins can edit subjects.');
+    setSelectedSubject(subject);
+    editForm.setFieldsValue({
+      subject_name: subject.subject_name
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleUpdate = async (values) => {
+    if (!canWrite) return message.error('Access denied. Only permitted roles can edit subjects.');
+    
+    const { subject_name } = values;
+    const trimmedName = subject_name.trim();
+    
+    if (!trimmedName) {
+      return message.error('Subject name cannot be empty');
+    }
+
+    // Check if the new name already exists (excluding current subject)
+    const normalizedNewName = normalize(trimmedName);
+    const existingSubject = subjects.find(s => 
+      s.id !== selectedSubject.id && normalize(s.subject_name) === normalizedNewName
+    );
+    
+    if (existingSubject) {
+      return message.error('A subject with this name already exists');
+    }
+
+    try {
+      const { error } = await supabase
+        .from('subjects')
+        .update({ subject_name: trimmedName })
+        .eq('id', selectedSubject.id);
+      
+      if (error) throw error;
+      
+      message.success('Subject updated successfully');
+      setEditModalVisible(false);
+      setSelectedSubject(null);
+      editForm.resetFields();
+      fetchSubjects();
+    } catch (err) {
+      message.error('Failed to update subject');
     }
   };
 
@@ -137,11 +187,18 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 150,
       render: (_, record) => (
         <Space>
           {/* Hook up to a separate syllabus page when available */}
           {/* <Button onClick={() => navigate(`/syllabus/${record.id}`)}>Manage Syllabus</Button> */}
+          <Button 
+            type="text" 
+            icon={<Edit size={18} />} 
+            onClick={() => handleEdit(record)}
+            disabled={!canWrite}
+            title="Edit subject"
+          />
           <Popconfirm
             title="Delete this subject?"
             okText="Yes"
@@ -150,7 +207,7 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
             onConfirm={() => handleDelete(record.id)}
             disabled={!canWrite}
           >
-            <Button type="text" danger icon={<Trash2 size={18} />} disabled={!canWrite} />
+            <Button type="text" danger icon={<Trash2 size={18} />} disabled={!canWrite} title="Delete subject" />
           </Popconfirm>
         </Space>
       ),
@@ -246,6 +303,57 @@ const AddSubjects = ({ canWrite: canWriteProp } = {}) => {
           />
         )}
       </Card>
+
+      {/* Edit Subject Modal */}
+      <Modal
+        title="Edit Subject"
+        open={editModalVisible}
+        onCancel={() => {
+          setEditModalVisible(false);
+          setSelectedSubject(null);
+          editForm.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={handleUpdate}
+        >
+          <Form.Item
+            label="Subject Name"
+            name="subject_name"
+            rules={[
+              { required: true, message: 'Please enter subject name' },
+              { min: 1, message: 'Subject name cannot be empty' },
+              { max: 100, message: 'Subject name is too long' }
+            ]}
+          >
+            <Input 
+              placeholder="Enter subject name"
+              autoFocus
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button 
+                onClick={() => {
+                  setEditModalVisible(false);
+                  setSelectedSubject(null);
+                  editForm.resetFields();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="primary" htmlType="submit">
+                Update Subject
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

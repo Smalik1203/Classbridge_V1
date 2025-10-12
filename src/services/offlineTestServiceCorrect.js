@@ -11,7 +11,6 @@ import { supabase } from '../config/supabaseClient.js';
  */
 export const getTestDetails = async (testId) => {
   try {
-    console.log('🔍 getTestDetails called with testId:', testId);
     
     const { data, error } = await supabase
       .from('tests')
@@ -31,10 +30,7 @@ export const getTestDetails = async (testId) => {
       .eq('test_mode', 'offline')
       .single();
 
-    console.log('📥 Test details response:', { data, error });
-
     if (error) {
-      console.error('❌ Error fetching test details:', error);
       return {
         success: false,
         error: `Failed to fetch test details: ${error.message}`,
@@ -59,7 +55,6 @@ export const getTestDetails = async (testId) => {
       count: 1
     };
   } catch (err) {
-    console.error('❌ Exception in getTestDetails:', err);
     return {
       success: false,
       error: `Unexpected error: ${err.message}`,
@@ -74,7 +69,6 @@ export const getTestDetails = async (testId) => {
  */
 export const getStudentsForClass = async (classInstanceId) => {
   try {
-    console.log('🔍 getStudentsForClass called with classInstanceId:', classInstanceId);
     
     const { data, error } = await supabase
       .from('student')
@@ -91,10 +85,7 @@ export const getStudentsForClass = async (classInstanceId) => {
       .eq('class_instance_id', classInstanceId)
       .order('student_code');
 
-    console.log('📥 Students response:', { data, error, count: data?.length || 0 });
-
     if (error) {
-      console.error('❌ Error fetching students:', error);
       return {
         success: false,
         error: `Failed to fetch students: ${error.message}`,
@@ -110,7 +101,6 @@ export const getStudentsForClass = async (classInstanceId) => {
       count: data?.length || 0
     };
   } catch (err) {
-    console.error('❌ Exception in getStudentsForClass:', err);
     return {
       success: false,
       error: `Unexpected error: ${err.message}`,
@@ -125,7 +115,6 @@ export const getStudentsForClass = async (classInstanceId) => {
  */
 export const getTestMarks = async (testId) => {
   try {
-    console.log('🔍 getTestMarks called with testId:', testId);
     
     const { data, error } = await supabase
       .from('test_marks')
@@ -141,10 +130,7 @@ export const getTestMarks = async (testId) => {
       `)
       .eq('test_id', testId);
 
-    console.log('📥 Test marks response:', { data, error, count: data?.length || 0 });
-
     if (error) {
-      console.error('❌ Error fetching test marks:', error);
       return {
         success: false,
         error: `Failed to fetch test marks: ${error.message}`,
@@ -160,7 +146,6 @@ export const getTestMarks = async (testId) => {
       count: data?.length || 0
     };
   } catch (err) {
-    console.error('❌ Exception in getTestMarks:', err);
     return {
       success: false,
       error: `Unexpected error: ${err.message}`,
@@ -175,7 +160,6 @@ export const getTestMarks = async (testId) => {
  */
 export const saveTestMarks = async (marksData) => {
   try {
-    console.log('🔍 saveTestMarks called with marksData:', marksData);
     
     if (!Array.isArray(marksData) || marksData.length === 0) {
       return {
@@ -197,8 +181,6 @@ export const saveTestMarks = async (marksData) => {
       updated_at: new Date().toISOString()
     }));
 
-    console.log('📤 Prepared data for upsert:', preparedData);
-
     const { data, error } = await supabase
       .from('test_marks')
       .upsert(preparedData, {
@@ -207,10 +189,7 @@ export const saveTestMarks = async (marksData) => {
       })
       .select();
 
-    console.log('📥 Save marks response:', { data, error, count: data?.length || 0 });
-
     if (error) {
-      console.error('❌ Error saving test marks:', error);
       return {
         success: false,
         error: `Failed to save test marks: ${error.message}`,
@@ -226,7 +205,6 @@ export const saveTestMarks = async (marksData) => {
       count: data?.length || 0
     };
   } catch (err) {
-    console.error('❌ Exception in saveTestMarks:', err);
     return {
       success: false,
       error: `Unexpected error: ${err.message}`,
@@ -241,7 +219,6 @@ export const saveTestMarks = async (marksData) => {
  */
 export const getTestWithStudentsAndMarks = async (testId) => {
   try {
-    console.log('🔍 getTestWithStudentsAndMarks called with testId:', testId);
     
     // First get test details
     const testResult = await getTestDetails(testId);
@@ -284,7 +261,6 @@ export const getTestWithStudentsAndMarks = async (testId) => {
       count: studentsWithMarks.length
     };
   } catch (err) {
-    console.error('❌ Exception in getTestWithStudentsAndMarks:', err);
     return {
       success: false,
       error: `Unexpected error: ${err.message}`,

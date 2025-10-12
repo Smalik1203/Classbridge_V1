@@ -46,7 +46,6 @@ export const useLearningAnalytics = ({ startDate, endDate, classId }) => {
 
 
       } catch (err) {
-        console.error('Learning analytics error:', err);
         setError(err.message || 'Failed to load learning data');
       } finally {
         setLoading(false);

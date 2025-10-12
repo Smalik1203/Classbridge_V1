@@ -58,7 +58,7 @@ const AnalyticsPreview = () => {
   };
 
   const handleViewDetails = (module) => {
-    console.log(`View details for ${module}`);
+    // Handle view details for module
   };
 
   return (

@@ -28,18 +28,7 @@ const EnhancedChart = ({
   yAxisProps = {},
   ...props 
 }) => {
-  // Debug logging
-  console.log('=== ENHANCED CHART DEBUG ===');
-  console.log('Chart type:', type);
-  console.log('Data:', data);
-  console.log('Data length:', data?.length);
-  console.log('Data keys:', dataKeys);
-  console.log('Chart props:', chartProps);
-  console.log('XAxis props:', xAxisProps);
-  console.log('YAxis props:', yAxisProps);
-  console.log('Sample data item:', data?.[0]);
-  console.log('Data keys in sample:', data?.[0] ? Object.keys(data[0]) : 'No data');
-  console.log('============================');
+  // Chart configuration
 
   const renderChart = () => {
     if (!data || data.length === 0) {

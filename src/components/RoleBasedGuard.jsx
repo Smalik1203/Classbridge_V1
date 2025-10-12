@@ -33,7 +33,6 @@ const RoleBasedGuard = ({ children }) => {
       const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error) {
-        console.error('Auth error:', error);
         navigate('/login');
         return;
       }
@@ -48,7 +47,6 @@ const RoleBasedGuard = ({ children }) => {
       // Check if user has a valid role
       const userRole = getUserRole(user);
       if (!userRole) {
-        console.error('No role found for user');
         navigate('/login');
         return;
       }
@@ -57,8 +55,6 @@ const RoleBasedGuard = ({ children }) => {
       const hasAccess = validateRouteAccess(location.pathname, user);
       
       if (!hasAccess) {
-        console.warn(`Access denied to route: ${location.pathname} for role: ${userRole}`);
-        
         // Redirect to appropriate dashboard
         const dashboardRoute = getUserDashboardRoute(user);
         navigate(dashboardRoute);
@@ -67,7 +63,6 @@ const RoleBasedGuard = ({ children }) => {
 
       setIsAuthorized(true);
     } catch (error) {
-      console.error('Route access check failed:', error);
       navigate('/login');
     } finally {
       setIsLoading(false);

@@ -55,7 +55,6 @@ export class WorkingDaysService {
         totalDays: workingDays + holidays
       };
     } catch (error) {
-      console.error('Error calculating working days:', error);
       return {
         workingDays: 0,
         holidays: 0,
@@ -115,7 +114,6 @@ export class WorkingDaysService {
 
       return days;
     } catch (error) {
-      console.error('Error getting days breakdown:', error);
       return [];
     }
   }
