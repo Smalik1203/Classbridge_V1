@@ -45,7 +45,6 @@ export const useExamsAnalytics = ({ startDate, endDate, classId }) => {
         setData(testsData);
 
       } catch (err) {
-        console.error('Exams analytics error:', err);
         setError(err.message || 'Failed to load exams data');
       } finally {
         setLoading(false);

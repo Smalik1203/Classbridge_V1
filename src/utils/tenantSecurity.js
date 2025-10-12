@@ -137,8 +137,7 @@ export async function secureDatabaseOperation(operation, user, operationName = '
     // Execute the operation
     const result = await operation();
     
-    // Log the operation for audit purposes
-    console.log(`[TENANT_SECURITY] ${operationName} executed for school: ${schoolCode}`);
+    // Operation executed for audit purposes
     
     return result;
   } catch (error) {
@@ -147,7 +146,6 @@ export async function secureDatabaseOperation(operation, user, operationName = '
     }
     
     // Log security-related errors
-    console.error(`[TENANT_SECURITY] ${operationName} failed:`, error.message);
     throw new TenantSecurityError(`Database operation failed: ${error.message}`, 'OPERATION_ERROR');
   }
 }
@@ -180,7 +178,6 @@ export async function validateResourceAccess(resourceType, resourceId, user) {
 
     return true;
   } catch (error) {
-    console.error(`[TENANT_SECURITY] Resource access validation failed:`, error.message);
     return false;
   }
 }
@@ -212,14 +209,7 @@ export function createSecureFilters(filters, user) {
 export function logTenantSecurityEvent(event, details, user) {
   const schoolCode = getSchoolCode(user);
   const userId = user?.id;
-  
-  console.log(`[TENANT_SECURITY_AUDIT]`, {
-    timestamp: new Date().toISOString(),
-    event,
-    schoolCode,
-    userId,
-    details
-  });
+  // Audit log for security operations
 }
 
 /**

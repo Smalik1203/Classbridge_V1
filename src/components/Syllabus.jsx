@@ -346,7 +346,6 @@ export default function SyllabusPage() {
       setTaughtTopics(ttp);
     } catch (e) {
       // non-blocking
-      console.warn('Failed to load syllabus progress:', e?.message || e);
       setTaughtChapters(new Set());
       setTaughtTopics(new Set());
     } finally {

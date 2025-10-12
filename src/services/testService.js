@@ -260,16 +260,7 @@ export const getTestMarks = async (testId) => {
  */
 export const uploadTestMarks = async (testId, marksData) => {
   try {
-    console.log('🔧 uploadTestMarks service called with:', { testId, marksDataLength: marksData.length });
-    console.log('📊 uploadTestMarks data being sent:', marksData);
-    
     // Use upsert instead of delete + insert to avoid data loss
-    console.log('🚀 Supabase upsert call for uploadTestMarks:', {
-      table: 'test_marks',
-      data: marksData,
-      onConflict: 'test_id,student_id',
-      ignoreDuplicates: false
-    });
 
     const { data, error } = await supabase
       .from('test_marks')
@@ -279,22 +270,12 @@ export const uploadTestMarks = async (testId, marksData) => {
       })
       .select();
 
-    console.log('📥 uploadTestMarks Supabase response:', { 
-      data, 
-      error,
-      dataLength: data?.length || 0,
-      hasError: !!error,
-      errorMessage: error?.message || 'No error'
-    });
-    
     if (error) {
-      console.error('❌ uploadTestMarks service error:', error);
       throw error;
     }
     
     return { data, error: null };
   } catch (error) {
-    console.error('❌ uploadTestMarks service exception:', error);
     throw error;
   }
 };
@@ -414,26 +395,14 @@ export const getTestDetails = async (testId) => {
  */
 export const bulkUpsertTestMarks = async (marksData, chunkSize = 50) => {
   try {
-    console.log('🔧 bulkUpsertTestMarks service called with:', { marksDataLength: marksData.length, chunkSize });
-    
     const chunks = [];
     for (let i = 0; i < marksData.length; i += chunkSize) {
       chunks.push(marksData.slice(i, i + chunkSize));
     }
 
-    console.log(`📦 Created ${chunks.length} chunks`);
-
     const results = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      console.log(`🔄 Processing chunk ${i + 1}/${chunks.length} with ${chunk.length} items`);
-      
-      console.log(`🚀 Supabase upsert call for chunk ${i + 1}:`, {
-        table: 'test_marks',
-        data: chunk,
-        onConflict: 'test_id,student_id',
-        ignoreDuplicates: false
-      });
 
       const { data, error } = await supabase
         .from('test_marks')
@@ -443,27 +412,15 @@ export const bulkUpsertTestMarks = async (marksData, chunkSize = 50) => {
         })
         .select();
 
-      console.log(`📥 Chunk ${i + 1} Supabase response:`, { 
-        data, 
-        error,
-        dataLength: data?.length || 0,
-        hasError: !!error,
-        errorMessage: error?.message || 'No error'
-      });
-
       if (error) {
-        console.error(`❌ Chunk ${i + 1} error:`, error);
         throw error;
       }
       
       results.push(...(data || []));
-      console.log(`✅ Chunk ${i + 1} completed`);
     }
 
-    console.log('🎉 bulkUpsertTestMarks completed successfully');
     return { data: results, error: null };
   } catch (error) {
-    console.error('❌ bulkUpsertTestMarks service exception:', error);
     throw error;
   }
 };

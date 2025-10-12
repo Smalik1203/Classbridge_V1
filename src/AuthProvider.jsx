@@ -33,7 +33,6 @@ export function AuthContextProvider({children}){
                 const { data: { session }, error } = await supabase.auth.getSession();
                 
                 if (error) {
-                    console.error('Session error:', error);
                     setLoading(false);
                     return;
                 }
@@ -45,12 +44,9 @@ export function AuthContextProvider({children}){
                     const timeUntilExpiry = tokenExpiry - now;
                     
                     if (timeUntilExpiry < 300) { // 5 minutes
-                        console.log('Token close to expiry, refreshing...');
                         const { error: refreshError } = await supabase.auth.refreshSession();
                         if (refreshError) {
-                            console.error('Token refresh failed:', refreshError);
-                        } else {
-                            console.log('Token refreshed successfully');
+                            // Token refresh failed - user will need to re-authenticate
                         }
                     }
                     
@@ -59,7 +55,6 @@ export function AuthContextProvider({children}){
                     setLoading(false);
                 }
             } catch (error) {
-                console.error('Auth initialization error:', error);
                 setLoading(false);
             }
         };
@@ -67,7 +62,6 @@ export function AuthContextProvider({children}){
         initializeAuth();
 
         const {data:listener} = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('Auth state changed:', event, session?.user?.id);
             
             if (event === 'SIGNED_OUT') {
                 setUser(null);
@@ -79,7 +73,6 @@ export function AuthContextProvider({children}){
                     setRefreshInterval(null);
                 }
             } else if (event === 'TOKEN_REFRESHED') {
-                console.log('Token refreshed automatically');
                 fetchUserProfile(session?.user ?? null);
             } else if (event === 'SIGNED_IN' && session) {
                 fetchUserProfile(session.user);
@@ -105,17 +98,14 @@ export function AuthContextProvider({children}){
                         
                         // Refresh token if it expires within 10 minutes
                         if (timeUntilExpiry < 600) {
-                            console.log('Proactive token refresh...');
                             const { error } = await supabase.auth.refreshSession();
                             if (error) {
-                                console.error('Proactive refresh failed:', error);
-                            } else {
-                                console.log('Proactive refresh successful');
+                                // Proactive refresh failed - user will need to re-authenticate
                             }
                         }
                     }
                 } catch (error) {
-                    console.error('Periodic refresh error:', error);
+                    // Periodic refresh error - continue silently
                 }
             }, 5 * 60 * 1000); // Check every 5 minutes
             

@@ -44,7 +44,6 @@ export const useAttendanceAnalytics = ({ startDate, endDate, classId }) => {
         setData(attendance);
 
       } catch (err) {
-        console.error('Attendance analytics error:', err);
         setError(err.message || 'Failed to load attendance data');
       } finally {
         setLoading(false);

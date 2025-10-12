@@ -36,7 +36,6 @@ export const getTimetableForDate = async (classInstanceId, date, schoolCode) => 
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching timetable for date:', error);
     throw error;
   }
 };
@@ -74,7 +73,6 @@ export const getTestsForDate = async (date, schoolCode, classInstanceId = null) 
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching tests for date:', error);
     throw error;
   }
 };
@@ -99,7 +97,6 @@ export const getCalendarEventsForDateRange = async (startDate, endDate, schoolCo
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching calendar events:', error);
     throw error;
   }
 };
@@ -129,7 +126,6 @@ export const getDayData = async (date, schoolCode, classInstanceId = null) => {
       hasData: (result.timetable_slots?.length > 0) || (result.tests?.length > 0) || (result.calendar_events?.length > 0)
     };
   } catch (error) {
-    console.error('Error fetching day data:', error);
     throw error;
   }
 };
@@ -147,7 +143,6 @@ export const getClassesForSchool = async (schoolCode) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching classes:', error);
     throw error;
   }
 };
@@ -180,7 +175,6 @@ export const createTestCalendarEvent = async (testData, schoolCode) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error creating test calendar event:', error);
     throw error;
   }
 };
@@ -227,7 +221,6 @@ export const updateTestCalendarEvent = async (testId, testData, schoolCode) => {
       return await createTestCalendarEvent(testData, schoolCode);
     }
   } catch (error) {
-    console.error('Error updating test calendar event:', error);
     throw error;
   }
 };
@@ -247,7 +240,6 @@ export const deleteTestCalendarEvent = async (testId, testData, schoolCode) => {
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error deleting test calendar event:', error);
     throw error;
   }
 };
@@ -278,7 +270,6 @@ export const getStudentCalendarData = async (studentId, schoolCode, startDate, e
       events: eventsData
     };
   } catch (error) {
-    console.error('Error fetching student calendar data:', error);
     throw error;
   }
 };
@@ -294,7 +285,6 @@ export const refreshCalendarEvents = async (schoolCode) => {
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error refreshing calendar events:', error);
     throw error;
   }
 };

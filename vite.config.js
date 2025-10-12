@@ -4,16 +4,32 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(),    tailwindcss(),
-  ],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     host: true
   },
   optimizeDeps: {
-    include: ['plyr', 'plyr-react']
+    include: ['plyr', 'plyr-react', 'antd', 'recharts']
   },
   build: {
-    sourcemap: false
+    sourcemap: false,
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          antd: ['antd'],
+          charts: ['recharts'],
+          supabase: ['@supabase/supabase-js']
+        }
+      }
+    },
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    }
   }
 })

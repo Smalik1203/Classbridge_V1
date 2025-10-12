@@ -35,7 +35,6 @@ export const getAttendanceAnalytics = async ({ startDate, endDate, classId }) =>
     return data;
 
   } catch (error) {
-    console.error('Attendance analytics error:', error);
     throw new Error(`Failed to load attendance data: ${error.message}`);
   }
 };
@@ -63,7 +62,6 @@ export const getFeesAnalytics = async ({ startDate, endDate, classId }) => {
     return data;
 
   } catch (error) {
-    console.error('Fees analytics error:', error);
     throw new Error(`Failed to load fees data: ${error.message}`);
   }
 };
@@ -92,7 +90,6 @@ export const getExamsAnalytics = async ({ startDate, endDate, classId }) => {
     return data;
 
   } catch (error) {
-    console.error('Exams analytics error:', error);
     throw new Error(`Failed to load exams data: ${error.message}`);
   }
 };
@@ -120,7 +117,6 @@ export const getLearningAnalytics = async ({ startDate, endDate, classId }) => {
     return data;
 
   } catch (error) {
-    console.error('Learning analytics error:', error);
     throw new Error(`Failed to load learning data: ${error.message}`);
   }
 };

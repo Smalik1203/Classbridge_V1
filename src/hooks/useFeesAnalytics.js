@@ -55,7 +55,6 @@ export const useFeesAnalytics = ({ startDate, endDate, classId }) => {
         setData(feesData);
 
       } catch (err) {
-        console.error('Fees analytics error:', err);
         setError(err.message || 'Failed to load fees data');
       } finally {
         setLoading(false);

@@ -113,7 +113,6 @@ export const getAttendanceSummary = async (schoolCode, dateRange, classId = null
       holidays: workingDaysData.holidays
     };
   } catch (error) {
-    console.error('Error fetching attendance summary:', error);
     throw error;
   }
 };
@@ -252,7 +251,6 @@ export const getFeesSummary = async (schoolCode, dateRange, classId = null) => {
       collectionRate
     };
   } catch (error) {
-    console.error('Error fetching fees summary:', error);
     throw error;
   }
 };
@@ -412,7 +410,6 @@ export const getExamsSummary = async (schoolCode, dateRange, classId = null) => 
       offlineTests: offlineTests.length
     };
   } catch (error) {
-    console.error('Error fetching exams summary:', error);
     throw error;
   }
 };
@@ -506,7 +503,6 @@ export const getLearningSummary = async (schoolCode, dateRange, classId = null) 
       byType
     };
   } catch (error) {
-    console.error('Error fetching learning summary:', error);
     throw error;
   }
 };
