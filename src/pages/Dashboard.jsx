@@ -204,14 +204,14 @@ const Dashboard = () => {
 
       const { data: schoolData } = await supabase
         .from('schools')
-        .select('name, academic_year')
+        .select('school_name')
         .eq('school_code', schoolCode)
         .maybeSingle();
 
       if (schoolData) {
         setSchoolInfo({
-          name: schoolData.name || schoolName,
-          academicYear: schoolData.academic_year || new Date().getFullYear()
+          name: schoolData.school_name || schoolName,
+          academicYear: new Date().getFullYear() // Academic year is in separate table
         });
       }
 

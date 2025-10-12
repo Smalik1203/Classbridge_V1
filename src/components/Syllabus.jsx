@@ -3,13 +3,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert, Button, Card, Divider, Input, List, Select,
   Space, Typography, Popconfirm, Modal, Form, message, Skeleton,
-  Row, Col, Tag, Tooltip, Collapse, notification, Upload, Table
+  Row, Col, Tag, Tooltip, Collapse, notification, Upload, Table, Progress, Statistic, Dropdown
 } from 'antd';
 import { 
   PlusOutlined, DeleteOutlined, EditOutlined,
   BookOutlined, FileTextOutlined, SettingOutlined,
   InfoCircleOutlined, CopyOutlined, EyeOutlined,
-  UploadOutlined, DownloadOutlined, FileExcelOutlined
+  UploadOutlined, DownloadOutlined, FileExcelOutlined,
+  CheckCircleOutlined, ClockCircleOutlined, TrophyOutlined,
+  MoreOutlined, QuestionCircleOutlined
 } from '@ant-design/icons';
 import { supabase } from '../config/supabaseClient';
 import { useAuth } from '../AuthProvider';
@@ -61,6 +63,7 @@ export default function SyllabusPage() {
   const [taughtChapters, setTaughtChapters] = useState(new Set());
   const [taughtTopics, setTaughtTopics] = useState(new Set());
   const [progressLoading, setProgressLoading] = useState(false);
+  const [lastLoadedTime, setLastLoadedTime] = useState(null);
 
   // Modal states
   const [chapterModal, setChapterModal] = useState({ visible: false, editing: null });
@@ -72,6 +75,28 @@ export default function SyllabusPage() {
   const [copyForm] = Form.useForm();
 
   const canEdit = role === 'admin' || role === 'superadmin';
+
+  // Calculate progress statistics
+  const progressStats = useMemo(() => {
+    const totalTopics = chapters.reduce((total, ch) => total + (ch.syllabus_topics?.length || 0), 0);
+    const taughtTopicsCount = Array.from(taughtTopics).length;
+    const taughtChaptersCount = Array.from(taughtChapters).length;
+    const totalChapters = chapters.length;
+    
+    const topicProgress = totalTopics > 0 ? Math.round((taughtTopicsCount / totalTopics) * 100) : 0;
+    const chapterProgress = totalChapters > 0 ? Math.round((taughtChaptersCount / totalChapters) * 100) : 0;
+    
+    return {
+      totalTopics,
+      taughtTopicsCount,
+      untaughtTopicsCount: totalTopics - taughtTopicsCount,
+      totalChapters,
+      taughtChaptersCount,
+      topicProgress,
+      chapterProgress,
+      overallProgress: topicProgress // Use topic progress as overall
+    };
+  }, [chapters, taughtTopics, taughtChapters]);
 
   // Bootstrap
   useEffect(() => {
@@ -214,6 +239,8 @@ export default function SyllabusPage() {
                 
                 // Continue with loading chapters
                 await loadChaptersForSyllabus(newSyl?.id);
+                // Update last loaded timestamp
+                setLastLoadedTime(new Date());
                 resolve();
               } catch (error) {
                 showError(error, {
@@ -239,6 +266,13 @@ export default function SyllabusPage() {
         await loadChaptersForSyllabus(syl.id);
         // Load taught progress for this class/subject
         await loadTaughtProgress();
+        // Update last loaded timestamp
+        setLastLoadedTime(new Date());
+        // Show success message
+        message.success({
+          content: 'Syllabus loaded successfully',
+          duration: 2
+        });
       }
     } catch (e) {
       showError(e, {
@@ -966,7 +1000,10 @@ export default function SyllabusPage() {
       </div>
 
       {/* Main Content Card */}
-      <Card style={{ marginBottom: 24 }}>
+      <Card style={{ 
+        marginBottom: 24,
+        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
+      }}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           {error && (
             <Alert 
@@ -984,24 +1021,23 @@ export default function SyllabusPage() {
 
           {/* Subject and Class Selectors */}
           <div>
-            <div style={{ marginBottom: 16 }}>
-              <Text strong style={{ 
-                display: 'block', 
-                marginBottom: 8,
-                fontSize: '16px',
-                lineHeight: '1.4'
+            <div style={{ marginBottom: 20 }}>
+              <Title level={4} style={{ 
+                margin: 0,
+                marginBottom: 6,
+                fontSize: '18px',
+                fontWeight: 600,
+                lineHeight: '1.3',
+                color: theme.token.colorText
               }}>
-                Select Subject & Class to View Syllabus
-              </Text>
+                📚 Select Syllabus Context
+              </Title>
               <Text type="secondary" style={{ 
-                fontSize: '14px',
+                fontSize: '13px',
                 lineHeight: '1.5',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
+                display: 'block'
               }}>
-                <InfoCircleOutlined style={{ fontSize: '14px' }} />
-                Choose a subject and class combination to create or edit the syllabus structure
+                Choose subject and class to view or manage syllabus structure
               </Text>
             </div>
             
@@ -1047,20 +1083,18 @@ export default function SyllabusPage() {
             </Row>
 
             {/* Load Syllabus Button */}
-            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
               <Button 
-                type="primary" 
+                type={syllabus ? 'default' : 'primary'}
                 size="large"
                 disabled={!subjectId || !classInstanceId}
                 onClick={loadSyllabusTree}
                 loading={busy}
                 style={{ 
-                  fontSize: '14px', 
-                  height: '40px',
-                  minWidth: '120px'
+                  fontWeight: 500
                 }}
               >
-                Load Syllabus
+                {syllabus ? '↻ Reload Syllabus' : 'Load Syllabus'}
               </Button>
             </div>
 
@@ -1089,106 +1123,247 @@ export default function SyllabusPage() {
       {busy && <Skeleton active paragraph={{ rows: 6 }} />}
 
       {syllabus && (
-        <Card>
+        <Card style={{
+          boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
+        }}>
+          {/* Progress Overview Cards */}
+          {chapters.length > 0 && (
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+              <Col xs={24} sm={12} md={6}>
+                <Card 
+                  size="small" 
+                  hoverable
+                  style={{ 
+                    background: theme.token.colorPrimaryBg,
+                    border: `1px solid ${theme.token.colorPrimaryBorder}`,
+                    cursor: 'default',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <Statistic
+                    title={
+                      <Space size={4}>
+                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Overall Progress</span>
+                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
+                      </Space>
+                    }
+                    value={progressStats.overallProgress}
+                    suffix="%"
+                    prefix={<TrophyOutlined />}
+                    valueStyle={{ 
+                      fontSize: '28px', 
+                      color: theme.token.colorPrimary,
+                      fontWeight: 600
+                    }}
+                  />
+                  <Progress
+                    percent={progressStats.overallProgress}
+                    strokeColor={theme.token.colorPrimary}
+                    showInfo={false}
+                    size="small"
+                    style={{ marginTop: 8 }}
+                  />
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={6}>
+                <Card 
+                  size="small"
+                  hoverable
+                  style={{ 
+                    background: theme.token.colorSuccessBg,
+                    border: `1px solid ${theme.token.colorSuccessBorder}`,
+                    cursor: 'default',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <Statistic
+                    title={
+                      <Space size={4}>
+                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Topics Completed</span>
+                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
+                      </Space>
+                    }
+                    value={progressStats.taughtTopicsCount}
+                    suffix={`/ ${progressStats.totalTopics}`}
+                    prefix={<CheckCircleOutlined />}
+                    valueStyle={{ 
+                      fontSize: '24px', 
+                      color: theme.token.colorSuccess,
+                      fontWeight: 600
+                    }}
+                  />
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    {progressStats.topicProgress}% complete
+                  </Text>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={6}>
+                <Card 
+                  size="small"
+                  hoverable
+                  style={{ 
+                    background: theme.token.colorInfoBg,
+                    border: `1px solid ${theme.token.colorInfoBorder}`,
+                    cursor: 'default',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <Statistic
+                    title={
+                      <Space size={4}>
+                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Chapters Started</span>
+                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
+                      </Space>
+                    }
+                    value={progressStats.taughtChaptersCount}
+                    suffix={`/ ${progressStats.totalChapters}`}
+                    prefix={<BookOutlined />}
+                    valueStyle={{ 
+                      fontSize: '24px', 
+                      color: theme.token.colorInfo,
+                      fontWeight: 600
+                    }}
+                  />
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    {progressStats.chapterProgress}% of chapters
+                  </Text>
+                </Card>
+              </Col>
+
+              <Col xs={24} sm={12} md={6}>
+                <Card 
+                  size="small"
+                  hoverable
+                  style={{ 
+                    background: theme.token.colorWarningBg,
+                    border: `1px solid ${theme.token.colorWarningBorder}`,
+                    cursor: 'default',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <Statistic
+                    title={
+                      <Space size={4}>
+                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Remaining Topics</span>
+                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
+                      </Space>
+                    }
+                    value={progressStats.untaughtTopicsCount}
+                    prefix={<ClockCircleOutlined />}
+                    valueStyle={{ 
+                      fontSize: '24px', 
+                      color: theme.token.colorWarning,
+                      fontWeight: 600
+                    }}
+                  />
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    Still to be covered
+                  </Text>
+                </Card>
+              </Col>
+            </Row>
+          )}
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div>
               <Title level={4} style={{ 
                 margin: 0,
-                fontSize: '20px',
+                fontSize: '22px',
+                fontWeight: 600,
                 lineHeight: '1.3',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '10px',
+                color: theme.token.colorText
               }}>
-                <BookOutlined style={{ fontSize: '18px' }} />
+                <BookOutlined style={{ fontSize: '20px' }} />
                 Chapters & Topics
               </Title>
               <Text type="secondary" style={{
-                fontSize: '14px',
+                fontSize: '13px',
                 lineHeight: '1.5',
                 display: 'block',
-                marginTop: '4px'
+                marginTop: '6px'
               }}>
                 {chapters.length} chapter{chapters.length !== 1 ? 's' : ''} • {' '}
-                {chapters.reduce((total, ch) => total + (ch.syllabus_topics?.length || 0), 0)} topics
-                {chapters.length > 0 && (
-                  <>
-                    {' '}• {' '}
-                    {Array.from(taughtTopics).length} taught
-                  </>
+                {progressStats.totalTopics} topics • {' '}
+                <Text strong style={{ fontSize: '13px', color: theme.token.colorSuccess }}>
+                  {progressStats.taughtTopicsCount} taught
+                </Text>
+                {lastLoadedTime && (
+                  <Text type="secondary" style={{ fontSize: '12px', marginLeft: 8 }}>
+                    • <ClockCircleOutlined style={{ marginRight: 4 }} />
+                    Last loaded: {lastLoadedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
                 )}
               </Text>
             </div>
             {canEdit && (
-              <Space wrap>
+              <Space wrap size="middle">
+                {/* Primary action */}
                 <Button 
                   type="primary" 
                   icon={<PlusOutlined />} 
                   onClick={() => openChapterModal()}
                   size="large"
                   style={{ 
-                    fontSize: '14px', 
-                    height: '40px',
-                    minWidth: '120px'
+                    fontWeight: 500,
+                    boxShadow: '0 2px 0 rgba(5, 145, 255, 0.1)'
                   }}
                 >
                   Add Chapter
                 </Button>
+
+                {/* Secondary action */}
                 <Button 
                   icon={<CopyOutlined />}
                   onClick={openCopyModal}
-                  size="large"
-                  style={{ 
-                    fontSize: '14px', 
-                    height: '40px',
-                    minWidth: '140px'
-                  }}
+                  type="default"
+                  style={{ fontWeight: 500 }}
                 >
-                  Copy from Existing Class
+                  Copy from Class
                 </Button>
-                <Button 
-                  icon={<DownloadOutlined />} 
-                  onClick={exportSyllabus}
-                  size="large"
-                  style={{ 
-                    fontSize: '14px', 
-                    height: '40px',
-                    minWidth: '100px'
-                  }}
-                >
-                  Export
-                </Button>
-                <Upload
-                  accept=".xlsx,.xls,.csv"
-                  beforeUpload={handleFileUpload}
-                  showUploadList={false}
-                >
-                  <Button 
-                    icon={<UploadOutlined />} 
-                    size="large"
-                    style={{ 
-                      fontSize: '14px', 
-                      height: '40px',
-                      minWidth: '100px'
-                    }}
+                
+                {/* Utility actions - ghost style */}
+                <Space size="small">
+                  <Tooltip title="Export syllabus to Excel">
+                    <Button 
+                      icon={<DownloadOutlined />} 
+                      onClick={exportSyllabus}
+                      type="text"
+                      style={{ color: theme.token.colorTextSecondary }}
+                    >
+                      Export
+                    </Button>
+                  </Tooltip>
+                  <Upload
+                    accept=".xlsx,.xls,.csv"
+                    beforeUpload={handleFileUpload}
+                    showUploadList={false}
                   >
-                    Import
-                  </Button>
-                </Upload>
-                <Tooltip title="Download import template">
-                  <Button 
-                    icon={<FileExcelOutlined />} 
-                    onClick={downloadTemplate}
-                    size="large"
-                    style={{ 
-                      fontSize: '14px', 
-                      height: '40px',
-                      minWidth: '100px'
-                    }}
-                  >
-                    Template
-                  </Button>
-                </Tooltip>
+                    <Tooltip title="Import syllabus from Excel">
+                      <Button 
+                        icon={<UploadOutlined />} 
+                        type="text"
+                        style={{ color: theme.token.colorTextSecondary }}
+                      >
+                        Import
+                      </Button>
+                    </Tooltip>
+                  </Upload>
+                  <Tooltip title="Download import template">
+                    <Button 
+                      icon={<FileExcelOutlined />} 
+                      onClick={downloadTemplate}
+                      type="text"
+                      style={{ color: theme.token.colorTextSecondary }}
+                    >
+                      Template
+                    </Button>
+                  </Tooltip>
+                </Space>
               </Space>
             )}
           </div>
@@ -1204,79 +1379,163 @@ export default function SyllabusPage() {
             <Collapse 
               activeKey={Array.from(expandedChapters)}
               onChange={(keys) => setExpandedChapters(new Set(keys))}
-              ghost
+              style={{ background: 'white' }}
             >
-              {chapters.map((chapter) => (
+                {chapters.map((chapter) => {
+                // Calculate chapter-level progress
+                const chapterTopics = chapter.syllabus_topics || [];
+                const chapterTaughtTopics = chapterTopics.filter(t => taughtTopics.has(t.id)).length;
+                const chapterProgress = chapterTopics.length > 0 
+                  ? Math.round((chapterTaughtTopics / chapterTopics.length) * 100) 
+                  : 0;
+
+                return (
                 <Panel
                   key={chapter.id}
+                  style={{
+                    marginBottom: 32,
+                    background: 'white',
+                    borderRadius: 8,
+                    border: expandedChapters.has(chapter.id) 
+                      ? `1px solid ${theme.token.colorPrimary}` 
+                      : '1px solid #e8e8e8',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s ease'
+                  }}
                   header={
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 12,
-                      flexWrap: 'wrap',
-                      minHeight: '40px'
-                    }}>
-                      <Tag color="blue" style={{ margin: 0, fontSize: '12px' }}>
-                        Chapter {chapter.chapter_no}
-                      </Tag>
-                      <Title level={5} style={{ 
-                        margin: 0, 
-                        fontWeight: 600,
-                        fontSize: '16px',
-                        lineHeight: '1.4',
-                        wordBreak: 'break-word'
+                    <div style={{ width: '100%' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 24,
+                        flexWrap: 'wrap',
+                        minHeight: '44px'
                       }}>
-                        {chapter.title}
-                      </Title>
-                      {taughtChapters.has(chapter.id) && (
-                        <Tag color="green" style={{ fontSize: '12px' }}>Taught</Tag>
-                      )}
-                      {chapter.ref_code && (
-                        <Tag color="geekblue" style={{ fontSize: '12px' }}>
-                          {chapter.ref_code}
-                        </Tag>
-                      )}
-                      <Text type="secondary" style={{ fontSize: '13px' }}>
-                        ({chapter.syllabus_topics?.length || 0} topics)
-                      </Text>
+                        {/* Left side: Chapter info */}
+                        <Space align="center" size="large" style={{ flex: 1, minWidth: 0 }}>
+                          <Tag color="blue" style={{ margin: 0, fontSize: '13px', fontWeight: 500, padding: '4px 10px' }}>
+                            Ch {chapter.chapter_no}
+                          </Tag>
+                          <Title level={5} style={{ 
+                            margin: 0, 
+                            fontWeight: 600,
+                            fontSize: '17px',
+                            lineHeight: '1.4',
+                            wordBreak: 'break-word',
+                            color: theme.token.colorText,
+                            cursor: 'pointer',
+                            transition: 'color 0.3s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = theme.token.colorPrimary}
+                          onMouseLeave={(e) => e.currentTarget.style.color = theme.token.colorText}
+                          >
+                            {chapter.title}
+                          </Title>
+                          {chapter.ref_code && (
+                            <Tag color="geekblue" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                              {chapter.ref_code}
+                            </Tag>
+                          )}
+                        </Space>
+                        
+                        {/* Right side: Progress indicator */}
+                        <Space align="center" size="large">
+                          {chapterTopics.length > 0 && (
+                            <>
+                              <div style={{ 
+                                minWidth: '140px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 16 
+                              }}>
+                                <Progress
+                                  type="circle"
+                                  percent={chapterProgress}
+                                  strokeColor={
+                                    chapterProgress === 100 ? theme.token.colorSuccess : 
+                                    chapterProgress >= 50 ? theme.token.colorPrimary : 
+                                    theme.token.colorWarning
+                                  }
+                                  size={40}
+                                  format={() => `${chapterProgress}%`}
+                                  strokeWidth={7}
+                                />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  <Tag 
+                                    color={
+                                      chapterProgress === 100 ? 'success' : 
+                                      chapterProgress >= 50 ? 'processing' : 
+                                      'default'
+                                    } 
+                                    style={{ 
+                                      margin: 0, 
+                                      fontSize: '11px',
+                                      fontWeight: 500,
+                                      padding: '2px 8px'
+                                    }}
+                                  >
+                                    {chapterProgress === 100 ? 'Complete' : 
+                                     chapterProgress > 0 ? 'In Progress' : 
+                                     'Not Started'}
+                                  </Tag>
+                                  <Text type="secondary" style={{ fontSize: '11px', lineHeight: 1.2 }}>
+                                    {chapterTaughtTopics}/{chapterTopics.length} topics
+                                  </Text>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </Space>
+                      </div>
                     </div>
                   }
                   extra={
                     canEdit && (
-                      <Space onClick={(e) => e.stopPropagation()}>
-                        <Tooltip title="Add Topic">
-                          <Button
-                            size="small"
-                            icon={<PlusOutlined />}
-                            onClick={() => openTopicModal(chapter.id)}
-                          >
-                            Add Topic
-                          </Button>
-                        </Tooltip>
-                        <Tooltip title="Edit Chapter">
-                          <Button
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={() => openChapterModal(chapter)}
-                          />
-                        </Tooltip>
-                        <Popconfirm
-                          title="Delete this chapter and all its topics?"
-                          description="This action cannot be undone. All topics in this chapter will also be deleted."
-                          onConfirm={() => deleteChapter(chapter.id, chapter.title)}
-                          okText="Delete"
-                          cancelText="Cancel"
-                          okButtonProps={{ danger: true }}
+                      <Space onClick={(e) => e.stopPropagation()} size="large">
+                        <Button
+                          type="primary"
+                          icon={<PlusOutlined />}
+                          onClick={() => openTopicModal(chapter.id)}
                         >
-                          <Tooltip title="Delete Chapter">
-                            <Button
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                            />
-                          </Tooltip>
-                        </Popconfirm>
+                          Add Topic
+                        </Button>
+                        <Dropdown
+                          menu={{
+                            items: [
+                              {
+                                key: 'edit',
+                                label: 'Edit Chapter',
+                                icon: <EditOutlined />,
+                                onClick: () => openChapterModal(chapter)
+                              },
+                              {
+                                type: 'divider'
+                              },
+                              {
+                                key: 'delete',
+                                label: 'Delete Chapter',
+                                icon: <DeleteOutlined />,
+                                danger: true,
+                                onClick: () => {
+                                  Modal.confirm({
+                                    title: 'Delete this chapter and all its topics?',
+                                    content: 'This action cannot be undone. All topics in this chapter will also be deleted.',
+                                    okText: 'Delete',
+                                    okType: 'danger',
+                                    cancelText: 'Cancel',
+                                    onOk: () => deleteChapter(chapter.id, chapter.title)
+                                  });
+                                }
+                              }
+                            ]
+                          }}
+                          trigger={['click']}
+                        >
+                          <Button
+                            icon={<MoreOutlined />}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </Dropdown>
                       </Space>
                     )
                   }
@@ -1288,7 +1547,7 @@ export default function SyllabusPage() {
                   )}
                   
                   {chapter.syllabus_topics?.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
                       {chapter.syllabus_topics.map(topic => (
                         <div 
                           key={topic.id}
@@ -1296,29 +1555,42 @@ export default function SyllabusPage() {
                             display: 'flex', 
                             justifyContent: 'space-between', 
                             alignItems: 'center',
-                            padding: '12px 16px',
-                            background: 'white',
+                            padding: '14px 18px',
+                            background: taughtTopics.has(topic.id) ? '#f6ffed' : 'white',
                             borderRadius: 6,
-                            border: '1px solid #f0f0f0'
+                            border: taughtTopics.has(topic.id) ? '1px solid #b7eb8f' : '1px solid #f0f0f0',
+                            transition: 'all 0.3s ease'
                           }}
                         >
+                          
                           <div style={{ flex: 1 }}>
-                            <Space align="baseline">
-                              <Tag color="green" style={{ margin: 0 }}>
-                                Topic {topic.topic_no}
+                            <Space align="baseline" size="middle">
+                              <Tag 
+                                color={taughtTopics.has(topic.id) ? 'success' : 'default'} 
+                                style={{ margin: 0, fontSize: '11px', fontWeight: 500, padding: '2px 8px' }}
+                              >
+                                {topic.topic_no}
                               </Tag>
-                              <Text strong style={{ fontSize: '14px' }}>
+                              <Text strong style={{ 
+                                fontSize: '14px',
+                                color: theme.token.colorText
+                              }}>
                                 {topic.title}
                               </Text>
                               {taughtTopics.has(topic.id) && (
-                                <Tag color="green">Taught</Tag>
+                                <CheckCircleOutlined style={{ 
+                                  color: theme.token.colorSuccess, 
+                                  fontSize: '15px' 
+                                }} />
                               )}
                               {topic.ref_code && (
-                                <Tag color="lime">{topic.ref_code}</Tag>
+                                <Tag color="geekblue" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                                  {topic.ref_code}
+                                </Tag>
                               )}
                             </Space>
                             {topic.description && (
-                              <div style={{ marginTop: 4 }}>
+                              <div style={{ marginTop: 8, marginLeft: 40 }}>
                                 <Text type="secondary" style={{ fontSize: '12px' }}>
                                   {topic.description}
                                 </Text>
@@ -1327,31 +1599,56 @@ export default function SyllabusPage() {
                           </div>
                           
                           {canEdit && (
-                            <Space>
-                              <Tooltip title="Edit Topic">
-                                <Button
-                                  size="small"
-                                  icon={<EditOutlined />}
-                                  onClick={() => openTopicModal(chapter.id, topic)}
-                                />
-                              </Tooltip>
-                              <Popconfirm
-                                title="Delete this topic?"
-                                description="This action cannot be undone."
-                                onConfirm={() => deleteTopic(topic.id, topic.title)}
-                                okText="Delete"
-                                cancelText="Cancel"
-                                okButtonProps={{ danger: true }}
-                              >
-                                <Tooltip title="Delete Topic">
-                                  <Button
-                                    size="small"
-                                    danger
-                                    icon={<DeleteOutlined />}
-                                  />
-                                </Tooltip>
-                              </Popconfirm>
-                            </Space>
+                            <Dropdown
+                              menu={{
+                                items: [
+                                  {
+                                    key: 'edit',
+                                    label: 'Edit Topic',
+                                    icon: <EditOutlined />,
+                                    onClick: () => openTopicModal(chapter.id, topic)
+                                  },
+                                  {
+                                    type: 'divider'
+                                  },
+                                  {
+                                    key: 'delete',
+                                    label: 'Delete Topic',
+                                    icon: <DeleteOutlined />,
+                                    danger: true,
+                                    onClick: () => {
+                                      Modal.confirm({
+                                        title: 'Delete this topic?',
+                                        content: 'This action cannot be undone.',
+                                        okText: 'Delete',
+                                        okType: 'danger',
+                                        cancelText: 'Cancel',
+                                        onOk: () => deleteTopic(topic.id, topic.title)
+                                      });
+                                    }
+                                  }
+                                ]
+                              }}
+                              trigger={['click']}
+                            >
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<MoreOutlined />}
+                                style={{ 
+                                  color: theme.token.colorTextSecondary,
+                                  transition: 'all 0.3s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = theme.token.colorBgTextHover;
+                                  e.currentTarget.style.color = theme.token.colorText;
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = 'transparent';
+                                  e.currentTarget.style.color = theme.token.colorTextSecondary;
+                                }}
+                              />
+                            </Dropdown>
                           )}
                         </div>
                       ))}
@@ -1382,7 +1679,8 @@ export default function SyllabusPage() {
                     </div>
                   )}
                 </Panel>
-              ))}
+                );
+              })}
             </Collapse>
           )}
         </Card>

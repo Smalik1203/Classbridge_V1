@@ -29,16 +29,22 @@ export class CalendarService {
         .select('id')
         .eq('school_code', schoolCode)
         .ilike('event_type', 'holiday')
-        .eq('is_active', true)
-        .or(`start_date.eq.${date},and(start_date.lte.${date},end_date.gte.${date})`);
+        .eq('is_active', true);
       
-      // Add class-based filtering
+      // Combine date and class filtering in a single query
       if (classInstanceId) {
         // Include events for this specific class OR events for all classes (class_instance_id IS NULL)
-        query = query.or(`class_instance_id.eq.${classInstanceId},class_instance_id.is.null`);
+        // AND the date matches
+        query = query.or(
+          `and(class_instance_id.eq.${classInstanceId},start_date.eq.${date}),` +
+          `and(class_instance_id.eq.${classInstanceId},start_date.lte.${date},end_date.gte.${date}),` +
+          `and(class_instance_id.is.null,start_date.eq.${date}),` +
+          `and(class_instance_id.is.null,start_date.lte.${date},end_date.gte.${date})`
+        );
       } else {
-        // If no class specified, only include events for all classes
-        query = query.is('class_instance_id', null);
+        // If no class specified, only include events for all classes with date filter
+        query = query.is('class_instance_id', null)
+          .or(`start_date.eq.${date},and(start_date.lte.${date},end_date.gte.${date})`);
       }
       
       const { data, error } = await query.limit(1);
@@ -134,16 +140,22 @@ export class CalendarService {
         .select('*')
         .eq('school_code', schoolCode)
         .ilike('event_type', 'holiday')
-        .eq('is_active', true)
-        .or(`start_date.eq.${date},and(start_date.lte.${date},end_date.gte.${date})`);
+        .eq('is_active', true);
       
-      // Add class-based filtering
+      // Combine date and class filtering in a single query
       if (classInstanceId) {
         // Include events for this specific class OR events for all classes (class_instance_id IS NULL)
-        query = query.or(`class_instance_id.eq.${classInstanceId},class_instance_id.is.null`);
+        // AND the date matches
+        query = query.or(
+          `and(class_instance_id.eq.${classInstanceId},start_date.eq.${date}),` +
+          `and(class_instance_id.eq.${classInstanceId},start_date.lte.${date},end_date.gte.${date}),` +
+          `and(class_instance_id.is.null,start_date.eq.${date}),` +
+          `and(class_instance_id.is.null,start_date.lte.${date},end_date.gte.${date})`
+        );
       } else {
-        // If no class specified, only include events for all classes
-        query = query.is('class_instance_id', null);
+        // If no class specified, only include events for all classes with date filter
+        query = query.is('class_instance_id', null)
+          .or(`start_date.eq.${date},and(start_date.lte.${date},end_date.gte.${date})`);
       }
       
       const { data, error } = await query.limit(1).single();

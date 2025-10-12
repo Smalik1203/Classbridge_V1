@@ -114,7 +114,7 @@ const UnifiedAttendance = () => {
   const [classesLoading, setClassesLoading] = useState(false);
 
   const [attendance, setAttendance] = useState({});
-  const [date, setDate] = useState(() => dayjs());
+  const [date, setDate] = useState(null); // Don't set default date - let user choose
 
   const [alert, setAlert] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -240,7 +240,13 @@ const UnifiedAttendance = () => {
   }, [user, role, schoolCode, isStudent]);
 
   useEffect(() => {
-    if (!selectedClassId) return;
+    // Only fetch students when both class and date are selected
+    if (!selectedClassId || !date) {
+      setStudents([]);
+      setAttendance({});
+      return;
+    }
+    
     const fetchStudents = async () => {
       setStudentsLoading(true);
       setAlert(null);
@@ -260,7 +266,7 @@ const UnifiedAttendance = () => {
       }
     };
     fetchStudents();
-  }, [selectedClassId]);
+  }, [selectedClassId, date]);
 
   // Fetch existing attendance when date or class changes
   useEffect(() => {
@@ -317,8 +323,8 @@ const UnifiedAttendance = () => {
 
   const handleSubmit = async () => {
     if (!canMark) return;
-    if (!selectedClassId || students.length === 0) {
-      setAlert({ type: 'warning', message: 'Select a class with students before saving.' });
+    if (!selectedClassId || !date || students.length === 0) {
+      setAlert({ type: 'warning', message: 'Select a class, date, and ensure there are students before saving.' });
       return;
     }
 
@@ -353,6 +359,9 @@ const UnifiedAttendance = () => {
     setSaveStatus('saving');
     setAlert(null);
     try {
+      if (!date) {
+        throw new Error('Date is required');
+      }
       const marked_by = user?.id;
       const roleCode = user?.user_metadata?.admin_code || user?.user_metadata?.super_admin_code || '';
       const dateStr = date.format('YYYY-MM-DD');
@@ -606,7 +615,14 @@ const UnifiedAttendance = () => {
                 <Row gutter={12} align="middle">
                   <Col xs={24} sm={12}>
                     <div style={{ marginBottom: 6 }}>
-                      <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Class</Text>
+                      <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        Class
+                        {role === 'superadmin' && !selectedClassId && (
+                          <Text type="secondary" style={{ fontSize: 11, fontWeight: 'normal', marginLeft: 8 }}>
+                            • Select class first
+                          </Text>
+                        )}
+                      </Text>
                     </div>
                     {classesLoading ? (
                       <Skeleton.Input active style={{ width: '100%', height: 40 }} />
@@ -619,6 +635,10 @@ const UnifiedAttendance = () => {
                         size="middle"
                         allowClear
                         notFoundContent="No classes available"
+                        showSearch
+                        filterOption={(input, option) =>
+                          option.children.toLowerCase().includes(input.toLowerCase())
+                        }
                       >
                         {classInstances.map(c => (
                           <Option key={c.id} value={c.id}>Grade {c.grade} - Section {c.section}</Option>
@@ -627,8 +647,18 @@ const UnifiedAttendance = () => {
                     )}
                   </Col>
                   <Col xs={24} sm={12}>
-                    <div style={{ marginBottom: 6 }}>
+                    <div style={{ marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Date</Text>
+                      {selectedClassId && (
+                        <Button
+                          size="small"
+                          type="link"
+                          onClick={() => setDate(dayjs())}
+                          style={{ fontSize: 12, padding: '0 4px', height: 'auto' }}
+                        >
+                          Today
+                        </Button>
+                      )}
                     </div>
                     <DatePicker
                       value={date}
@@ -636,13 +666,31 @@ const UnifiedAttendance = () => {
                       style={{ width: '100%' }}
                       size="middle"
                       format="DD/MM/YYYY"
+                      placeholder={selectedClassId ? "Select date" : "Select class first"}
+                      disabled={!selectedClassId}
                     />
                   </Col>
                 </Row>
               </Card>
 
+              {/* Empty state when no class or date selected */}
+              {!selectedClassId && (
+                <EmptyState
+                  title="Select a class to begin"
+                  description="Choose a class from the dropdown above to view students and mark attendance."
+                  icon="📚"
+                />
+              )}
 
-              {selectedClassId && (
+              {selectedClassId && !date && (
+                <EmptyState
+                  title="Select a date"
+                  description="Choose a date to mark attendance for the selected class."
+                  icon="📅"
+                />
+              )}
+
+              {selectedClassId && date && (
                 <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
                   {isHolidayOrSunday ? (
                     <div style={{
@@ -657,7 +705,7 @@ const UnifiedAttendance = () => {
                         Holiday – attendance not applicable
                       </div>
                       <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '16px' }}>
-                        {(isSunday ? 'Sunday' : (holidayInfo?.title || 'Holiday'))} • {date.format('MMMM DD, YYYY')}
+                        {(isSunday ? 'Sunday' : (holidayInfo?.title || 'Holiday'))}{date ? ` • ${date.format('MMMM DD, YYYY')}` : ''}
                       </div>
                       <Button 
                         type="link"
@@ -954,7 +1002,7 @@ const UnifiedAttendance = () => {
             <Text strong>Class:</Text> {classInstances.find(c => c.id === selectedClassId)?.grade} - {classInstances.find(c => c.id === selectedClassId)?.section}
           </div>
           <div>
-            <Text strong>Date:</Text> {date.format('MMMM DD, YYYY')}
+            <Text strong>Date:</Text> {date ? date.format('MMMM DD, YYYY') : 'Not selected'}
           </div>
         </div>
       </Modal>

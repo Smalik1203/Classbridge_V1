@@ -11,7 +11,7 @@ import {
   PlayCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined,
   ThunderboltOutlined, CopyOutlined, MoreOutlined, CheckOutlined,
   ExclamationCircleOutlined, SettingOutlined, FileTextOutlined, 
-  InfoCircleOutlined, EyeOutlined, DoubleLeftOutlined, DoubleRightOutlined
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../config/supabaseClient';
@@ -60,26 +60,12 @@ export default function UnifiedTimetable() {
   
   // Syllabus data using custom hook
   const { chaptersById, syllabusContentMap, loading: syllabusLoading, refetch: refetchSyllabus } = useSyllabusLoader(classId, me?.school_code);
-  
-  // Debug syllabus loading
-  useEffect(() => {
-    console.log('=== SYLLABUS DEBUG ===');
-    console.log('classId:', classId);
-    console.log('school_code:', me?.school_code);
-    console.log('syllabusLoading:', syllabusLoading);
-    console.log('chaptersById size:', chaptersById.size);
-    console.log('syllabusContentMap size:', syllabusContentMap.size);
-    console.log('chaptersById contents:', Array.from(chaptersById.entries()));
-    console.log('syllabusContentMap contents:', Array.from(syllabusContentMap.entries()));
-    console.log('=== END SYLLABUS DEBUG ===');
-  }, [classId, me?.school_code, syllabusLoading, chaptersById, syllabusContentMap]);
 
   // UI State
   const [loading, setLoading] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingSlot, setEditingSlot] = useState(null);
   const [quickGenerateModalVisible, setQuickGenerateModalVisible] = useState(false);
-  const [calendarVisible, setCalendarVisible] = useState(false);
   const [form] = Form.useForm();
   const [quickGenerateForm] = Form.useForm();
 
@@ -97,14 +83,10 @@ export default function UnifiedTimetable() {
         const { data: auth } = await supabase.auth.getUser();
         if (!auth?.user) throw new Error('Not signed in');
         
-        console.log('Auth user:', auth.user);
-        
         // Try admin table first; fallback to users table for superadmins without admin row
         let meRow = null;
         const { data: adminRow, error: adminErr } = await supabase
           .from('admin').select('id, role, school_code').eq('id', auth.user.id).maybeSingle();
-        
-        console.log('Admin row query:', { adminRow, adminErr });
         
         if (adminRow) {
           meRow = adminRow;
@@ -112,23 +94,15 @@ export default function UnifiedTimetable() {
           const { data: userRow, error: userErr } = await supabase
             .from('users').select('id, role, school_code').eq('id', auth.user.id).maybeSingle();
           
-          console.log('User row query:', { userRow, userErr });
-          
           if (userRow && userRow.role === 'superadmin') {
             meRow = userRow;
           }
         }
         
-        console.log('Final meRow:', meRow);
-        
         if (!meRow) {
-          console.error('User not found in admin or users table');
-          
           // Fallback: try to extract from auth user metadata
           const role = getUserRole(auth.user);
           const schoolCode = getSchoolCode(auth.user);
-          
-          console.log('Fallback metadata:', { role, schoolCode });
           
           if (role && schoolCode) {
             meRow = {
@@ -136,7 +110,6 @@ export default function UnifiedTimetable() {
               role: role,
               school_code: schoolCode
             };
-            console.log('Using fallback metadata:', meRow);
           } else {
             throw new Error('User not found in admin or users table. Please contact your administrator.');
           }
@@ -264,90 +237,37 @@ export default function UnifiedTimetable() {
   };
 
   const getSyllabusChapters = (subjectId) => {
-    console.log('=== getSyllabusChapters DEBUG ===');
-    console.log('Called with subjectId:', subjectId);
-    console.log('syllabusContentMap size:', syllabusContentMap.size);
-    console.log('syllabusContentMap contents:', Array.from(syllabusContentMap.entries()));
-    console.log('classId:', classId);
-    console.log('school_code:', me?.school_code);
-
-    if (!subjectId) {
-      console.log('❌ No subjectId provided, returning empty array');
-      return [];
-    }
-
-    if (syllabusContentMap.size === 0) {
-      console.log('❌ syllabusContentMap is empty - syllabus not loaded yet');
-      return [];
-    }
+    if (!subjectId) return [];
+    if (syllabusContentMap.size === 0) return [];
 
     const chapters = [];
-    let matchCount = 0;
     
     syllabusContentMap.forEach((content, key) => {
-      console.log(`Checking content [${key}]:`, { 
-        type: content.type, 
-        subjectId: content.subjectId, 
-        targetSubjectId: subjectId,
-        matches: content.subjectId === subjectId 
-      });
-      
       if (content.type === 'chapter' && content.subjectId === subjectId) {
-        matchCount++;
-        console.log(`✅ Found matching chapter #${matchCount}:`, content);
         chapters.push({
           label: `Chapter ${content.chapterNo}: ${content.title}`,
           value: content.chapterId
         });
       }
     });
-
-    console.log(`📊 Found ${matchCount} chapters for subject ${subjectId}`);
-    console.log('Final chapters array:', chapters);
-    console.log('=== END getSyllabusChapters DEBUG ===');
     
     return chapters.sort((a, b) => a.label.localeCompare(b.label));
   };
 
   const getSyllabusTopics = (subjectId) => {
-    console.log('=== getSyllabusTopics DEBUG ===');
-    console.log('Called with subjectId:', subjectId);
-    console.log('syllabusContentMap size:', syllabusContentMap.size);
-    
-    if (!subjectId) {
-      console.log('❌ No subjectId provided, returning empty array');
-      return [];
-    }
-
-    if (syllabusContentMap.size === 0) {
-      console.log('❌ syllabusContentMap is empty - syllabus not loaded yet');
-      return [];
-    }
+    if (!subjectId) return [];
+    if (syllabusContentMap.size === 0) return [];
 
     const topics = [];
-    let matchCount = 0;
     
     syllabusContentMap.forEach((content, key) => {
-      console.log(`Checking topic [${key}]:`, { 
-        type: content.type, 
-        subjectId: content.subjectId, 
-        targetSubjectId: subjectId,
-        matches: content.subjectId === subjectId 
-      });
-      
       if (content.type === 'topic' && content.subjectId === subjectId) {
-        matchCount++;
-        console.log(`✅ Found matching topic #${matchCount}:`, content);
         topics.push({
           label: `Topic ${content.topicNo}: ${content.title}`,
           value: content.topicId
         });
       }
     });
-
-    console.log(`📊 Found ${matchCount} topics for subject ${subjectId}`);
-    console.log('Final topics array:', topics);
-    console.log('=== END getSyllabusTopics DEBUG ===');
     
     return topics.sort((a, b) => a.label.localeCompare(b.label));
   };
@@ -453,15 +373,6 @@ export default function UnifiedTimetable() {
     } else if (direction === 'today') {
       setDate(dayjs());
     }
-  };
-
-  const handleCalendarDateSelect = (selectedDate) => {
-    setDate(selectedDate);
-    setCalendarVisible(false);
-  };
-
-  const handleOpenCalendar = () => {
-    setCalendarVisible(true);
   };
 
   // Class options
@@ -570,50 +481,45 @@ export default function UnifiedTimetable() {
           </div>
         }
         extra={
-          <Space wrap>
+          <Space wrap size="middle">
             <Select
               placeholder="Select Class"
               value={classId}
               onChange={setClassId}
               options={classOptions}
               style={{ width: 200 }}
+              allowClear
             />
             <Space.Compact>
-              <Button 
-                icon={<DoubleLeftOutlined />}
-                onClick={() => handleDateNavigation('prev')}
-                title="Previous Day"
-              />
               <Button 
                 icon={<LeftOutlined />}
                 onClick={() => handleDateNavigation('prev')}
                 title="Previous Day"
               />
-              <Button 
-                icon={<CalendarOutlined />}
-                onClick={handleOpenCalendar}
-                title="Open Calendar"
-                style={{ minWidth: 150 }}
-              >
-                {date.format('MMM DD, YYYY')}
-              </Button>
+              <DatePicker
+                value={date}
+                onChange={(selectedDate) => {
+                  if (selectedDate) {
+                    setDate(selectedDate);
+                  }
+                }}
+                format="MMM DD, YYYY"
+                style={{ minWidth: 160 }}
+                allowClear={false}
+                suffixIcon={<CalendarOutlined />}
+              />
               <Button 
                 icon={<RightOutlined />}
                 onClick={() => handleDateNavigation('next')}
                 title="Next Day"
               />
-              <Button 
-                icon={<DoubleRightOutlined />}
-                onClick={() => handleDateNavigation('next')}
-                title="Next Day"
-              />
-              <Button 
-                onClick={() => handleDateNavigation('today')}
-                title="Today"
-              >
-                Today
-              </Button>
             </Space.Compact>
+            <Button 
+              onClick={() => handleDateNavigation('today')}
+              type="default"
+            >
+              Today
+            </Button>
           </Space>
         }
       >
@@ -914,12 +820,6 @@ export default function UnifiedTimetable() {
                       options={subjects.map(s => ({ label: s.subject_name, value: s.id }))}
                       optionFilterProp="label"
                       onChange={(value) => {
-                        console.log('=== SUBJECT CHANGE DEBUG ===');
-                        console.log('Selected subject ID:', value);
-                        console.log('Available chapters for this subject:', getSyllabusChapters(value));
-                        console.log('Available topics for this subject:', getSyllabusTopics(value));
-                        console.log('=== END SUBJECT CHANGE DEBUG ===');
-                        
                         form.setFieldsValue({
                           syllabus_chapter_id: null,
                           syllabus_topic_id: null
@@ -944,9 +844,7 @@ export default function UnifiedTimetable() {
                       allowClear
                       options={(() => {
                         const subjectId = form.getFieldValue('subject_id');
-                        const chapters = getSyllabusChapters(subjectId);
-                        console.log('Chapter options for subject', subjectId, ':', chapters);
-                        return chapters;
+                        return getSyllabusChapters(subjectId);
                       })()}
                       optionFilterProp="label"
                     />
@@ -959,9 +857,7 @@ export default function UnifiedTimetable() {
                       allowClear
                       options={(() => {
                         const subjectId = form.getFieldValue('subject_id');
-                        const topics = getSyllabusTopics(subjectId);
-                        console.log('Topic options for subject', subjectId, ':', topics);
-                        return topics;
+                        return getSyllabusTopics(subjectId);
                       })()}
                       optionFilterProp="label"
                     />
@@ -994,47 +890,6 @@ export default function UnifiedTimetable() {
         </Form>
       </Modal>
 
-      {/* Calendar Modal */}
-      <Modal
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <CalendarOutlined style={{ color: '#1890ff' }} />
-            <div>
-              <div style={{ fontSize: '16px', fontWeight: 600 }}>
-                Select Date
-              </div>
-              <div style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
-                Choose a date to view timetable
-              </div>
-            </div>
-          </div>
-        }
-        open={calendarVisible}
-        onCancel={() => setCalendarVisible(false)}
-        width={400}
-        footer={[
-          <Button key="cancel" onClick={() => setCalendarVisible(false)}>
-            Cancel
-          </Button>,
-          <Button 
-            key="today" 
-            type="primary" 
-            onClick={() => handleCalendarDateSelect(dayjs())}
-          >
-            Today
-          </Button>
-        ]}
-      >
-        <DatePicker
-          value={date}
-          onChange={handleCalendarDateSelect}
-          format="MMM DD, YYYY"
-          style={{ width: '100%' }}
-          size="large"
-          showToday
-          allowClear={false}
-        />
-      </Modal>
       </App>
     </div>
   );
