@@ -14,6 +14,7 @@ export default defineConfig({
     include: ['plyr', 'plyr-react']
   },
   build: {
-    sourcemap: false
+    sourcemap: false,
+    chunkSizeWarningLimit: 1000 // Increase chunk size warning limit to 1000 kB
   }
 })
