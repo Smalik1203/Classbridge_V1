@@ -1,6 +1,6 @@
 import {createContext, useContext, useEffect, useState} from 'react'
 import {supabase} from './config/supabaseClient'
-import { getNormalizedUserMetadata } from './utils/metadata'
+import { getNormalizedUserMetadata } from '@/shared/utils/metadata'
 
 const AuthContext = createContext()
 

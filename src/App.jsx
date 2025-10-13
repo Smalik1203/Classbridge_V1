@@ -1,37 +1,84 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ConfigProvider, App as AntApp } from 'antd';
+import { Layout, ConfigProvider, App as AntApp, Spin } from 'antd';
+import enUS from 'antd/locale/en_US';
+import dayjs from 'dayjs';
+import 'dayjs/locale/en';
+import weekday from 'dayjs/plugin/weekday';
+import localeData from 'dayjs/plugin/localeData';
+import updateLocale from 'dayjs/plugin/updateLocale';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { useAuth } from './AuthProvider';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import CBAdminDashboard from './pages/CBAdminDashboard';
-import PrivateRoute from './components/PrivateRoute';
-import AddSchools from './pages/AddSchools';
-import Assessments from './insidepages/Assessments';
-import Attendance from './pages/Attendance';
-import Fees from './insidepages/Fees';
-import SetupSchool from './pages/SetupSchool';
-import AddAdmin from './components/AddAdmin';
-import AddStudent from './components/AddStudent';
-import AppSidebar from './components/Sidebar';
-import AddSpecificClass from './components/AddSpecificClass';
-import AddSuperAdmin from './components/AddSuperAdmin';
-import AddSubjects from './components/AddSubjects';
-import Analytics from './pages/Analytics';
-import Timetable from './pages/Timetable';
-import Calendar from './pages/Calendar';
-import SyllabusPage from './pages/Syllabus';
-import LearningResources from './pages/LearningResources';
-import UnifiedTestManagement from './pages/UnifiedTestManagement';
-import TestTaking from './pages/TestTaking';
-import Unauthorized from './pages/Unauthorized';
-import DailyTrendsAnalytics from './pages/superadmin/DailyTrendsAnalytics';
-import StudentPerformanceAnalytics from './pages/superadmin/StudentPerformanceAnalytics';
-import ClassComparisonAnalytics from './pages/superadmin/ClassComparisonAnalytics';
-import StatusDistributionAnalytics from './pages/superadmin/StatusDistributionAnalytics';
-import SuperAdminCounter from './components/SuperAdminCounter';
+
+// Configure dayjs globally to start week on Monday
+dayjs.extend(weekday);
+dayjs.extend(localeData);
+dayjs.extend(updateLocale);
+dayjs.locale('en');
+dayjs.updateLocale('en', {
+  weekStart: 1,
+});
+
+// Configure Ant Design locale to start week on Monday
+const customLocale = {
+  ...enUS,
+  DatePicker: {
+    ...enUS.DatePicker,
+    lang: {
+      ...enUS.DatePicker.lang,
+      locale: 'en_US',
+      weekStart: 1,
+    },
+  },
+  Calendar: {
+    ...enUS.Calendar,
+    lang: {
+      ...enUS.Calendar.lang,
+      locale: 'en_US',
+      weekStart: 1,
+    },
+  },
+};
+// Eager imports (small, always needed)
+import { LoginPage } from '@/features/auth';
+import { PrivateRoute } from '@/features/auth';
+import { Sidebar } from '@/shared/components';
+import { UnauthorizedPage } from '@/features/auth';
 import { routeAccess } from './routeAccess';
+
+// Lazy imports (large components, loaded on demand)
+const Dashboard = lazy(() => import('@/features/students/pages/Dashboard'));
+const CBAdminDashboard = lazy(() => import('@/features/school/pages/CBAdminDashboard'));
+const AddSchools = lazy(() => import('@/features/school/pages/AddSchools'));
+const Assessments = lazy(() => import('@/features/tests/pages/Assessments'));
+const Attendance = lazy(() => import('@/features/attendance/pages/Attendance'));
+const Fees = lazy(() => import('@/features/fees/pages/Fees'));
+const SetupSchool = lazy(() => import('@/features/school/pages/SetupSchool'));
+const AddAdmin = lazy(() => import('@/features/school/components/AddAdmin'));
+const AddStudent = lazy(() => import('@/features/students/components/AddStudent'));
+const AddSpecificClass = lazy(() => import('@/features/school/components/AddSpecificClass'));
+const AddSuperAdmin = lazy(() => import('@/features/school/components/AddSuperAdmin'));
+const AddSubjects = lazy(() => import('@/features/school/components/AddSubjects'));
+const Analytics = lazy(() => import('@/features/analytics/pages/Analytics'));
+const Timetable = lazy(() => import('@/features/timetable/pages/Timetable'));
+const Calendar = lazy(() => import('@/features/calendar/pages/Calendar'));
+const SyllabusPage = lazy(() => import('@/features/syllabus/pages/Syllabus'));
+const LearningResources = lazy(() => import('@/features/learning-resources/pages/LearningResources'));
+const UnifiedTestManagement = lazy(() => import('@/features/tests/pages/UnifiedTestManagement'));
+const TaskManagement = lazy(() => import('@/features/tasks/pages/TaskManagement'));
+const TestTaking = lazy(() => import('@/features/tests/pages/TestTaking'));
+const DailyTrendsAnalytics = lazy(() => import('@/features/analytics/pages/DailyTrendsAnalytics'));
+const StudentPerformanceAnalytics = lazy(() => import('@/features/analytics/pages/StudentPerformanceAnalytics'));
+const ClassComparisonAnalytics = lazy(() => import('@/features/analytics/pages/ClassComparisonAnalytics'));
+const StatusDistributionAnalytics = lazy(() => import('@/features/analytics/pages/StatusDistributionAnalytics'));
+const SuperAdminCounter = lazy(() => import('@/features/school/components/SuperAdminCounter'));
+const StudentTimetable = lazy(() => import('@/features/timetable/pages/StudentTimetable'));
+const StudentSyllabus = lazy(() => import('@/features/syllabus/pages/StudentSyllabus'));
+const StudentResults = lazy(() => import('@/features/students/pages/StudentResults'));
+const StudentLearningResources = lazy(() => import('@/features/learning-resources/pages/StudentLearningResources'));
+const StudentCalendar = lazy(() => import('@/features/calendar/pages/StudentCalendar'));
+const StudentAttendance = lazy(() => import('@/features/students/pages/StudentAttendance'));
+const StudentAnalytics = lazy(() => import('@/features/students/pages/StudentAnalytics'));
 
 
 
@@ -57,7 +104,7 @@ function AppLayout({ children }) {
         ? '#000000'
         : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)'
     }}>
-      <AppSidebar 
+      <Sidebar 
         collapsed={sidebarCollapsed} 
         onCollapse={setSidebarCollapsed}
       />
@@ -100,12 +147,22 @@ function AppContent() {
   }
 
   return (
-    <ConfigProvider theme={theme}>
+    <ConfigProvider theme={theme} locale={customLocale}>
       <AntApp>
         <Router>
         {user && (
           <AppLayout>
-            <Routes>
+            <Suspense fallback={
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '80vh' 
+              }}>
+                <Spin size="large" tip="Loading..." />
+              </div>
+            }>
+              <Routes>
               {/* Logged-in routes */}
               <Route path="/" element={<Dashboard />} />
               <Route path="/dashboard" element={<Dashboard />} />
@@ -134,23 +191,33 @@ function AppContent() {
               <Route path="/syllabus" element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
               <Route path="/learning-resources" element={<PrivateRoute allowedRoles={routeAccess.learningResources}><LearningResources /></PrivateRoute>} />
               <Route path="/test-management" element={<PrivateRoute allowedRoles={routeAccess.testManagement}><UnifiedTestManagement /></PrivateRoute>} />
+              <Route path="/task-management" element={<PrivateRoute allowedRoles={routeAccess.taskManagement}><TaskManagement /></PrivateRoute>} />
               <Route path="/take-tests" element={<PrivateRoute allowedRoles={['student']}><TestTaking /></PrivateRoute>} />
               <Route path="/assessments" element={<PrivateRoute allowedRoles={routeAccess.assessments}><Assessments /></PrivateRoute>} />
 
+              {/* Student Routes */}
+              <Route path="/student/timetable" element={<PrivateRoute allowedRoles={['student']}><StudentTimetable /></PrivateRoute>} />
+              <Route path="/student/syllabus" element={<PrivateRoute allowedRoles={['student']}><StudentSyllabus /></PrivateRoute>} />
+              <Route path="/student/results" element={<PrivateRoute allowedRoles={['student']}><StudentResults /></PrivateRoute>} />
+              <Route path="/student/resources" element={<PrivateRoute allowedRoles={['student']}><StudentLearningResources /></PrivateRoute>} />
+              <Route path="/student/calendar" element={<PrivateRoute allowedRoles={['student']}><StudentCalendar /></PrivateRoute>} />
+              <Route path="/student/attendance" element={<PrivateRoute allowedRoles={['student']}><StudentAttendance /></PrivateRoute>} />
+              <Route path="/student/analytics" element={<PrivateRoute allowedRoles={['student']}><StudentAnalytics /></PrivateRoute>} />
 
               {/* Error Routes */}
-              <Route path="/unauthorized" element={<Unauthorized />} />
+              <Route path="/unauthorized" element={<UnauthorizedPage />} />
               
               {/* Default redirect */}
               <Route path="*" element={<Navigate to="/dashboard" />} />
             </Routes>
+            </Suspense>
           </AppLayout>
         )}
 
         {!user && (
           <Routes>
             {/* Public routes */}
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
         )}

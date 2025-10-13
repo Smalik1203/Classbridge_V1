@@ -17,6 +17,7 @@ export type RouteKey =
   | 'syllabus'
   | 'assessments'
   | 'testManagement'
+  | 'taskManagement'
   | 'attendance'
   | 'fees'
   | 'feeManage'
@@ -52,6 +53,7 @@ export const routeAccess: RouteAccess = {
   // Daily operations
   assessments: ['superadmin', 'admin', 'student'],
   testManagement: ['superadmin', 'admin'],
+  taskManagement: ['superadmin', 'admin', 'student'],
   attendance: ['superadmin', 'admin', 'student'],
   fees: ['superadmin', 'admin', 'student'],
   feeManage: ['superadmin', 'admin'],

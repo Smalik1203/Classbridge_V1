@@ -1,0 +1,590 @@
+// services/testTakingService.js
+// Robust, tolerant service for student test-taking flows.
+// - Uses Supabase client imported from your config
+// - Defensive: tolerates schema differences (started_at, in_progress)
+// - All functions throw Error objects when unrecoverable; callers should catch and surface messages.
+// - ENHANCED: Includes tenant isolation security validation
+
+import { supabase } from '@/config/supabaseClient';
+import { 
+  validateSchoolCode, 
+  getCurrentUserWithValidation, 
+  enforceTenantIsolation,
+  TenantSecurityError 
+} from '@/shared/utils/tenantSecurity.js';
+
+/**
+ * Helper: resolve student row by studentCode or email.
+ * Returns null if not found.
+ */
+async function resolveStudent({ schoolCode, studentCode, userEmail }) {
+  if (!schoolCode) throw new Error('schoolCode required');
+
+  try {
+    const base = supabase.from('student').select('id, class_instance_id, school_code, student_code, email');
+
+    if (studentCode) {
+      const { data, error } = await base.eq('student_code', studentCode).eq('school_code', schoolCode).maybeSingle();
+      if (error) throw error;
+      if (data) return data;
+    }
+
+    if (userEmail) {
+      const { data, error } = await base.eq('email', userEmail).eq('school_code', schoolCode).maybeSingle();
+      if (error) throw error;
+      if (data) return data;
+    }
+
+    return null;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get tests available to a student's class.
+ * Returns array of test objects with minimal fields and test_questions (if present).
+ * ENHANCED: Includes tenant isolation security validation
+ */
+export async function getAvailableTests(studentId, schoolCode, userEmail, studentCode) {
+  try {
+    if (!schoolCode) throw new Error('schoolCode is required');
+    
+    // SECURITY: Validate current user's school matches the requested school
+    const currentUser = await getCurrentUserWithValidation();
+    enforceTenantIsolation(schoolCode, currentUser);
+
+    // Resolve student if class_instance_id unknown
+    let classInstanceId = null;
+    if (studentId) {
+      // Try quick fetch by id first
+      const { data: sData, error: sErr } = await supabase
+        .from('student')
+        .select('id, class_instance_id, school_code')
+        .eq('id', studentId)
+        .eq('school_code', schoolCode)
+        .maybeSingle();
+
+      if (sErr) {
+      } else if (sData) {
+        classInstanceId = sData.class_instance_id;
+      }
+    }
+
+    if (!classInstanceId) {
+      const student = await resolveStudent({ schoolCode, studentCode, userEmail });
+      if (!student) {
+        // Not an exceptional condition: return empty list
+        return [];
+      }
+      classInstanceId = student.class_instance_id;
+    }
+
+    if (!classInstanceId) return [];
+
+    // Fetch tests for class_instance (only active tests that haven't passed their test date)
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    const { data: tests, error: testsErr } = await supabase
+      .from('tests')
+      .select(
+        `id, title, description, test_type, time_limit_seconds, class_instance_id, created_at, allow_reattempts, test_date, status,
+         class_instances(id,grade,section),
+         subjects(id,subject_name),
+         syllabus_chapters(id, chapter_no, title, description),
+         test_questions(id, question_text, question_type, options, correct_index, correct_text)`
+      )
+      .eq('class_instance_id', classInstanceId)
+      .eq('school_code', schoolCode)
+      .eq('status', 'active')
+      .or(`test_date.is.null,test_date.gte.${today}`)
+      .order('created_at', { ascending: false });
+
+    if (testsErr) {
+      throw testsErr;
+    }
+
+    // Optionally filter out completed tests for this student (best-effort; don't fail on errors)
+    let completedIds = [];
+    try {
+      if (studentId) {
+        const { data: completed, error: compErr } = await supabase
+          .from('test_attempts')
+          .select('test_id')
+          .eq('student_id', studentId)
+          .eq('status', 'completed');
+
+        if (compErr) {
+        } else if (completed) {
+          completedIds = completed.map(r => r.test_id);
+        }
+      }
+    } catch (err) {
+    }
+
+    // Filter tests based on completion status and reattempt settings
+    const available = (tests || []).filter(t => {
+      const isCompleted = completedIds.includes(t.id);
+      const allowsReattempts = t.allow_reattempts === true;
+      
+      // Show test if:
+      // 1. Not completed yet, OR
+      // 2. Completed but reattempts are allowed
+      return !isCompleted || allowsReattempts;
+    });
+    
+    return available;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get test details for taking.
+ * Returns { test, existingAttempt } where existingAttempt may be null.
+ */
+export async function getTestForTaking(testId, studentId, schoolCode, userEmail, studentCode) {
+  try {
+    if (!testId) throw new Error('testId required');
+    if (!schoolCode) throw new Error('schoolCode required');
+
+    // resolve actual student id if necessary
+    let actualStudentId = studentId;
+    if (!actualStudentId) {
+      const student = await resolveStudent({ schoolCode, studentCode, userEmail });
+      if (!student) throw new Error('Student not found');
+      actualStudentId = student.id;
+    }
+
+    // Fetch test with questions. Avoid deep client-side expansions that rely on schema cache.
+    const { data: test, error: testErr } = await supabase
+      .from('tests')
+      .select(
+        `*,
+        class_instances(id,grade,section),
+        subjects(id,subject_name),
+        test_questions(id, question_text, question_type, options, correct_index, correct_text)`
+      )
+      .eq('id', testId)
+      .maybeSingle();
+
+    if (testErr) {
+      throw testErr;
+    }
+    if (!test) throw new Error('Test not found');
+
+    // Try to fetch an existing attempt. Do not use server-side status filters that might be unsupported.
+    let existingAttempt = null;
+    try {
+      const { data: attempts, error: attemptsErr } = await supabase
+        .from('test_attempts')
+        .select('*')
+        .eq('test_id', testId)
+        .eq('student_id', actualStudentId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (attemptsErr) {
+      } else if (attempts && attempts.length > 0) {
+        // prefer in_progress if present
+        existingAttempt = attempts.find(a => a.status === 'in_progress') || attempts[0];
+      }
+    } catch (err) {
+    }
+
+    return { test, existingAttempt: existingAttempt || null };
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Start or resume an attempt.
+ * Tries to create in_progress + started_at; falls back to submitted if schema rejects it.
+ */
+export async function startTestAttempt(testId, studentId, schoolCode, userEmail, studentCode) {
+  try {
+    if (!testId) throw new Error('testId required');
+    if (!schoolCode) throw new Error('schoolCode required');
+
+    // resolve student ID
+    let actualStudentId = studentId;
+    if (!actualStudentId) {
+      const student = await resolveStudent({ schoolCode, studentCode, userEmail });
+      if (!student) throw new Error('Student not found');
+      actualStudentId = student.id;
+    }
+
+    // Get test info to check if reattempts are allowed
+    const { data: testData, error: testErr } = await supabase
+      .from('tests')
+      .select('allow_reattempts')
+      .eq('id', testId)
+      .single();
+
+    if (testErr) {
+    }
+
+    const allowsReattempts = testData?.allow_reattempts === true;
+
+    // Check existing attempts first (avoid duplicates)
+    try {
+      const { data: attempts, error: attemptsErr } = await supabase
+        .from('test_attempts')
+        .select('*')
+        .eq('test_id', testId)
+        .eq('student_id', actualStudentId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (attemptsErr) {
+      } else if (attempts && attempts.length > 0) {
+        const latest = attempts[0];
+        
+        // Resume if not completed/abandoned, OR if reattempts are allowed and latest is completed
+        if (latest.status !== 'completed' && latest.status !== 'abandoned') {
+          return latest;
+        } else if (allowsReattempts && latest.status === 'completed') {
+          // Reset the completed attempt to in_progress for reattempt
+          const { data: resetAttempt, error: resetError } = await supabase
+            .from('test_attempts')
+            .update({
+              status: 'in_progress',
+              started_at: new Date().toISOString(),
+              answers: {},
+              score: null,
+              earned_points: null,
+              total_points: null,
+              completed_at: null
+            })
+            .eq('id', latest.id)
+            .select()
+            .single();
+
+          if (resetError) {
+            // If reset fails, create a new attempt
+          } else {
+            return resetAttempt;
+          }
+        } else {
+        }
+      }
+    } catch (err) {
+    }
+
+    // Try to insert with in_progress + started_at (preferred)
+    try {
+      const { data, error } = await supabase
+        .from('test_attempts')
+        .insert([{
+          test_id: testId,
+          student_id: actualStudentId,
+          status: 'in_progress',
+          started_at: new Date().toISOString(),
+          answers: {}
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      // If server rejects (schema mismatch), fall back to 'submitted' insert without started_at
+
+       const { data: fallback, error: fallbackErr } = await supabase
+         .from('test_attempts')
+         .insert([{
+           test_id: testId,
+           student_id: actualStudentId,
+           status: 'in_progress',
+           answers: {}
+         }])
+         .select()
+         .single();
+
+      if (fallbackErr) {
+        throw fallbackErr;
+      }
+      return fallback;
+    }
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Save answer for a specific attempt (partial save).
+ * Updates answers JSONB; returns updated attempt row.
+ */
+export async function saveTestAnswer(attemptId, questionId, answer, studentId) {
+  try {
+    if (!attemptId) throw new Error('attemptId required');
+
+    // fetch existing answers (single)
+    const { data: attempt, error: getErr } = await supabase
+      .from('test_attempts')
+      .select('answers, student_id')
+      .eq('id', attemptId)
+      .maybeSingle();
+
+    if (getErr) throw getErr;
+    if (!attempt) throw new Error('Attempt not found');
+
+
+    // optional: enforce student ownership
+    if (studentId && attempt.student_id !== studentId) {
+      throw new Error('Not authorized to modify this attempt');
+    }
+
+    const updated = { ...(attempt.answers || {}), [questionId]: answer };
+
+    const { data, error } = await supabase
+      .from('test_attempts')
+      .update({ answers: updated, started_at: new Date().toISOString() }) // refresh started_at to mark activity if supported
+      .eq('id', attemptId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Submit attempt: auto-grade MCQs (best-effort using test_questions correct_index/correct_text)
+ * and update attempt to completed with score.
+ */
+export async function submitTestAttempt(attemptId, answers, studentId) {
+  try {
+    if (!attemptId) throw new Error('attemptId required');
+
+    // Fetch attempt and its test questions
+    const { data: attemptRow, error: attemptErr } = await supabase
+      .from('test_attempts')
+      .select(`id, test_id, student_id, status`)
+      .eq('id', attemptId)
+      .maybeSingle();
+
+    if (attemptErr) throw attemptErr;
+    if (!attemptRow) throw new Error('Attempt not found');
+
+
+    if (studentId && attemptRow.student_id !== studentId) {
+      throw new Error('Not authorized to submit this attempt');
+    }
+
+    // Check if attempt is in progress
+    if (attemptRow.status !== 'in_progress') {
+      throw new Error(`Cannot submit test - attempt is not in progress (status: ${attemptRow.status})`);
+    }
+
+    const testId = attemptRow.test_id;
+    // Get test questions
+    const { data: testData, error: testErr } = await supabase
+      .from('tests')
+      .select('id, test_questions(id, question_type, correct_index, correct_text, options)')
+      .eq('id', testId)
+      .maybeSingle();
+
+    if (testErr) throw testErr;
+    if (!testData) throw new Error('Associated test not found');
+
+    const questions = testData.test_questions || [];
+
+    // Calculate correct answers
+    const totalQuestions = questions.length;
+    let correctAnswers = 0;
+    
+    for (const q of questions) {
+      const studentAns = answers ? answers[q.id] : undefined;
+      let correct = false;
+      
+      
+      if (q.question_type === 'mcq' || q.question_type === 'multiple_choice') {
+        if (q.correct_index !== null && q.correct_index !== undefined && q.options && q.options.length > q.correct_index) {
+          // Get the correct option text from the options array
+          const correctOptionText = q.options[q.correct_index];
+          // Compare student answer with the correct option text
+          correct = String(studentAns || '').trim().toLowerCase() === String(correctOptionText || '').trim().toLowerCase();
+        } else if (q.correct_text) {
+          correct = String(studentAns || '').trim().toLowerCase() === String(q.correct_text).trim().toLowerCase();
+        } else {
+        }
+      } else {
+        // text based: compare with correct_text if available
+        if (q.correct_text) {
+          correct = String(studentAns || '').trim().toLowerCase() === String(q.correct_text).trim().toLowerCase();
+        } else {
+          // cannot auto-grade; skip counting as correct
+          correct = false;
+        }
+      }
+      
+      if (correct) correctAnswers++;
+    }
+    
+    // Ensure values are non-negative
+    const validCorrectAnswers = Math.max(0, correctAnswers);
+    const validTotalQuestions = Math.max(0, totalQuestions);
+    
+
+    // First check the current status of the attempt
+    const { data: currentAttempt, error: checkError } = await supabase
+      .from('test_attempts')
+      .select('id, status, test_id, student_id, answers')
+      .eq('id', attemptId)
+      .single();
+
+    if (checkError) {
+      throw checkError;
+    }
+
+    if (!currentAttempt) {
+      throw new Error('Attempt not found');
+    }
+
+
+    // Only update if the attempt is in progress
+    if (currentAttempt.status !== 'in_progress') {
+      throw new Error('Cannot submit test - attempt is not in progress');
+    }
+
+    // Update with proper scoring fields
+    const updateData = {
+      answers: answers,
+      status: 'completed',
+      score: validCorrectAnswers,
+      earned_points: validCorrectAnswers,
+      total_points: validTotalQuestions,
+      completed_at: new Date().toISOString()
+    };
+    
+    
+    const { data: updated, error: updateErr } = await supabase
+      .from('test_attempts')
+      .update(updateData)
+      .eq('id', attemptId)
+      .select(`
+        id,
+        test_id,
+        status,
+        score,
+        earned_points,
+        total_points,
+        answers,
+        completed_at,
+        test:tests (
+          title,
+          test_type,
+          subjects(subject_name),
+          syllabus_chapters(id, chapter_no, title, description),
+          test_questions(
+            id,
+            question_text,
+            question_type,
+            options,
+            correct_text,
+            correct_index
+          )
+        )
+      `)
+      .single();
+
+    if (updateErr) {
+      throw updateErr;
+    }
+
+    return updated;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Allow reattempt of a test (admin/superadmin only)
+ */
+export async function allowTestReattempt(attemptId, studentId, schoolCode, userEmail, studentCode) {
+  try {
+    if (!attemptId) throw new Error('attemptId required');
+    if (!schoolCode) throw new Error('schoolCode required');
+
+    // Resolve student id if not provided
+    let actualStudentId = studentId;
+    if (!actualStudentId) {
+      const student = await resolveStudent({ schoolCode, studentCode, userEmail });
+      if (!student) throw new Error('Student not found');
+      actualStudentId = student.id;
+    }
+
+    // Update the attempt status to allow reattempt
+    const { data: updated, error } = await supabase
+      .from('test_attempts')
+      .update({
+        status: 'abandoned', // Mark as abandoned to allow new attempt
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', attemptId)
+      .eq('student_id', actualStudentId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return updated;
+  } catch (err) {
+    throw err;
+  }
+}
+
+/**
+ * Get student's completed test history
+ */
+export async function getTestHistory(studentId, schoolCode, userEmail, studentCode) {
+  try {
+    // Resolve student id if not provided
+    let actualStudentId = studentId;
+    if (!actualStudentId) {
+      const student = await resolveStudent({ schoolCode, studentCode, userEmail });
+      if (!student) return [];
+      actualStudentId = student.id;
+    }
+
+    const { data: attempts, error } = await supabase
+      .from('test_attempts')
+      .select(`
+        id,
+        test_id,
+        status,
+        score,
+        earned_points,
+        total_points,
+        answers,
+        completed_at,
+        test:tests (
+          title,
+          test_type,
+          subjects(subject_name),
+          syllabus_chapters(id, chapter_no, title, description),
+          test_questions(
+            id,
+            question_text,
+            question_type,
+            options,
+            correct_text,
+            correct_index
+          )
+        )
+      `)
+      .eq('student_id', actualStudentId)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false });
+
+    if (error) throw error;
+    
+    
+    return attempts || [];
+  } catch (err) {
+    throw err;
+  }
+}
