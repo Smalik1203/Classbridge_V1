@@ -12,6 +12,7 @@ import { useAuth } from '@/AuthProvider';
 import { getStudentCode, getSchoolCode } from '@/shared/utils/metadata';
 import { fmtINR } from '@/features/fees/utils/money';
 import dayjs from 'dayjs';
+import { useFees } from '../context/FeesContext';
 
 const { Title, Text } = Typography;
 

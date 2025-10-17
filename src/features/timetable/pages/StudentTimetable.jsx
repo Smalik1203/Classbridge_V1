@@ -183,16 +183,31 @@ const StudentTimetable = () => {
     setSelectedDate(dayjs());
   };
 
-  // Calculate stats
-  const stats = useMemo(() => {
+  // Calculate stats and process timetable data
+  const { stats, processedSlots } = useMemo(() => {
     const periods = timetableSlots.filter(s => s.slot_type === 'period');
     const breaks = timetableSlots.filter(s => s.slot_type === 'break');
     
+    // Calculate display period numbers (only for actual periods, not breaks)
+    let displayPeriodCounter = 1;
+    const processedSlots = timetableSlots.map(slot => {
+      const isPeriod = slot.slot_type === 'period';
+      const displayPeriodNumber = isPeriod ? displayPeriodCounter++ : null;
+      
+      return {
+        ...slot,
+        displayPeriodNumber // Add display period number for UI
+      };
+    });
+    
     return {
-      totalSlots: timetableSlots.length,
-      periods: periods.length,
-      breaks: breaks.length,
-      subjects: new Set(periods.filter(s => s.subject_id).map(s => s.subject_id)).size
+      stats: {
+        totalSlots: timetableSlots.length,
+        periods: periods.length,
+        breaks: breaks.length,
+        subjects: new Set(periods.filter(s => s.subject_id).map(s => s.subject_id)).size
+      },
+      processedSlots
     };
   }, [timetableSlots]);
 
@@ -235,7 +250,7 @@ const StudentTimetable = () => {
             <Row justify="space-between" align="middle" style={{ marginBottom: 8 }}>
               <Col>
                 <Space>
-                  <Tag color="blue">Period {slot.period_number}</Tag>
+                  <Tag color="blue">Period {slot.displayPeriodNumber}</Tag>
                   <Text type="secondary" style={{ fontSize: 13 }}>
                     {dayjs(slot.start_time, 'HH:mm:ss').format('hh:mm A')} - {dayjs(slot.end_time, 'HH:mm:ss').format('hh:mm A')}
                   </Text>
@@ -415,7 +430,7 @@ const StudentTimetable = () => {
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <Spin size="large" />
             </div>
-          ) : timetableSlots.length === 0 ? (
+          ) : processedSlots.length === 0 ? (
             <EmptyState
               icon={<CalendarOutlined />}
               title="No classes scheduled"
@@ -423,7 +438,7 @@ const StudentTimetable = () => {
             />
           ) : (
             <div>
-              {timetableSlots.map(renderSlotCard)}
+              {processedSlots.map(renderSlotCard)}
             </div>
           )}
         </Card>

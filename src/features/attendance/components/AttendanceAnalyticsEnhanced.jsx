@@ -90,7 +90,7 @@ const AttendanceAnalyticsEnhanced = () => {
   // Load attendance data
   const loadAttendanceData = async () => {
     if (!selectedClassId || !me.school_code) return;
-
+    
     setDataLoading(true);
     try {
       const startDate = dateRange[0].format('YYYY-MM-DD');
@@ -138,7 +138,7 @@ const AttendanceAnalyticsEnhanced = () => {
   // Process attendance data for analytics
   const processAttendanceData = (students, records) => {
     const studentAttendanceMap = {};
-
+    
     // Initialize student data
     students.forEach(student => {
       studentAttendanceMap[student.id] = {
@@ -255,8 +255,6 @@ const AttendanceAnalyticsEnhanced = () => {
       { name: 'working', value: analytics.workingDays, color: '#10b981' },
       { name: 'holidays', value: analytics.holidays, color: '#ef4444' }
     ];
-
-    // Debug logging
 
     // Daily attendance breakdown for bar chart
     const dailyData = [

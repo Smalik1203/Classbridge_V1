@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Card, DatePicker, Select, Space, Typography, Tabs, message, Tag, Button, 
   Modal, Form, Input, InputNumber, Popconfirm, Tooltip, Row, Col, Empty,
-  Dropdown, Radio, Alert, App, Spin
+  Dropdown, Radio, Alert, App, Spin, Skeleton
 } from 'antd';
 import { 
   LeftOutlined, RightOutlined, CalendarOutlined, ClockCircleOutlined, 
@@ -11,8 +11,9 @@ import {
   PlayCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined,
   ThunderboltOutlined, CopyOutlined, MoreOutlined, CheckOutlined,
   ExclamationCircleOutlined, SettingOutlined, FileTextOutlined, 
-  InfoCircleOutlined
+  InfoCircleOutlined, CompressOutlined, ExpandOutlined
 } from '@ant-design/icons';
+import { motion, AnimatePresence } from 'framer-motion';
 import dayjs from 'dayjs';
 import { supabase } from '@/config/supabaseClient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -66,6 +67,7 @@ export default function UnifiedTimetable() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingSlot, setEditingSlot] = useState(null);
   const [quickGenerateModalVisible, setQuickGenerateModalVisible] = useState(false);
+  const [compactMode, setCompactMode] = useState(false);
   const [form] = Form.useForm();
   const [quickGenerateForm] = Form.useForm();
 
@@ -217,8 +219,17 @@ export default function UnifiedTimetable() {
   }, [classId, dateStr]);
 
   // Helper functions
-  const subjectName = (id) => subjects.find(s => s.id === id)?.subject_name || '—';
-  const adminName = (id) => admins.find(a => a.id === id)?.full_name || '—';
+  const subjectName = (id) => {
+    if (!id) return '—';
+    const subject = subjects.find(s => s.id === id);
+    return subject?.subject_name || 'Loading...';
+  };
+  
+  const adminName = (id) => {
+    if (!id) return '—';
+    const admin = admins.find(a => a.id === id);
+    return admin?.full_name || 'Loading...';
+  };
 
   const getSyllabusContent = (slot) => {
     if (slot.syllabus_topic_id) {
@@ -327,6 +338,9 @@ export default function UnifiedTimetable() {
       };
 
       if (editingSlot) {
+        // Handle automatic time adjustment for existing slots
+        await handleTimeAdjustment(editingSlot, payload);
+        
         const { error } = await supabase
           .from('timetable_slots')
           .update(payload)
@@ -350,6 +364,58 @@ export default function UnifiedTimetable() {
     }
   };
 
+  // Handle automatic time adjustment when editing slots
+  const handleTimeAdjustment = async (currentSlot, newPayload) => {
+    const sortedSlots = [...daySlots].sort((a, b) => {
+      const timeA = new Date(`2000-01-01T${a.start_time}`);
+      const timeB = new Date(`2000-01-01T${b.start_time}`);
+      return timeA - timeB;
+    });
+
+    const currentIndex = sortedSlots.findIndex(slot => slot.id === currentSlot.id);
+    if (currentIndex === -1) return;
+
+    const updates = [];
+
+    // Check if end time changed and adjust next slot's start time
+    if (newPayload.end_time !== currentSlot.end_time) {
+      const nextSlot = sortedSlots[currentIndex + 1];
+      if (nextSlot) {
+        updates.push({
+          id: nextSlot.id,
+          start_time: newPayload.end_time
+        });
+      }
+    }
+
+    // Check if start time changed and adjust previous slot's end time
+    if (newPayload.start_time !== currentSlot.start_time) {
+      const prevSlot = sortedSlots[currentIndex - 1];
+      if (prevSlot) {
+        updates.push({
+          id: prevSlot.id,
+          end_time: newPayload.start_time
+        });
+      }
+    }
+
+    // Apply all updates
+    for (const update of updates) {
+      const { error } = await supabase
+        .from('timetable_slots')
+        .update({ 
+          start_time: update.start_time,
+          end_time: update.end_time 
+        })
+        .eq('id', update.id);
+      
+      if (error) {
+        console.warn(`Failed to update slot ${update.id}:`, error);
+        // Don't throw error, just log warning
+      }
+    }
+  };
+
   const handleDelete = async (slot) => {
     try {
       const { error } = await supabase
@@ -364,13 +430,20 @@ export default function UnifiedTimetable() {
     }
   };
 
-  // Quick Generate handler
+  // Quick Generate handler - Creates multiple periods with optional breaks
+  // Fixes the "Value already taken" error by using sequential period numbers
+  // Allows flexible break configuration (when and how long)
   const handleQuickGenerate = async () => {
     try {
       setLoading(true);
       const values = await quickGenerateForm.validateFields();
       
-      const { numPeriods, periodDuration, breakDuration, startTime } = values;
+      const { 
+        numPeriods, 
+        periodDuration, 
+        breakConfigurations, 
+        startTime 
+      } = values;
       
       // Parse start time
       const [startHour, startMinute] = startTime.split(':').map(Number);
@@ -378,6 +451,8 @@ export default function UnifiedTimetable() {
       let currentMinute = startMinute;
       
       const slots = [];
+      let slotCounter = 1; // For database unique constraint
+      let displayPeriodNumber = 1; // For user display
       
       for (let i = 1; i <= numPeriods; i++) {
         // Calculate end time for period
@@ -390,20 +465,23 @@ export default function UnifiedTimetable() {
           school_code: me?.school_code,
           class_instance_id: classId,
           class_date: dateStr,
-          period_number: i,
+          period_number: slotCounter, // Database constraint
           slot_type: 'period',
           start_time: `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}:00`,
           end_time: `${String(endHour).padStart(2, '0')}:${String(adjustedEndMinute).padStart(2, '0')}:00`,
           created_by: me?.id
         });
         
+        slotCounter++;
+        
         // Update current time to end of period
         currentHour = endHour;
         currentMinute = adjustedEndMinute;
         
-        // Add break after period (except after last period)
-        if (i < numPeriods && breakDuration > 0) {
-          const breakEndMinute = currentMinute + breakDuration;
+        // Check if we need to add a break after this period
+        const breakConfig = breakConfigurations?.find(config => config.afterPeriod === i);
+        if (breakConfig && breakConfig.duration > 0) {
+          const breakEndMinute = currentMinute + breakConfig.duration;
           const breakEndHour = currentHour + Math.floor(breakEndMinute / 60);
           const adjustedBreakEndMinute = breakEndMinute % 60;
           
@@ -411,14 +489,15 @@ export default function UnifiedTimetable() {
             school_code: me?.school_code,
             class_instance_id: classId,
             class_date: dateStr,
-            period_number: 0,
+            period_number: slotCounter, // Database constraint
             slot_type: 'break',
-            name: 'Break',
+            name: breakConfig.name || 'Break',
             start_time: `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}:00`,
             end_time: `${String(breakEndHour).padStart(2, '0')}:${String(adjustedBreakEndMinute).padStart(2, '0')}:00`,
             created_by: me?.id
           });
           
+          slotCounter++;
           currentHour = breakEndHour;
           currentMinute = adjustedBreakEndMinute;
         }
@@ -463,13 +542,22 @@ export default function UnifiedTimetable() {
 
   // Schedule data
   const scheduleData = useMemo(() => {
-    return daySlots.map(slot => ({
+    // Calculate display period numbers (only for actual periods, not breaks)
+    let displayPeriodCounter = 1;
+    
+    return daySlots.map(slot => {
+      const isPeriod = slot.slot_type === 'period';
+      const displayPeriodNumber = isPeriod ? displayPeriodCounter++ : null;
+      
+      return {
       ...slot,
+        displayPeriodNumber, // Add display period number for UI
       subjectName: subjectName(slot.subject_id),
       teacherName: adminName(slot.teacher_id),
       syllabusContent: getSyllabusContent(slot),
       isTaught: taughtBySlotId.has(slot.id)
-    }));
+      };
+    });
   }, [daySlots, subjects, admins, syllabusContentMap, taughtBySlotId]);
 
   const taughtCounts = useMemo(() => {
@@ -538,28 +626,32 @@ export default function UnifiedTimetable() {
 
   return (
     <div style={{ 
-      padding: 16, 
-      background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
+      background: '#F9FAFB', 
       minHeight: '100vh' 
     }}>
       <App>
         {ctx}
-      <Card
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <CalendarOutlined style={{ color: '#1890ff' }} />
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: 600, color: '#262626' }}>
-                Timetable Management
-              </div>
-              <div style={{ fontSize: '12px', color: '#8c8c8c', fontWeight: 'normal' }}>
-                Create and manage class schedules with syllabus content
-              </div>
-            </div>
-          </div>
-        }
-        extra={
-          <Space wrap size="middle">
+        
+        {/* Modern Sticky Toolbar */}
+        <motion.div 
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            background: '#FFFFFF',
+            borderBottom: '1px solid rgba(0,0,0,0.08)',
+            padding: '16px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px'
+          }}
+        >
+          {/* Left: Filters & Progress */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
             <Select
               placeholder="Select Class"
               value={classId}
@@ -567,12 +659,15 @@ export default function UnifiedTimetable() {
               options={classOptions}
               style={{ width: 200 }}
               allowClear
+              size="default"
             />
-            <Space.Compact>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Button 
                 icon={<LeftOutlined />}
                 onClick={() => handleDateNavigation('prev')}
-                title="Previous Day"
+                size="small"
+                type="text"
               />
               <DatePicker
                 value={date}
@@ -581,36 +676,92 @@ export default function UnifiedTimetable() {
                     setDate(selectedDate);
                   }
                 }}
-                format="MMM DD, YYYY"
-                style={{ minWidth: 160 }}
-                allowClear={false}
-                suffixIcon={<CalendarOutlined />}
+                format="MMM DD"
+                size="default"
+                style={{ width: 120 }}
               />
               <Button 
                 icon={<RightOutlined />}
                 onClick={() => handleDateNavigation('next')}
-                title="Next Day"
+                size="small"
+                type="text"
               />
-            </Space.Compact>
+            </div>
+            
+            {scheduleData.length > 0 && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                padding: '4px 12px',
+                background: '#F3F4F6',
+                borderRadius: '8px',
+                fontSize: '14px',
+                color: '#6B7280'
+              }}>
+                <span style={{ fontWeight: '600', color: '#111827' }}>
+                  {taughtCounts.taughtPeriods}/{taughtCounts.totalPeriods}
+                </span>
+                <span>periods taught</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Right: Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Button 
-              onClick={() => handleDateNavigation('today')}
-              type="default"
-            >
-              Today
-            </Button>
+              type="text"
+              icon={compactMode ? <ExpandOutlined /> : <CompressOutlined />}
+              onClick={() => setCompactMode(!compactMode)}
+              size="default"
+              title={compactMode ? 'Expand view' : 'Compact view'}
+            />
+            
+            {/* Add Actions */}
+            {classId && !isHoliday && (
+              <>
+                <Button 
+                  type="default"
+                  icon={<PlusOutlined />}
+                  onClick={() => openAddModal('break')}
+                  size="default"
+                  style={{ 
+                    border: '1px solid #D1D5DB',
+                    color: '#6B7280'
+                  }}
+                >
+                  Add Break
+                </Button>
+                <Button 
+                  type="default"
+                  icon={<PlusOutlined />}
+                  onClick={() => openAddModal('period')}
+                  size="default"
+                  style={{ 
+                    border: '1px solid #3B82F6',
+                    color: '#3B82F6',
+                    background: '#EFF6FF'
+                  }}
+                >
+                  Add Period
+                </Button>
+              </>
+            )}
+            
             <Button 
               type="primary"
               icon={<ThunderboltOutlined />}
               onClick={() => setQuickGenerateModalVisible(true)}
               disabled={!classId || isHoliday}
-              title="Quick Generate Timetable"
-              style={{ color: '#fff' }}
+              size="default"
             >
               Quick Generate
             </Button>
-          </Space>
-        }
-      >
+          </div>
+        </motion.div>
+
+        {/* Main Content */}
+        <div style={{ padding: '24px' }}>
         {/* Holiday Alert */}
         {isHoliday && (
           <Alert
@@ -622,7 +773,16 @@ export default function UnifiedTimetable() {
           />
         )}
 
-        {/* Schedule Content */}
+          {/* Loading State */}
+          {loading && (
+            <div style={{ padding: '24px' }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} active paragraph={{ rows: 1 }} style={{ marginBottom: 16 }} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
         {!classId ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -667,358 +827,440 @@ export default function UnifiedTimetable() {
             </Button>
           </div>
         ) : scheduleData.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* Daily progress summary */}
-            <Alert
-              type="info"
-              showIcon
-              message={`Taught ${taughtCounts.taughtPeriods} / ${taughtCounts.totalPeriods} periods`}
-              style={{ marginBottom: 8 }}
-            />
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.08)' }}>
+              {/* Modern Flat Timeline */}
+              <AnimatePresence>
             {scheduleData.map((slot, index) => {
               const isBreak = slot.slot_type === 'break';
               const isActualPeriod = slot.slot_type === 'period';
+                  const isLast = index === scheduleData.length - 1;
               
               return (
-                <Card
+                    <motion.div
                   key={slot.id}
-                  size="small"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                    >
+                      {isBreak ? (
+                        /* Break as Slim Divider */
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '8px 16px',
+                          background: '#FEF3C7',
+                          borderLeft: '3px solid #F59E0B',
+                          margin: '8px 0'
+                        }}>
+                          <span style={{ marginRight: '8px', fontSize: '16px' }}>☕</span>
+                          <span style={{ 
+                            fontSize: '14px', 
+                            fontWeight: '500', 
+                            color: '#92400E',
+                            marginRight: '8px'
+                          }}>
+                            {slot.name || 'Break'}
+                          </span>
+                          <span style={{ 
+                            fontSize: '12px', 
+                            color: '#A16207'
+                          }}>
+                            {slot.start_time?.slice(0, 5)} - {slot.end_time?.slice(0, 5)}
+                          </span>
+                        </div>
+                      ) : (
+                        /* Period as Flat Row */
+                        <motion.div
+                          whileHover={{ backgroundColor: '#F9FAFB' }}
                   style={{
-                    border: '1px solid #e8e8e8',
-                    borderRadius: '8px',
-                    background: isBreak ? '#f8f9fa' : '#ffffff'
-                  }}
-                >
-                  <Row align="middle" justify="space-between">
-                    <Col flex="auto">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '16px',
+                            borderBottom: isLast ? 'none' : '1px solid rgba(0,0,0,0.08)',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                        >
                         {/* Time */}
                         <div style={{ 
                           minWidth: '80px', 
-                          fontSize: '12px', 
-                          color: '#666',
-                          fontWeight: '500'
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            color: '#6B7280',
+                            marginRight: '16px'
                         }}>
                           {slot.start_time?.slice(0, 5)} - {slot.end_time?.slice(0, 5)}
                         </div>
 
                         {/* Period Info */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {isBreak ? (
-                            <Tag color="default" style={{ margin: 0 }}>
-                              {slot.name || 'Break'}
-                            </Tag>
-                          ) : (
-                            <Tag color="blue" style={{ margin: 0 }}>
-                              Period {slot.period_number}
-                            </Tag>
-                          )}
-                        </div>
-
-                        {/* Subject & Teacher */}
-                        {isActualPeriod && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Text style={{ fontSize: '14px', fontWeight: '500', margin: 0 }}>
-                              {slot.subjectName}
-                            </Text>
-                            <Text style={{ fontSize: '12px', color: '#666', margin: 0 }}>
-                              • {slot.teacherName}
-                            </Text>
-                          </div>
-                        )}
-
-                        {/* Syllabus Content */}
-                        {isActualPeriod && slot.syllabusContent && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Text style={{ 
-                              color: '#52c41a', 
-                              fontSize: '11px', 
-                              fontWeight: '500',
-                              margin: 0
+                          <div style={{
+                            minWidth: '60px',
+                            marginRight: '16px'
+                          }}>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              background: '#EFF6FF',
+                              color: '#1E40AF',
+                              borderRadius: '6px',
+                          fontSize: '12px', 
+                              fontWeight: '600'
                             }}>
-                              📚 {slot.syllabusContent}
-                            </Text>
+                              Period {slot.displayPeriodNumber}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    </Col>
 
-                    {/* Actions */}
-                    <Col>
-                      <Space>
-                        {isActualPeriod && (
-                          <Tooltip title={slot.isTaught ? 'Unmark taught' : 'Mark as taught'}>
-                            <Button
-                              type={slot.isTaught ? 'primary' : 'default'}
-                              icon={<CheckOutlined />}
-                              size="small"
-                              onClick={() => handleToggleTaught(slot)}
+                          {/* Subject & Teacher */}
+                          <div style={{ flex: 1, marginRight: '16px' }}>
+                            <div style={{
+                              fontSize: '15px',
+                              fontWeight: '600',
+                              color: '#111827',
+                              marginBottom: '2px'
+                            }}>
+                              {slot.subjectName || 'No subject assigned'}
+                            </div>
+                            <div style={{
+                              fontSize: '13px',
+                              color: '#6B7280'
+                            }}>
+                              {slot.teacherName || 'No teacher assigned'}
+                            </div>
+                            {slot.syllabusContent && (
+                              <div style={{
+                                fontSize: '12px',
+                                color: '#1E40AF',
+                                marginTop: '4px',
+                                padding: '2px 6px',
+                                background: '#EFF6FF',
+                                borderRadius: '4px',
+                                display: 'inline-block'
+                              }}>
+                                📚 {slot.syllabusContent}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {/* Mark Taught Chip */}
+                            <Popconfirm
+                              title={slot.isTaught ? 'Unmark as Taught' : 'Mark as Taught'}
+                              description={
+                                slot.isTaught 
+                                  ? `Are you sure you want to unmark Period ${slot.displayPeriodNumber} as taught?`
+                                  : `Are you sure you want to mark Period ${slot.displayPeriodNumber} as taught?`
+                              }
+                              onConfirm={() => handleToggleTaught(slot)}
+                              okText="Yes"
+                              cancelText="No"
+                              okButtonProps={{ 
+                                type: slot.isTaught ? 'default' : 'primary',
+                                danger: slot.isTaught
+                              }}
                             >
-                              {slot.isTaught ? 'Taught' : 'Mark Taught'}
-                            </Button>
-                          </Tooltip>
-                        )}
-                        <Tooltip title="Edit">
-                          <Button
-                            type="text"
-                            icon={<EditOutlined />}
-                            size="small"
-                            onClick={() => openEditModal(slot)}
-                          />
-                        </Tooltip>
-                        <Popconfirm
-                          title="Delete this slot?"
-                          description="This action cannot be undone."
-                          onConfirm={() => handleDelete(slot)}
-                          okText="Yes"
-                          cancelText="No"
-                        >
-                          <Tooltip title="Delete">
-                            <Button
-                              type="text"
-                              danger
-                              icon={<DeleteOutlined />}
-                              size="small"
-                            />
-                          </Tooltip>
-                        </Popconfirm>
-                      </Space>
-                    </Col>
-                  </Row>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="No schedule items for this date"
-            style={{ margin: '40px 0' }}
-          >
-            <Space>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => openAddModal('period')}
-              >
-                Add Period
-              </Button>
-              <Button 
-                icon={<PlusOutlined />}
-                onClick={() => openAddModal('break')}
-              >
-                Add Break
-              </Button>
-            </Space>
-          </Empty>
-        )}
+                              <motion.div
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                <Button
+                                  type={slot.isTaught ? 'default' : 'primary'}
+                                  size="small"
+                                  style={{
+                                    borderRadius: '20px',
+                                    height: '28px',
+                                    fontSize: '12px',
+                                    fontWeight: '500',
+                                    background: slot.isTaught ? '#F3F4F6' : '#3B82F6',
+                                    border: slot.isTaught ? '1px solid #D1D5DB' : 'none',
+                                    color: slot.isTaught ? '#6B7280' : 'white'
+                                  }}
+                                  aria-pressed={slot.isTaught}
+                                >
+                                  {slot.isTaught ? '✓ Taught' : 'Mark Taught'}
+                                </Button>
+                              </motion.div>
+                            </Popconfirm>
 
-        {/* Add Period Button - only show when there are existing items to avoid duplicate CTA in empty state */}
-        {classId && !isHoliday && scheduleData.length > 0 && (
-          <div style={{ 
-            marginTop: 16, 
-            padding: '16px 0', 
-            borderTop: '1px solid #f0f0f0',
-            textAlign: 'center'
-          }}>
-            <Space>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => openAddModal('period')}
-                size="large"
-              >
-                Add Period
-              </Button>
-              <Button 
-                icon={<PlusOutlined />}
-                onClick={() => openAddModal('break')}
-                size="large"
-              >
-                Add Break
-              </Button>
-            </Space>
-          </div>
-        )}
-      </Card>
+                            {/* Edit Button */}
+                            <Tooltip title="Edit period details">
+                              <motion.div
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                <Button
+                                  type="text"
+                                  icon={<EditOutlined />}
+                                  size="small"
+                                  onClick={() => openEditModal(slot)}
+                                  style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '6px',
+                                    color: '#6B7280'
+                                  }}
+                                />
+                              </motion.div>
+                            </Tooltip>
+
+                            {/* Delete Button */}
+                            <Popconfirm
+                              title="Delete Schedule Item"
+                              description="Are you sure you want to delete this schedule item?"
+                              onConfirm={() => handleDelete(slot)}
+                              okText="Yes"
+                              cancelText="No"
+                              okButtonProps={{ danger: true }}
+                            >
+                              <Tooltip title="Delete period">
+                                <motion.div
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <Button
+                                    type="text"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    size="small"
+                                    style={{
+                                      width: '28px',
+                                      height: '28px',
+                                      borderRadius: '6px'
+                                    }}
+                                  />
+                                </motion.div>
+                              </Tooltip>
+                            </Popconfirm>
+                          </div>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No schedule items for this date"
+              style={{ margin: '40px 0' }}
+            >
+              <Space>
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />}
+                  onClick={() => openAddModal('period')}
+                >
+                  Add Period
+                </Button>
+                <Button 
+                  icon={<PlusOutlined />}
+                  onClick={() => openAddModal('break')}
+                >
+                  Add Break
+                </Button>
+              </Space>
+            </Empty>
+          )}
+
+          {/* Footer Summary Bar */}
+          {classId && !isHoliday && scheduleData.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              style={{
+                background: '#F9FAFB',
+                border: '1px solid rgba(0,0,0,0.08)',
+                padding: '16px 24px',
+                marginTop: '24px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '16px'
+              }}
+            >
+              <div style={{ fontSize: '14px', color: '#6B7280', textAlign: 'center' }}>
+                <span style={{ fontWeight: '600', color: '#111827' }}>
+                  {scheduleData.filter(s => s.slot_type === 'period').length}
+                </span> periods •{' '}
+                <span style={{ fontWeight: '600', color: '#111827' }}>
+                  {scheduleData.filter(s => s.slot_type === 'break').length}
+                </span> breaks •{' '}
+                <span style={{ fontWeight: '600', color: '#111827' }}>
+                  {taughtCounts.taughtPeriods}
+                </span> taught
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </App>
 
       {/* Edit Modal */}
       <Modal
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <BookOutlined style={{ color: '#1890ff' }} />
-            <div>
-              <div style={{ fontSize: '16px', fontWeight: 600 }}>
-                {editingSlot ? 'Edit Schedule Item' : 'Add Schedule Item'}
-              </div>
-              <div style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
-                {editingSlot ? 'Update period details and syllabus content' : 'Create a new period with syllabus content'}
-              </div>
-            </div>
-          </div>
-        }
+        title={editingSlot ? 'Edit Timetable Slot' : 'Add Timetable Slot'}
         open={editModalVisible}
-        onCancel={() => setEditModalVisible(false)}
+        onCancel={() => {
+          setEditModalVisible(false);
+          setEditingSlot(null);
+          form.resetFields();
+        }}
+        onOk={handleSave}
+        confirmLoading={loading}
         width={600}
-        footer={[
-          <Button key="cancel" onClick={() => setEditModalVisible(false)}>
-            Cancel
-          </Button>,
-          <Button key="save" type="primary" loading={loading} onClick={handleSave}>
-            {editingSlot ? 'Update' : 'Create'}
-          </Button>
-        ]}
       >
         <Form
           form={form}
           layout="vertical"
           initialValues={{
             slot_type: 'period',
+            period_number: 1,
             start_time: '09:00:00',
             end_time: '09:40:00'
           }}
         >
-          <Form.Item label="Type" name="slot_type" rules={[{ required: true }]}>
+          <Form.Item
+            name="slot_type"
+            label="Slot Type"
+            rules={[{ required: true, message: 'Please select slot type' }]}
+          >
             <Radio.Group>
               <Radio value="period">Period</Radio>
               <Radio value="break">Break</Radio>
             </Radio.Group>
           </Form.Item>
 
-          <Form.Item noStyle shouldUpdate>
-            {({ getFieldValue }) =>
-              getFieldValue('slot_type') === 'period' ? (
-                <div>
-                  <Form.Item label="Period Number" name="period_number" rules={[{ required: true }]}>
-                    <InputNumber min={1} style={{ width: '100%' }} />
-                  </Form.Item>
-                  
-                  <Form.Item label="Start Time" name="start_time" rules={[{ required: true }]}>
-                    <Input type="time" />
-                  </Form.Item>
-                  
-                  <Form.Item label="End Time" name="end_time" rules={[{ required: true }]}>
-                    <Input type="time" />
-                  </Form.Item>
-                  
-                  <Form.Item label="Subject" name="subject_id" rules={[{ required: true }]}>
-                    <Select
-                      showSearch
-                      placeholder="Select subject"
-                      options={subjects.map(s => ({ label: s.subject_name, value: s.id }))}
-                      optionFilterProp="label"
-                      onChange={(value) => {
-                        form.setFieldsValue({
-                          syllabus_chapter_id: null,
-                          syllabus_topic_id: null
-                        });
-                      }}
-                    />
-                  </Form.Item>
-                  
-                  <Form.Item label="Teacher" name="teacher_id" rules={[{ required: true }]}>
-                    <Select
-                      showSearch
-                      placeholder="Select teacher"
-                      options={admins.map(a => ({ label: a.full_name, value: a.id }))}
-                      optionFilterProp="label"
-                    />
-                  </Form.Item>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prevValues, currentValues) => prevValues.slot_type !== currentValues.slot_type}
+          >
+            {({ getFieldValue }) => {
+              const slotType = getFieldValue('slot_type');
+              
+              if (slotType === 'period') {
+                return (
+                  <>
+                    <Form.Item
+                      name="period_number"
+                      label="Period Number"
+                      rules={[{ required: true, message: 'Please enter period number' }]}
+                    >
+                      <InputNumber min={1} max={12} style={{ width: '100%' }} />
+                    </Form.Item>
 
-                  <Form.Item label="Syllabus Chapter" name="syllabus_chapter_id">
-                    <Select
-                      showSearch
-                      placeholder="Select chapter (optional)"
-                      allowClear
-                      options={(() => {
-                        const subjectId = form.getFieldValue('subject_id');
-                        return getSyllabusChapters(subjectId);
-                      })()}
-                      optionFilterProp="label"
-                    />
-                  </Form.Item>
+                    <Form.Item
+                      name="subject_id"
+                      label="Subject"
+                      rules={[{ required: true, message: 'Please select subject' }]}
+                    >
+                      <Select placeholder="Select subject">
+                        {subjects.map(subject => (
+                          <Select.Option key={subject.id} value={subject.id}>
+                            {subject.subject_name}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
 
-                  <Form.Item label="Syllabus Topic" name="syllabus_topic_id">
-                    <Select
-                      showSearch
-                      placeholder="Select topic (optional)"
-                      allowClear
-                      options={(() => {
-                        const subjectId = form.getFieldValue('subject_id');
-                        return getSyllabusTopics(subjectId);
-                      })()}
-                      optionFilterProp="label"
-                    />
+                    <Form.Item
+                      name="teacher_id"
+                      label="Teacher"
+                      rules={[{ required: true, message: 'Please select teacher' }]}
+                    >
+                      <Select placeholder="Select teacher">
+                        {admins.map(admin => (
+                          <Select.Option key={admin.id} value={admin.id}>
+                            {admin.full_name}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                      name="syllabus_chapter_id"
+                      label="Syllabus Chapter"
+                    >
+                      <Select placeholder="Select chapter" allowClear>
+                        {chaptersById && Object.values(chaptersById).map(chapter => (
+                          <Select.Option key={chapter.id} value={chapter.id}>
+                            {chapter.title}
+                          </Select.Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                      name="syllabus_topic_id"
+                      label="Syllabus Topic"
+                    >
+                      <Select placeholder="Select topic" allowClear>
+                        {chaptersById && Object.values(chaptersById).map(chapter => 
+                          chapter.topics?.map(topic => (
+                            <Select.Option key={topic.id} value={topic.id}>
+                              {chapter.title} - {topic.title}
+                            </Select.Option>
+                          ))
+                        )}
+                      </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                      name="plan_text"
+                      label="Lesson Plan"
+                    >
+                      <Input.TextArea rows={3} placeholder="Enter lesson plan details" />
+                    </Form.Item>
+                  </>
+                );
+              } else {
+                return (
+                  <Form.Item
+                    name="name"
+                    label="Break Name"
+                    rules={[{ required: true, message: 'Please enter break name' }]}
+                  >
+                    <Input placeholder="e.g., Lunch Break, Short Break" />
                   </Form.Item>
-                  
-                  <Form.Item label="Lesson Notes" name="plan_text">
-                    <TextArea
-                      placeholder="Add notes about this period..."
-                      rows={3}
-                    />
-                  </Form.Item>
-                </div>
-              ) : (
-                <div>
-                  <Form.Item label="Break Name" name="name" rules={[{ required: true }]}>
-                    <Input placeholder="e.g., Lunch, Recess, Assembly" />
-                  </Form.Item>
-                  
-                  <Form.Item label="Start Time" name="start_time" rules={[{ required: true }]}>
-                    <Input type="time" />
-                  </Form.Item>
-                  
-                  <Form.Item label="End Time" name="end_time" rules={[{ required: true }]}>
-                    <Input type="time" />
-                  </Form.Item>
-                </div>
-              )
-            }
+                );
+              }
+            }}
           </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="start_time"
+                label="Start Time"
+                rules={[{ required: true, message: 'Please enter start time' }]}
+              >
+                <Input type="time" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="end_time"
+                label="End Time"
+                rules={[{ required: true, message: 'Please enter end time' }]}
+              >
+                <Input type="time" />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
 
       {/* Quick Generate Modal */}
       <Modal
-        title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <ThunderboltOutlined style={{ color: '#1890ff' }} />
-            <div>
-              <div style={{ fontSize: '16px', fontWeight: 600 }}>
-                Quick Generate Timetable
-              </div>
-              <div style={{ fontSize: '12px', color: '#666', fontWeight: 'normal' }}>
-                Automatically create multiple periods with breaks
-              </div>
-            </div>
-          </div>
-        }
+        title="Quick Generate Timetable"
         open={quickGenerateModalVisible}
         onCancel={() => {
           setQuickGenerateModalVisible(false);
           quickGenerateForm.resetFields();
         }}
-        width={500}
-        footer={[
-          <Button 
-            key="cancel" 
-            onClick={() => {
-              setQuickGenerateModalVisible(false);
-              quickGenerateForm.resetFields();
-            }}
-          >
-            Cancel
-          </Button>,
-          <Button 
-            key="generate" 
-            type="primary" 
-            loading={loading} 
-            onClick={handleQuickGenerate}
-            icon={<ThunderboltOutlined />}
-          >
-            Generate
-          </Button>
-        ]}
+        onOk={handleQuickGenerate}
+        confirmLoading={loading}
+        width={600}
       >
         <Form
           form={quickGenerateForm}
@@ -1026,72 +1268,80 @@ export default function UnifiedTimetable() {
           initialValues={{
             numPeriods: 6,
             periodDuration: 40,
-            breakDuration: 10,
-            startTime: '09:00'
+            startTime: '09:00',
+            breakConfigurations: []
           }}
         >
-          <Form.Item 
-            label="Number of Periods" 
-            name="numPeriods" 
+          <Form.Item
+            name="numPeriods"
+            label="Number of Periods"
             rules={[{ required: true, message: 'Please enter number of periods' }]}
           >
-            <InputNumber 
-              min={1} 
-              max={12} 
-              style={{ width: '100%' }} 
-              placeholder="e.g., 6"
-            />
+            <InputNumber min={1} max={12} style={{ width: '100%' }} />
           </Form.Item>
 
-          <Form.Item 
-            label="Period Duration (minutes)" 
-            name="periodDuration" 
+          <Form.Item
+            name="periodDuration"
+            label="Period Duration (minutes)"
             rules={[{ required: true, message: 'Please enter period duration' }]}
           >
-            <InputNumber 
-              min={15} 
-              max={120} 
-              style={{ width: '100%' }} 
-              placeholder="e.g., 40"
-            />
+            <InputNumber min={15} max={120} style={{ width: '100%' }} />
           </Form.Item>
 
-          <Form.Item 
-            label="Break Duration (minutes)" 
-            name="breakDuration" 
-            rules={[{ required: true, message: 'Please enter break duration' }]}
-            tooltip="This break will be added after each period (except the last one)"
-          >
-            <InputNumber 
-              min={0} 
-              max={60} 
-              style={{ width: '100%' }} 
-              placeholder="e.g., 10"
-            />
-          </Form.Item>
-
-          <Form.Item 
-            label="Start Time" 
-            name="startTime" 
+          <Form.Item
+            name="startTime"
+            label="Start Time"
             rules={[{ required: true, message: 'Please enter start time' }]}
           >
-            <Input 
-              type="time" 
-              style={{ width: '100%' }} 
-            />
+            <Input type="time" />
           </Form.Item>
 
-          <Alert
-            message="Note"
-            description="This will create empty periods. You can edit each period afterwards to assign subjects, teachers, and syllabus content."
-            type="info"
-            showIcon
-            style={{ marginTop: 16 }}
-          />
+          <Form.Item
+            name="breakConfigurations"
+            label="Break Configuration"
+          >
+            <Form.List name="breakConfigurations">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <div key={key} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'afterPeriod']}
+                        rules={[{ required: true, message: 'After period' }]}
+                        style={{ flex: 1 }}
+                      >
+                        <InputNumber placeholder="After period" min={1} max={12} />
+                      </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'duration']}
+                        rules={[{ required: true, message: 'Duration' }]}
+                        style={{ flex: 1 }}
+                      >
+                        <InputNumber placeholder="Duration (min)" min={5} max={60} />
+                      </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'name']}
+                        style={{ flex: 2 }}
+                      >
+                        <Input placeholder="Break name" />
+                      </Form.Item>
+                      <Button type="text" danger onClick={() => remove(name)}>
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button type="dashed" onClick={() => add()} block>
+                    Add Break
+                  </Button>
+                </>
+              )}
+            </Form.List>
+          </Form.Item>
         </Form>
       </Modal>
-
-      </App>
     </div>
   );
 }

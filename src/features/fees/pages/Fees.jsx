@@ -18,6 +18,9 @@ import RecordPayments from '../components/RecordPayments';
 import FeeAnalyticsEnhanced from '../components/FeeAnalyticsEnhanced';
 import StudentFees from '../components/StudentFees';
 
+// Import context provider
+import { FeesProvider } from '../context/FeesContext';
+
 const { TabPane } = Tabs;
 const { Title, Text } = Typography;
 
@@ -155,28 +158,30 @@ export default function Fees() {
 
   // For admins and superadmins, show the enhanced management interface
   return (
-    <div style={{ 
-      padding: "24px", 
-      background: isDarkMode ? theme.token.colorBgLayout : '#f8fafc', 
-      minHeight: '100vh' 
-    }}>
-      <ContextHeader />
-      
-      <Card 
-        style={{ 
-          borderRadius: 12, 
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-          border: 'none'
-        }}
-      >
-        <Tabs 
-          defaultActiveKey="components" 
-          type="card"
-          size="large"
-          items={tabItems}
-          style={{ marginTop: 8 }}
-        />
-      </Card>
-    </div>
+    <FeesProvider>
+      <div style={{ 
+        padding: "24px", 
+        background: isDarkMode ? theme.token.colorBgLayout : '#f8fafc', 
+        minHeight: '100vh' 
+      }}>
+        <ContextHeader />
+        
+        <Card 
+          style={{ 
+            borderRadius: 12, 
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            border: 'none'
+          }}
+        >
+          <Tabs 
+            defaultActiveKey="components" 
+            type="card"
+            size="large"
+            items={tabItems}
+            style={{ marginTop: 8 }}
+          />
+        </Card>
+      </div>
+    </FeesProvider>
   );
 }

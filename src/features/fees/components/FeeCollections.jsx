@@ -16,6 +16,8 @@ import { Page, EmptyState } from '@/shared/ui/index';
 import { fmtINR, toPaise, parseINR } from '@/features/fees/utils/money';
 import dayjs from "dayjs";
 import { useErrorHandler } from '@/shared/hooks/useErrorHandler';
+import { useFees } from '../context/FeesContext';
+import { useAuth } from '@/AuthProvider';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -66,17 +68,35 @@ const exportToCSV = (data, filename) => {
 };
 
 export default function FeeCollections() {
-  // User context
-  const [me, setMe] = useState({ id: null, role: "", school_code: null });
+  // Use centralized fees context
+  const { 
+    loading, 
+    error, 
+    feeComponents, 
+    studentPlans, 
+    payments, 
+    classes, 
+    academicYear,
+    schoolCode,
+    userRole,
+    loadStudentPlans,
+    loadPayments,
+    addPayment,
+    refreshData,
+    getStudentPlan,
+    getStudentPayments,
+    getStudentTotalPaid,
+    getStudentOutstanding
+  } = useFees();
+  
+  const { user } = useAuth();
   const { showError, showSuccess } = useErrorHandler();
-  const canWrite = useMemo(() => ["admin", "superadmin"].includes(me.role || ""), [me.role]);
+  const canWrite = useMemo(() => ["admin", "superadmin"].includes(userRole || ""), [userRole]);
 
-  // Data state
-  const [classes, setClasses] = useState([]);
+  // Local state for UI
   const [classId, setClassId] = useState(null);
   const [students, setStudents] = useState([]);
   const [collectionData, setCollectionData] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [boot, setBoot] = useState(false);
 
   // UI state
@@ -312,8 +332,8 @@ export default function FeeCollections() {
       payment_method: values.payment_method,
       transaction_id: values.transaction_id,
       remarks: values.remarks,
-      school_code: me.school_code,
-      created_by: me.id
+      school_code: schoolCode,
+      created_by: user?.id
     })).filter(r => r.amount_paise > 0);
 
     if (inserts.length === 0) {
@@ -324,22 +344,19 @@ export default function FeeCollections() {
     setSavingPayment(true);
 
     try {
-      // Ensure schema exists via migration; avoid creating DDL from client
-
-      // Insert payment
-      const { error: paymentErr } = await supabase
-        .from("fee_payments")
-        .insert(inserts);
-
-      if (paymentErr) throw paymentErr;
+      // Use context to add payment
+      await addPayment(inserts);
 
       message.success("Payment recorded successfully!");
       setPaymentModal({ open: false, student: null });
       paymentForm.resetFields();
       
-      // Reload data
+      // Refresh data using context
       if (classId) {
-        loadCollectionData(classId, dateRange);
+        await Promise.all([
+          loadStudentPlans(classId),
+          loadPayments(classId)
+        ]);
       }
     } catch (e) {
       showError(e, {

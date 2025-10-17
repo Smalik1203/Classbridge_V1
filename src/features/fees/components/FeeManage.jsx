@@ -14,6 +14,8 @@ import { supabase } from '@/config/supabaseClient';
 import { getUserRole, getSchoolCode } from '@/shared/utils/metadata';
 import { Page, EmptyState } from '@/shared/ui/index';
 import { fmtINR, toPaise } from '@/features/fees/utils/money';
+import { useFees } from '../context/FeesContext';
+import { useAuth } from '@/AuthProvider';
 
 const { Title, Text } = Typography;
 
@@ -32,20 +34,34 @@ const parseINR = (v) => {
 };
 
 export default function FeeManage() {
-  // User context
-  const [me, setMe] = useState({ id: null, role: "", school_code: null });
-  const canWrite = useMemo(() => ["admin", "superadmin"].includes(me.role || ""), [me.role]);
+  // Use centralized fees context
+  const { 
+    loading, 
+    error, 
+    feeComponents, 
+    students,
+    studentPlans, 
+    payments, 
+    classes, 
+    academicYear,
+    schoolCode,
+    userRole,
+    loadStudentPlans,
+    loadPayments,
+    refreshData,
+    getStudentPlan,
+    getStudentPayments,
+    getStudentTotalPaid,
+    getStudentOutstanding
+  } = useFees();
+  
+  const { user } = useAuth();
+  
+  const canWrite = useMemo(() => ["admin", "superadmin"].includes(userRole || ""), [userRole]);
 
-  // Class data (with academic year for fee plans)
-  const [activeYear, setActiveYear] = useState(null);
-  const [classes, setClasses] = useState([]);
+  // Local state for UI
   const [classId, setClassId] = useState(null);
-
-  // Catalog and table data
-  const [catalog, setCatalog] = useState([]); // fee_component_types
-  const [rows, setRows] = useState([]); // students + totals
   const [boot, setBoot] = useState(true);
-  const [loading, setLoading] = useState(false);
   const [rlsHint, setRlsHint] = useState(false);
 
   // Student Drawer editor state
@@ -73,160 +89,56 @@ export default function FeeManage() {
 
   // ---------- bootstrap ----------
   useEffect(() => {
-    (async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) throw error;
-        if (!user) throw new Error("Not authenticated");
-
-        const role = getUserRole(user) || "";
-        const school_code = getSchoolCode(user) || null;
-        setMe({ id: user.id, role, school_code });
-
-        if (!school_code) {
-          message.error("No school code found for user");
-          return;
-        }
-
-        // Active academic year
-        const { data: ay, error: ayErr } = await supabase
-          .from("academic_years")
-          .select("id, year_start, year_end, is_active")
-          .eq("school_code", school_code)
-          .eq("is_active", true)
-          .single();
-        if (!ayErr && ay) setActiveYear(ay);
-
-        // All classes for the school
-        const { data: cls, error: cErr } = await supabase
-          .from("class_instances")
-          .select("id, grade, section")
-          .eq("school_code", school_code)
-          .order("grade")
-          .order("section");
-        if (cErr) throw cErr;
-
-        const classOptions = (cls || []).map(c => ({
-          value: c.id,
-          label: `Grade ${c.grade ?? "-"} - ${c.section ?? "-"}`
-        }));
-        setClasses(classOptions);
-
-        // Auto-select first class
-        if (classOptions.length > 0) {
-          setClassId(classOptions[0].value);
-        }
-
-        // Component catalog
-        const { data: comp, error: compErr } = await supabase
-          .from("fee_component_types")
-          .select("id, name, default_amount_paise")
-          .eq("school_code", school_code)
-          .order("name");
-        if (compErr) throw compErr;
-        setCatalog(comp || []);
-      } catch (e) {
-        message.error(e.message || "Failed to init");
-      } finally {
-        setBoot(false);
-      }
-    })();
-  }, []);
-
-  // ---------- load table for selected class ----------
-  const loadStudentsAndTotals = useCallback(async (cid) => {
-    if (!cid || !me.school_code) return;
-    setLoading(true);
-    setRlsHint(false);
-
-    try {
-      // Students in class
-      const { data: students, error: sErr } = await supabase
-        .from("student")
-        .select("id, full_name, student_code, class_instance_id")
-        .eq("class_instance_id", cid)
-        .eq("school_code", me.school_code)
-        .order("full_name");
-      if (sErr) throw sErr;
-      const studentList = students || [];
-
-      if (me.role === "admin" && studentList.length === 0) {
-        setRlsHint(true);
-      }
-
-      // Plans for class
-      const { data: plans, error: pErr } = await supabase
-        .from("fee_student_plans")
-        .select("id, student_id")
-        .eq("class_instance_id", cid)
-        .eq("school_code", me.school_code);
-      if (pErr) throw pErr;
-
-      const planByStudent = new Map((plans || []).map(p => [p.student_id, p.id]));
-      const planIds = plans?.map(p => p.id) || [];
-
-      // Items and totals
-      const totalByPlan = new Map();
-      const collectedByPlan = new Map();
-      
-      if (planIds.length > 0) {
-        const { data: items, error: iErr } = await supabase
-          .from("fee_student_plan_items")
-          .select("plan_id, amount_paise")
-          .in("plan_id", planIds);
-        if (iErr) throw iErr;
-        for (const it of items || []) {
-          totalByPlan.set(it.plan_id, (totalByPlan.get(it.plan_id) || 0) + Number(it.amount_paise || 0));
-        }
-
-        // Get payment data for collection progress
-        try {
-          const { data: payments, error: pErr } = await supabase
-            .from("fee_payments")
-            .select("plan_id, amount_paise")
-            .in("plan_id", planIds)
-            .eq("school_code", me.school_code);
-          
-          if (!pErr && payments) {
-            for (const payment of payments) {
-              collectedByPlan.set(payment.plan_id, (collectedByPlan.get(payment.plan_id) || 0) + Number(payment.amount_paise || 0));
-            }
-          }
-        } catch (e) {
-          // fee_payments table might not exist yet
-        }
-      }
-
-      setRows(studentList.map(st => {
-        const pid = planByStudent.get(st.id) || null;
-        const total = pid ? (totalByPlan.get(pid) || 0) : 0;
-        const collected = pid ? (collectedByPlan.get(pid) || 0) : 0;
-        const collectionPercentage = total > 0 ? Math.round((collected / total) * 100) : 0;
-        
-        return {
-          key: st.id,
-          student_id: st.id,
-          student_name: st.full_name,
-          student_code: st.student_code,
-          plan_id: pid,
-          total_paise: total,
-          collected_paise: collected,
-          collection_percentage: collectionPercentage
-        };
-      }));
-    } catch (e) {
-      message.error(e.message || "Failed to load students");
-    } finally {
-      setLoading(false);
+    if (schoolCode && boot) {
+      setBoot(false);
     }
-  }, [me.school_code, me.role]);
+  }, [schoolCode, boot]);
 
-  // Load students when class changes
+  // Auto-select first class when classes are loaded
+  useEffect(() => {
+    if (classes.length > 0 && !classId) {
+      setClassId(classes[0].value);
+    }
+  }, [classes, classId]);
+
+  // Load data when class changes
   useEffect(() => {
     if (classId) {
-      loadStudentsAndTotals(classId);
+      loadStudentPlans(classId);
+      loadPayments(classId);
     }
-  }, [classId, loadStudentsAndTotals]);
+  }, [classId, loadStudentPlans, loadPayments]);
+
+  // Create rows from context data
+  const rows = useMemo(() => {
+    if (!classId || !students) return [];
+    
+    return students.map(student => {
+      const plan = getStudentPlan(student.id);
+      const studentPayments = getStudentPayments(student.id);
+      const totalPaid = getStudentTotalPaid(student.id);
+      const outstanding = getStudentOutstanding(student.id);
+      
+      const totalAmount = plan?.totalAmount || 0;
+      const collectionPercentage = totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0;
+      
+      return {
+        key: student.id,
+        student_id: student.id,
+        student_name: student.full_name,
+        student_code: student.student_code,
+        plan_id: plan?.id || null,
+        plan_status: plan?.status || null,
+        total_amount: totalAmount,
+        total_paid: totalPaid,
+        outstanding: outstanding,
+        collection_percentage: collectionPercentage,
+        plan_items: plan?.items || [],
+        payments: studentPayments
+      };
+    });
+  }, [classId, students, studentPlans, payments, getStudentPlan, getStudentPayments, getStudentTotalPaid, getStudentOutstanding]);
+
 
   // Filter and search students
   const filteredRows = useMemo(() => {
@@ -257,7 +169,7 @@ export default function FeeManage() {
 
       // create plan if missing
       if (!planId) {
-        if (!activeYear) {
+        if (!academicYear) {
           message.error("No active academic year found. Please set up an active academic year first.");
           return;
         }
@@ -265,11 +177,11 @@ export default function FeeManage() {
         const { data: ins, error: iErr } = await supabase
           .from("fee_student_plans")
           .insert({
-            school_code: me.school_code,
+            school_code: schoolCode,
             student_id: row.student_id,
             class_instance_id: classId,
-            academic_year_id: activeYear.id,
-            created_by: me.id
+            academic_year_id: academicYear.id,
+            created_by: user?.id
           })
           .select("id")
           .single();
@@ -340,7 +252,11 @@ export default function FeeManage() {
 
       message.success("Plan saved successfully");
       setDrawer({ open: false, student: null, planId: null, items: [] });
-      loadStudentsAndTotals(classId);
+      // Refresh data after saving
+      await Promise.all([
+        loadStudentPlans(classId),
+        loadPayments(classId)
+      ]);
     } catch (e) {
       message.error(e.message || "Failed to save plan");
     } finally {
@@ -378,7 +294,7 @@ export default function FeeManage() {
 
       // auto-set amount if component has default
       if (field === "component_type_id" && value) {
-        const component = catalog.find(c => c.id === value);
+        const component = feeComponents.find(c => c.id === value);
         if (component?.default_amount_paise) {
           newItems[index].amount_inr = component.default_amount_paise / 100;
         }
@@ -392,7 +308,7 @@ export default function FeeManage() {
   // ---------- CLASS PLAN (NEW) ----------
   const openClassEditor = () => {
     // Seed with components that have defaults, otherwise empty
-    const defaults = (catalog || [])
+    const defaults = (feeComponents || [])
       .filter(c => Number(c.default_amount_paise || 0) > 0)
       .map(c => ({ component_type_id: c.id, amount_inr: Number(c.default_amount_paise) / 100 }));
 
@@ -415,7 +331,7 @@ export default function FeeManage() {
       message.error("You don't have permission to modify fee plans.");
       return;
     }
-    if (!activeYear) {
+    if (!academicYear) {
       message.error("No active academic year found. Please set up an active academic year first.");
       return;
     }
@@ -434,11 +350,11 @@ export default function FeeManage() {
       let newPlans = [];
       if (missing.length > 0) {
         const toInsert = missing.map(sid => ({
-          school_code: me.school_code,
+          school_code: schoolCode,
           student_id: sid,
           class_instance_id: classId,
-          academic_year_id: activeYear.id,
-          created_by: me.id
+          academic_year_id: academicYear.id,
+          created_by: user?.id
         }));
         // bulk insert (select ids back)
         const { data: inserted, error: insErr } = await supabase
@@ -500,7 +416,10 @@ export default function FeeManage() {
       message.success(`Applied class plan to ${planIds.length} student${planIds.length > 1 ? "s" : ""}.`);
       setClassDrawer({ open: false, items: [] });
       // Reload to recalc totals
-      await loadStudentsAndTotals(classId);
+      await Promise.all([
+        loadStudentPlans(classId),
+        loadPayments(classId)
+      ]);
     } catch (e) {
       message.error(e.message || "Failed to apply class plan");
     } finally {
@@ -530,13 +449,17 @@ export default function FeeManage() {
         .from("fee_student_plans")
         .delete()
         .in("student_id", selectedRowKeys)
-        .eq("school_code", me.school_code);
+        .eq("school_code", schoolCode);
       
       if (error) throw error;
       
       message.success(`Deleted fee plans for ${selectedRowKeys.length} students`);
       setSelectedRowKeys([]);
-      loadStudentsAndTotals(classId);
+      // Refresh data after deletion
+      await Promise.all([
+        loadStudentPlans(classId),
+        loadPayments(classId)
+      ]);
     } catch (e) {
       message.error("Failed to delete plans");
     }
@@ -591,13 +514,13 @@ export default function FeeManage() {
 
         // Show actual collection progress
         const collectionPercentage = record.collection_percentage || 0;
-        const hasPayments = record.collected_paise > 0;
+        const hasPayments = record.total_paid > 0;
         
         return (
           <div>
             <div style={{ marginBottom: 4 }}>
               <Text strong style={{ color: '#059669', fontSize: '14px' }}>
-                {fmtINR(record.total_paise)}
+                {fmtINR(record.total_amount)}
               </Text>
             </div>
             <div style={{ 
@@ -615,7 +538,7 @@ export default function FeeManage() {
                 transition: 'width 0.3s ease'
               }} />
             </div>
-            <Tooltip title={`${collectionPercentage}% collected (${fmtINR(record.collected_paise)} of ${fmtINR(record.total_paise)})`}>
+            <Tooltip title={`${collectionPercentage}% collected (${fmtINR(record.total_paid)} of ${fmtINR(record.total_amount)})`}>
               <Text type="secondary" style={{ fontSize: '11px' }}>
                 {collectionPercentage >= 100 ? 'Complete' : 
                  hasPayments ? `${collectionPercentage}%` : 'Pending'}
@@ -832,7 +755,7 @@ export default function FeeManage() {
                   value={item.component_type_id}
                   onChange={(value) => updateItem(drawer, setDrawer, index, 'component_type_id', value)}
                   style={{ width: '100%' }}
-                  options={catalog.map(c => ({ value: c.id, label: c.name }))}
+                  options={feeComponents.map(c => ({ value: c.id, label: c.name }))}
                   aria-label={`Component ${index + 1}`}
                 />
               </Col>
@@ -921,7 +844,7 @@ export default function FeeManage() {
                   value={item.component_type_id}
                   onChange={(value) => updateItem(classDrawer, setClassDrawer, index, 'component_type_id', value)}
                   style={{ width: '100%' }}
-                  options={catalog.map(c => ({ value: c.id, label: c.name }))}
+                  options={feeComponents.map(c => ({ value: c.id, label: c.name }))}
                   aria-label={`Class component ${index + 1}`}
                 />
               </Col>

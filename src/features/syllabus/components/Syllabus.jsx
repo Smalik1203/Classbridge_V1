@@ -327,8 +327,26 @@ export default function SyllabusPage() {
   // Load taught progress for selected class/subject
   const loadTaughtProgress = async () => {
     try {
-      if (!school_code || !classInstanceId || !subjectId) return;
+      if (!school_code || !classInstanceId || !subjectId || !syllabus?.id) return;
       setProgressLoading(true);
+      
+      // Get all current chapter and topic IDs from the loaded syllabus
+      const currentChapterIds = new Set(chapters.map(ch => ch.id));
+      const currentTopicIds = new Set();
+      chapters.forEach(ch => {
+        if (ch.syllabus_topics) {
+          ch.syllabus_topics.forEach(topic => currentTopicIds.add(topic.id));
+        }
+      });
+      
+      // Only load progress for topics/chapters that exist in the current syllabus
+      if (currentChapterIds.size === 0 && currentTopicIds.size === 0) {
+        // No chapters/topics in current syllabus, so no progress to show
+        setTaughtChapters(new Set());
+        setTaughtTopics(new Set());
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('syllabus_progress')
         .select('syllabus_chapter_id, syllabus_topic_id')
@@ -336,11 +354,18 @@ export default function SyllabusPage() {
         .eq('class_instance_id', classInstanceId)
         .eq('subject_id', subjectId);
       if (error) throw error;
+      
       const tch = new Set();
       const ttp = new Set();
       (data || []).forEach(r => {
-        if (r.syllabus_chapter_id) tch.add(r.syllabus_chapter_id);
-        if (r.syllabus_topic_id) ttp.add(r.syllabus_topic_id);
+        // Only count progress for chapters that exist in current syllabus
+        if (r.syllabus_chapter_id && currentChapterIds.has(r.syllabus_chapter_id)) {
+          tch.add(r.syllabus_chapter_id);
+        }
+        // Only count progress for topics that exist in current syllabus
+        if (r.syllabus_topic_id && currentTopicIds.has(r.syllabus_topic_id)) {
+          ttp.add(r.syllabus_topic_id);
+        }
       });
       setTaughtChapters(tch);
       setTaughtTopics(ttp);
