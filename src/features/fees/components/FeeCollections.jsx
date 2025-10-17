@@ -137,19 +137,8 @@ export default function FeeCollections() {
         if (error) throw error;
         if (!user) throw new Error("Not authenticated");
 
-        const role = getUserRole(user) || "";
-        const school_code = getSchoolCode(user) || null;
-        setMe({ id: user.id, role, school_code });
-
-        // Load classes
-        const { data: classData, error: classErr } = await supabase
-          .from("class_instances")
-          .select("id, grade, section")
-          .eq("school_code", school_code)
-          .order("grade", { ascending: true });
-
-        if (classErr) throw classErr;
-        setClasses(classData.map(c => ({ value: c.id, label: `${c.grade}-${c.section}` })));
+        // User data is already available from context
+        // Classes are loaded by the fees context
 
       } catch (e) {
         showError(e, {

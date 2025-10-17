@@ -13,7 +13,7 @@ import {
   ExclamationCircleOutlined, SettingOutlined, FileTextOutlined, 
   InfoCircleOutlined, CompressOutlined, ExpandOutlined
 } from '@ant-design/icons';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import dayjs from 'dayjs';
 import { supabase } from '@/config/supabaseClient';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -32,16 +32,9 @@ const { TextArea } = Input;
 // Duration colors will be defined inside the component to use theme colors
 
 export default function UnifiedTimetable() {
-  const [msg, ctx] = message.useMessage();
+  const [, ctx] = message.useMessage();
   const { showError, showSuccess } = useErrorHandler();
-  const { isDarkMode, theme } = useTheme();
   
-  // Theme-aware duration colors
-  const DURATION_COLORS = {
-    short: theme.token.colorSuccess,    // Green for short sessions
-    medium: theme.token.colorPrimary,   // Blue for medium sessions  
-    long: theme.token.colorWarning      // Orange for long sessions
-  };
 
   // Auth context
   const [me, setMe] = useState(null);
@@ -60,7 +53,7 @@ export default function UnifiedTimetable() {
   const [taughtBySlotId, setTaughtBySlotId] = useState(new Set());
   
   // Syllabus data using custom hook
-  const { chaptersById, syllabusContentMap, loading: syllabusLoading, refetch: refetchSyllabus } = useSyllabusLoader(classId, me?.school_code);
+  const { chaptersById, syllabusContentMap } = useSyllabusLoader(classId, me?.school_code);
 
   // UI State
   const [loading, setLoading] = useState(false);
@@ -72,9 +65,9 @@ export default function UnifiedTimetable() {
   const [quickGenerateForm] = Form.useForm();
 
   // Holiday checking
-  const { isHoliday, holidayInfo, loading: holidayLoading } = useHolidayCheck(
+  const { isHoliday, holidayInfo } = useHolidayCheck(
     me?.school_code, 
-    date,
+    date, 
     classId
   );
 
@@ -87,13 +80,13 @@ export default function UnifiedTimetable() {
         
         // Try admin table first; fallback to users table for superadmins without admin row
         let meRow = null;
-        const { data: adminRow, error: adminErr } = await supabase
+        const { data: adminRow } = await supabase
           .from('admin').select('id, role, school_code').eq('id', auth.user.id).maybeSingle();
         
         if (adminRow) {
           meRow = adminRow;
         } else {
-          const { data: userRow, error: userErr } = await supabase
+          const { data: userRow } = await supabase
             .from('users').select('id, role, school_code').eq('id', auth.user.id).maybeSingle();
           
           if (userRow && userRow.role === 'superadmin') {
@@ -247,41 +240,6 @@ export default function UnifiedTimetable() {
     return '';
   };
 
-  const getSyllabusChapters = (subjectId) => {
-    if (!subjectId) return [];
-    if (syllabusContentMap.size === 0) return [];
-
-    const chapters = [];
-    
-    syllabusContentMap.forEach((content, key) => {
-      if (content.type === 'chapter' && content.subjectId === subjectId) {
-        chapters.push({
-          label: `Chapter ${content.chapterNo}: ${content.title}`,
-          value: content.chapterId
-        });
-      }
-    });
-    
-    return chapters.sort((a, b) => a.label.localeCompare(b.label));
-  };
-
-  const getSyllabusTopics = (subjectId) => {
-    if (!subjectId) return [];
-    if (syllabusContentMap.size === 0) return [];
-
-    const topics = [];
-    
-    syllabusContentMap.forEach((content, key) => {
-      if (content.type === 'topic' && content.subjectId === subjectId) {
-        topics.push({
-          label: `Topic ${content.topicNo}: ${content.title}`,
-          value: content.topicId
-        });
-      }
-    });
-    
-    return topics.sort((a, b) => a.label.localeCompare(b.label));
-  };
 
   // Modal handlers
   const openAddModal = (type) => {
@@ -550,12 +508,12 @@ export default function UnifiedTimetable() {
       const displayPeriodNumber = isPeriod ? displayPeriodCounter++ : null;
       
       return {
-      ...slot,
+        ...slot,
         displayPeriodNumber, // Add display period number for UI
-      subjectName: subjectName(slot.subject_id),
-      teacherName: adminName(slot.teacher_id),
-      syllabusContent: getSyllabusContent(slot),
-      isTaught: taughtBySlotId.has(slot.id)
+        subjectName: subjectName(slot.subject_id),
+        teacherName: adminName(slot.teacher_id),
+        syllabusContent: getSyllabusContent(slot),
+        isTaught: taughtBySlotId.has(slot.id)
       };
     });
   }, [daySlots, subjects, admins, syllabusContentMap, taughtBySlotId]);
@@ -832,8 +790,7 @@ export default function UnifiedTimetable() {
               <AnimatePresence>
             {scheduleData.map((slot, index) => {
               const isBreak = slot.slot_type === 'break';
-              const isActualPeriod = slot.slot_type === 'period';
-                  const isLast = index === scheduleData.length - 1;
+              const isLast = index === scheduleData.length - 1;
               
               return (
                     <motion.div
