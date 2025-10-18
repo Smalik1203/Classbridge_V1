@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ConfigProvider, App as AntApp, Spin } from 'antd';
+import { Layout, ConfigProvider, App as AntApp, Spin, Button } from 'antd';
+import { MenuUnfoldOutlined } from '@ant-design/icons';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
@@ -109,10 +110,26 @@ function AppLayout({ children }) {
         onCollapse={setSidebarCollapsed}
       />
       <Layout style={{ 
-        marginLeft: sidebarCollapsed ? 48 : 280,
+        marginLeft: sidebarCollapsed ? 0 : 280,
         background: 'transparent',
         transition: 'margin-left 0.2s ease'
       }}>
+        {/* Floating Toggle Button when sidebar is collapsed */}
+        {sidebarCollapsed && (
+          <Button
+            type="primary"
+            icon={<MenuUnfoldOutlined />}
+            onClick={() => setSidebarCollapsed(false)}
+            style={{
+              position: 'fixed',
+              top: '20px',
+              left: '20px',
+              zIndex: 1000,
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              borderRadius: '8px'
+            }}
+          />
+        )}
         <Content style={{
           padding: '24px',
           minHeight: '100vh',

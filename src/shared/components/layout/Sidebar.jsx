@@ -262,7 +262,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
     <Sider
       width={280}
       collapsed={collapsed}
-      collapsedWidth={48}
+      collapsedWidth={0}
       style={{
         height: '100vh',
         position: 'fixed',
@@ -270,8 +270,8 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         top: 0,
         bottom: 0,
         background: antdTheme.token.colorBgContainer,
-        borderRight: `1px solid ${antdTheme.token.colorBorder}`,
-        boxShadow: antdTheme.token.boxShadowSecondary
+        borderRight: collapsed ? 'none' : `1px solid ${antdTheme.token.colorBorder}`,
+        boxShadow: collapsed ? 'none' : antdTheme.token.boxShadowSecondary
       }}
     >
       {/* Logo Section */}
