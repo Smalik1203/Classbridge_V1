@@ -13,7 +13,7 @@ import {
 import { supabase } from '@/config/supabaseClient';
 import { getUserRole, getSchoolCode } from '@/shared/utils/metadata';
 import { Page, EmptyState } from '@/shared/ui/index';
-import { fmtINR, toPaise, parseINR } from '@/features/fees/utils/money';
+import { fmtINR, toPaise } from '@/features/fees/utils/money';
 import dayjs from "dayjs";
 import { useErrorHandler } from '@/shared/hooks/useErrorHandler';
 import { useFees } from '../context/FeesContext';

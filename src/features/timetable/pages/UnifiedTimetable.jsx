@@ -13,7 +13,7 @@ import {
   ExclamationCircleOutlined, SettingOutlined, FileTextOutlined, 
   InfoCircleOutlined, CompressOutlined, ExpandOutlined
 } from '@ant-design/icons';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import dayjs from 'dayjs';
 import { supabase } from '@/config/supabaseClient';
 import { useTheme } from '@/contexts/ThemeContext';

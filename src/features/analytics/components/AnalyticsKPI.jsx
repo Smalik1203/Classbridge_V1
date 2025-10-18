@@ -24,7 +24,6 @@ const AnalyticsKPI = ({
   
   // Use theme-aware colors
   const cardBackground = backgroundColor || theme.token.colorBgContainer;
-  const textColor = theme.token.colorText;
   const secondaryTextColor = theme.token.colorTextSecondary;
   const borderColor = theme.token.colorBorder;
   const getTrendIcon = () => {

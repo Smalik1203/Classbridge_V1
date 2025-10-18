@@ -29,7 +29,6 @@ const { Option } = Select;
 
 const AttendanceAnalyticsEnhanced = () => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [alert, setAlert] = useState(null);
   
@@ -42,7 +41,6 @@ const AttendanceAnalyticsEnhanced = () => {
     dayjs()
   ]);
   const [attendanceData, setAttendanceData] = useState([]);
-  const [students, setStudents] = useState([]);
   const [workingDaysData, setWorkingDaysData] = useState(null);
 
   // Fetch user data and classes
@@ -82,7 +80,7 @@ const AttendanceAnalyticsEnhanced = () => {
 
       if (error) throw error;
       setClassInstances(data || []);
-    } catch (e) {
+    } catch {
       setAlert({ type: 'error', message: 'Failed to load classes' });
     }
   };
@@ -126,9 +124,8 @@ const AttendanceAnalyticsEnhanced = () => {
       // Process attendance data
       const processedData = processAttendanceData(studentsData, attendanceRecords);
       setAttendanceData(processedData);
-      setStudents(studentsData || []);
 
-    } catch (e) {
+    } catch {
       setAlert({ type: 'error', message: 'Failed to load attendance data' });
     } finally {
       setDataLoading(false);

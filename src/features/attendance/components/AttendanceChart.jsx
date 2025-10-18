@@ -66,7 +66,7 @@ const AttendanceChart = ({
   const chartConfig = { ...defaultConfigs[type], ...config };
 
   // Custom tooltip formatter
-  const formatTooltip = (value, name, props) => {
+  const formatTooltip = (value, name) => {
     const attendanceLabels = {
       present: 'Present',
       absent: 'Absent',

@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, ComposedChart
 } from 'recharts';
 import { useTheme } from '@/contexts/ThemeContext';
-import { chartTheme, chartColors } from './chartTheme';
+import { chartColors } from './chartTheme';
 
 const AnalyticsChart = ({ 
   type = 'bar',

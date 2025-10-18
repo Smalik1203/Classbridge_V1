@@ -5,7 +5,6 @@ import React from 'react';
 import { Card, Select, DatePicker, Button, Typography, Row, Col, Space } from 'antd';
 import { CalendarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTheme } from '@/contexts/ThemeContext';
-import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;

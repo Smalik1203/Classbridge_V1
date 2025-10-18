@@ -54,7 +54,7 @@ export function AuthContextProvider({children}){
                 } else {
                     setLoading(false);
                 }
-            } catch (error) {
+            } catch {
                 setLoading(false);
             }
         };
@@ -104,7 +104,7 @@ export function AuthContextProvider({children}){
                             }
                         }
                     }
-                } catch (error) {
+                } catch {
                     // Periodic refresh error - continue silently
                 }
             }, 5 * 60 * 1000); // Check every 5 minutes

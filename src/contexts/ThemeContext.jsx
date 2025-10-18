@@ -26,7 +26,7 @@ export const ThemeProvider = ({ children }) => {
       }
       // Check system preference
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    } catch (error) {
+    } catch {
       return false; // Default to light theme
     }
   });
