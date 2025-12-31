@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/config/supabaseClient';
 import { useAuth } from '@/AuthProvider';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link, useLocation } from 'react-router-dom';
 import { Layout, Card, Form, Input, Button, Typography, Space, Alert, Avatar } from 'antd';
 import { MailOutlined, LockOutlined, LoginOutlined, BookOutlined } from '@ant-design/icons';
 
@@ -10,10 +10,21 @@ const { Title, Text } = Typography;
 
 const Login = () => {
   const { user } = useAuth();
+  const location = useLocation();
   
   // Redirect if already logged in
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+
+  // Check for success message from password reset
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear the state to prevent showing message on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   if (user) return <Navigate to="/dashboard" />;
 
@@ -102,6 +113,21 @@ const Login = () => {
               </Text>
             </div>
 
+            {/* Success Message */}
+            {successMessage && (
+              <Alert
+                message={successMessage}
+                type="success"
+                showIcon
+                closable
+                onClose={() => setSuccessMessage(null)}
+                style={{
+                  borderRadius: '8px',
+                  marginBottom: '24px',
+                }}
+              />
+            )}
+
             {/* Login Form */}
             <Form
               name="login"
@@ -152,14 +178,17 @@ const Login = () => {
 
               {/* Forgot Password Link */}
               <div style={{ textAlign: 'right', marginBottom: '24px' }}>
-                <Text style={{ 
-                  color: '#6b7280', 
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }}>
+                <Link
+                  to="/forgot-password"
+                  style={{ 
+                    color: '#6366F1', 
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    textDecoration: 'none'
+                  }}
+                >
                   Forgot password?
-                </Text>
+                </Link>
               </div>
 
             {/* Error Alert */}

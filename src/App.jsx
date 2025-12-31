@@ -41,7 +41,7 @@ const customLocale = {
   },
 };
 // Eager imports (small, always needed)
-import { LoginPage } from '@/features/auth';
+import { LoginPage, ForgotPasswordPage, ResetPasswordPage } from '@/features/auth';
 import { PrivateRoute } from '@/features/auth';
 import { Sidebar } from '@/shared/components';
 import { UnauthorizedPage } from '@/features/auth';
@@ -224,6 +224,10 @@ function AppContent() {
               {/* Error Routes */}
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
               
+              {/* Password reset route - accessible when logged in (Supabase auto-logs in on reset link) */}
+              {/* ResetPasswordPage uses AuthLayout internally, so it will render full-page without sidebar */}
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              
               {/* Default redirect */}
               <Route path="*" element={<Navigate to="/dashboard" />} />
             </Routes>
@@ -235,6 +239,8 @@ function AppContent() {
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
         )}

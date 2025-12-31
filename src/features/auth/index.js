@@ -5,5 +5,7 @@ export { default as RoleBasedNavigation } from './components/RoleBasedNavigation
 export { default as ErrorBoundary } from './components/ErrorBoundary';
 
 export { default as LoginPage } from './pages/Login';
+export { default as ForgotPasswordPage } from './pages/ForgotPassword';
+export { default as ResetPasswordPage } from './pages/ResetPassword';
 export { default as UnauthorizedPage } from './pages/Unauthorized';
 
