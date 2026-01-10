@@ -127,27 +127,35 @@ serve(async (req) => {
 
 
   // Check if user is admin or super admin (check both app_metadata and user_metadata for backward compatibility)
-  const userRole = requester.app_metadata?.role || requester.user_metadata?.role;
+  /* ======================================================
+     🧠 Verify role and school info
+     ✅ Use ONLY app_metadata (immutable, authoritative)
+     ❌ NEVER fallback to user_metadata (mutable, unreliable)
+  ======================================================= */
+  const userRole = requester.app_metadata?.role;
   const isAdmin = userRole === "admin" || userRole === "superadmin";
-  
-  if (!isAdmin) {
-    return withCors(new Response(JSON.stringify({
-      error: "Forbidden - Not an admin or super admin"
-    }), {
-      status: 403,
-      headers: {
-        "Content-Type": "application/json"
-      }
-    }), origin);
+
+  if (!userRole || !isAdmin) {
+    return withCors(
+      new Response(
+        JSON.stringify({
+          error: "Forbidden - Not an admin or super admin",
+          details: userRole
+            ? `Invalid role: ${userRole}. Only admins and super admins can create students.`
+            : "Missing role in app_metadata. This is a data integrity issue.",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      ),
+      origin
+    );
   }
 
-  // SECURITY: Log the student creation operation for audit purposes
-  console.log(`[SECURITY_AUDIT] ${userRole} ${requester.email} creating student for school ${schoolCode}`);
+  // Get school information from requester (ONLY from app_metadata)
+  const schoolCode = requester.app_metadata?.school_code;
+  const schoolName = requester.app_metadata?.school_name;
+  const superAdminCode = requester.app_metadata?.super_admin_code;
 
-  // Get school information from requester (check both app_metadata and user_metadata for backward compatibility)
-  const schoolCode = requester.app_metadata?.school_code || requester.user_metadata?.school_code;
-  const schoolName = requester.app_metadata?.school_name || requester.user_metadata?.school_name;
-  const superAdminCode = requester.app_metadata?.super_admin_code || requester.user_metadata?.super_admin_code;
+  // SECURITY: Log the student creation operation for audit purposes
 
     if (!schoolCode) {
       return withCors(new Response(JSON.stringify({
@@ -226,7 +234,6 @@ serve(async (req) => {
       // Clean up: Delete the user from auth since we couldn't save to students table
       try {
         await supabase.auth.admin.deleteUser(id);
-        console.log("Cleaned up user from auth after database insert failure");
       } catch (cleanupError) {
         console.error("Failed to cleanup user from auth:", cleanupError);
       }

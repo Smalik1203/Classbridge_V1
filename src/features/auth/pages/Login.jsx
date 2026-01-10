@@ -182,7 +182,7 @@ const Login = () => {
                   to="/forgot-password"
                   style={{ 
                     color: '#6366F1', 
-                    fontSize: '13px',
+                  fontSize: '13px',
                     fontWeight: '500',
                     textDecoration: 'none'
                   }}

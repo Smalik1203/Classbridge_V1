@@ -123,38 +123,33 @@ serve(async (req)=>{
     }
   
   // Debug logging
-  console.log("=== DEBUG CREATE-ADMIN ===");
-  console.log("User ID:", requester.id);
-  console.log("App metadata:", JSON.stringify(requester.app_metadata, null, 2));
-  console.log("User metadata:", JSON.stringify(requester.user_metadata, null, 2));
-  console.log("Role from app_metadata:", requester.app_metadata?.role);
-  console.log("Role from user_metadata:", requester.user_metadata?.role);
-  
-  // Check role in both app_metadata and user_metadata for backward compatibility
-  const userRole = requester.app_metadata?.role || requester.user_metadata?.role;
+  /* ======================================================
+     🧠 Verify role and school info
+     ✅ Use ONLY app_metadata (immutable, authoritative)
+     ❌ NEVER fallback to user_metadata (mutable, unreliable)
+  ======================================================= */
+  const userRole = requester.app_metadata?.role;
   const isSuperAdmin = userRole === "superadmin";
-  console.log("Is super admin:", isSuperAdmin);
-  
-  if (!isSuperAdmin) {
-    return withCors(new Response(JSON.stringify({
-      error: "Forbidden - Not a super admin",
-      debug: {
-        app_metadata_role: requester.app_metadata?.role,
-        user_metadata_role: requester.user_metadata?.role,
-        isSuperAdmin
-      }
-    }), {
-      status: 403,
-      headers: {
-        "Content-Type": "application/json"
-      }
-    }), origin);
+
+  if (!userRole || !isSuperAdmin) {
+    return withCors(
+      new Response(
+        JSON.stringify({
+          error: "Forbidden - Not a super admin",
+          details: userRole
+            ? `Invalid role: ${userRole}. Only super admins can create admins.`
+            : "Missing role in app_metadata. This is a data integrity issue.",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      ),
+      origin
+    );
   }
 
-  // Get school information from requester (check both app_metadata and user_metadata for backward compatibility)
-  const schoolCode = requester.app_metadata?.school_code || requester.user_metadata?.school_code;
-  const schoolName = requester.app_metadata?.school_name || requester.user_metadata?.school_name;
-  const superAdminCode = requester.app_metadata?.super_admin_code || requester.user_metadata?.super_admin_code;
+  // Get school information from requester (ONLY from app_metadata)
+  const schoolCode = requester.app_metadata?.school_code;
+  const schoolName = requester.app_metadata?.school_name;
+  const superAdminCode = requester.app_metadata?.super_admin_code;
 
     if (!schoolCode) {
       return withCors(new Response(JSON.stringify({
@@ -224,7 +219,6 @@ serve(async (req)=>{
       // Clean up: Delete the user from auth since we couldn't save to admin table
       try {
         await supabase.auth.admin.deleteUser(id);
-        console.log("Cleaned up user from auth after database insert failure");
       } catch (cleanupError) {
         console.error("Failed to cleanup user from auth:", cleanupError);
       }

@@ -12,13 +12,21 @@ import {
   Alert,
   Spin,
   Tag,
+  Popconfirm,
+  Modal,
+  Form,
+  Input,
+  message,
+  Switch,
 } from 'antd';
 import {
   BankOutlined,
   UserOutlined,
   BookOutlined,
   ReloadOutlined,
-  PlusOutlined
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import { useAuth } from '@/AuthProvider';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -46,7 +54,7 @@ const CBAdminDashboard = () => {
       colorBgContainer: '#ffffff'
     }
   };
-  
+
   const [loading, setLoading] = useState(true);
   const [schools, setSchools] = useState([]);
   const [superAdmins, setSuperAdmins] = useState([]);
@@ -57,10 +65,23 @@ const CBAdminDashboard = () => {
     totalClasses: 0
   });
   const [error, setError] = useState(null);
+  const [editingSchool, setEditingSchool] = useState(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editForm] = Form.useForm();
+
 
   const userName = user?.user_metadata?.full_name || 'CB Admin';
+
+  // Check for cb_admin role in both app_metadata and user_metadata
+  // Also check for cb_admin_code for backward compatibility
+  const appMetadataRole = user?.app_metadata?.role;
   const userMetadataRole = user?.user_metadata?.role;
-  const isCbAdmin = userMetadataRole === 'cb_admin';
+  const hasCbAdminCode = user?.user_metadata?.cb_admin_code;
+
+  const isCbAdmin = appMetadataRole === 'cb_admin' ||
+    userMetadataRole === 'cb_admin' ||
+    hasCbAdminCode;
+
 
   // Redirect if not CB Admin
   useEffect(() => {
@@ -76,16 +97,27 @@ const CBAdminDashboard = () => {
     }
   }, [isCbAdmin]);
 
+  // Update stats when schools or superAdmins change
+  useEffect(() => {
+    setStats(prev => ({
+      ...prev,
+      totalSchools: schools.length,
+      totalSuperAdmins: superAdmins.length
+    }));
+  }, [schools.length, superAdmins.length]);
+
   const fetchDashboardData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
+      // Fetch schools and super admins first
       await Promise.all([
         fetchSchools(),
-        fetchSuperAdmins(),
-        fetchGlobalStats()
+        fetchSuperAdmins()
       ]);
+      // Then calculate stats (after data is loaded)
+      fetchGlobalStats();
     } catch (err) {
       setError('Failed to load dashboard data');
     } finally {
@@ -95,65 +127,52 @@ const CBAdminDashboard = () => {
 
   const fetchSchools = async () => {
     try {
-      const { data, error } = await supabase
-        .from('schools')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Try helper function first (bypasses RLS)
+      const { data: functionData, error: functionError } = await supabase
+        .rpc('get_all_schools');
 
-      if (error) {
-        throw error;
+      if (!functionError && functionData) {
+        setSchools(functionData);
+        setStats(prev => ({
+          ...prev,
+          totalSchools: functionData.length
+        }));
+        return;
       }
 
-      setSchools(data || []);
+      if (functionError) {
+        message.error('Failed to fetch schools: ' + functionError.message);
+        throw functionError;
+      }
     } catch (err) {
+      message.error('Failed to fetch schools');
       throw err;
     }
   };
 
   const fetchSuperAdmins = async () => {
     let allSuperAdmins = [];
-    
-    try {
-      // 1. Try super_admin table first (dedicated table for super admins)
-      const { data: superAdminData, error: superAdminError } = await supabase
-        .from('super_admin')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (superAdminError) {
-        // Silently handle permission errors - these are expected due to RLS policies
-        if (superAdminError.code !== '42501' && superAdminError.code !== 'PGRST116') {
-        }
-      } else if (superAdminData && superAdminData.length > 0) {
-        allSuperAdmins = [...allSuperAdmins, ...superAdminData];
-      }
-    } catch (err) {
-    }
 
     try {
-      // 2. Try users table with role = 'superadmin'
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'superadmin')
-        .order('created_at', { ascending: false });
+      // Use helper function (bypasses RLS by checking auth.users directly)
+      const { data: functionData, error: functionError } = await supabase
+        .rpc('get_all_super_admins');
 
-      if (usersError) {
-        // Silently handle permission errors - these are expected due to RLS policies
-        if (usersError.code !== '42501' && usersError.code !== 'PGRST116') {
-        }
-      } else if (usersData && usersData.length > 0) {
-        allSuperAdmins = [...allSuperAdmins, ...usersData];
+      if (!functionError && functionData) {
+        setSuperAdmins(functionData);
+        setStats(prev => ({
+          ...prev,
+          totalSuperAdmins: functionData.length
+        }));
+        return;
+      } else if (functionError) {
+        message.error('Failed to fetch super admins: ' + functionError.message);
       }
     } catch (err) {
+      message.error('Failed to fetch super admins');
     }
 
-    // Remove duplicates based on email (since both tables might have the same super admin)
-    const uniqueSuperAdmins = allSuperAdmins.filter((admin, index, self) => 
-      index === self.findIndex(a => a.email === admin.email)
-    );
-
-    setSuperAdmins(uniqueSuperAdmins);
+    setSuperAdmins([]);
   };
 
 
@@ -167,13 +186,75 @@ const CBAdminDashboard = () => {
 
       setStats(prev => ({
         ...prev,
-        totalSchools: schools.length,
-        totalSuperAdmins: superAdmins.length,
         totalStudents: studentsResult.count || 0,
         totalClasses: classesResult.count || 0
       }));
     } catch (err) {
-      throw err;
+      // Silently fail - don't overwrite existing stats
+    }
+  };
+
+  // Handle edit school
+  const handleEditSchool = (school) => {
+    setEditingSchool(school);
+    editForm.setFieldsValue({
+      school_name: school.school_name,
+      school_email: school.school_email,
+      school_phone: school.school_phone,
+      school_address: school.school_address,
+      is_active: school.is_active,
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleEditSchoolSubmit = async () => {
+    try {
+      const values = await editForm.validateFields();
+      const { error } = await supabase
+        .from('schools')
+        .update({
+          school_name: values.school_name,
+          school_email: values.school_email,
+          school_phone: values.school_phone,
+          school_address: values.school_address,
+          is_active: values.is_active,
+        })
+        .eq('id', editingSchool.id);
+
+      if (error) {
+        message.error('Failed to update school: ' + error.message);
+      } else {
+        message.success('School updated successfully');
+        setEditModalVisible(false);
+        setEditingSchool(null);
+        editForm.resetFields();
+        fetchDashboardData();
+      }
+    } catch (err) {
+      if (err.errorFields) {
+        // Form validation errors
+        return;
+      }
+      message.error('Failed to update school: ' + err.message);
+    }
+  };
+
+  // Handle delete school
+  const handleDeleteSchool = async (schoolId) => {
+    try {
+      const { error } = await supabase
+        .from('schools')
+        .delete()
+        .eq('id', schoolId);
+
+      if (error) {
+        message.error('Failed to delete school: ' + error.message);
+      } else {
+        message.success('School deleted successfully');
+        fetchDashboardData();
+      }
+    } catch (err) {
+      message.error('Failed to delete school: ' + err.message);
     }
   };
 
@@ -248,6 +329,41 @@ const CBAdminDashboard = () => {
         );
       }
     },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 150,
+      fixed: 'right',
+      render: (_, record) => (
+        <Space>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => handleEditSchool(record)}
+            size="small"
+          >
+            Edit
+          </Button>
+          <Popconfirm
+            title="Delete this school?"
+            description="This will permanently delete the school and all associated data. This action cannot be undone."
+            onConfirm={() => handleDeleteSchool(record.id)}
+            okText="Yes, Delete"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
+          >
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              size="small"
+            >
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
   ];
 
   if (!isCbAdmin) {
@@ -290,8 +406,8 @@ const CBAdminDashboard = () => {
         {/* Statistics Cards */}
         <Row gutter={[16, 16]} style={{ marginBottom: theme.token.marginLG }}>
           <Col xs={24} sm={12} lg={6}>
-            <Card 
-              style={{ 
+            <Card
+              style={{
                 borderRadius: theme.token.borderRadiusLG,
                 height: '100%',
                 border: `1px solid ${theme.token.colorBorder}`,
@@ -300,10 +416,10 @@ const CBAdminDashboard = () => {
               }}
             >
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ 
-                  fontSize: '48px', 
-                  color: '#3b82f6', 
-                  marginBottom: theme.token.margin 
+                <div style={{
+                  fontSize: '48px',
+                  color: '#3b82f6',
+                  marginBottom: theme.token.margin
                 }}>
                   <BankOutlined />
                 </div>
@@ -316,10 +432,10 @@ const CBAdminDashboard = () => {
               </div>
             </Card>
           </Col>
-          
+
           <Col xs={24} sm={12} lg={6}>
-            <Card 
-              style={{ 
+            <Card
+              style={{
                 borderRadius: theme.token.borderRadiusLG,
                 height: '100%',
                 border: `1px solid ${theme.token.colorBorder}`,
@@ -328,10 +444,10 @@ const CBAdminDashboard = () => {
               }}
             >
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ 
-                  fontSize: '48px', 
-                  color: '#faad14', 
-                  marginBottom: theme.token.margin 
+                <div style={{
+                  fontSize: '48px',
+                  color: '#faad14',
+                  marginBottom: theme.token.margin
                 }}>
                   <UserOutlined />
                 </div>
@@ -346,8 +462,8 @@ const CBAdminDashboard = () => {
           </Col>
 
           <Col xs={24} sm={12} lg={6}>
-            <Card 
-              style={{ 
+            <Card
+              style={{
                 borderRadius: theme.token.borderRadiusLG,
                 height: '100%',
                 border: `1px solid ${theme.token.colorBorder}`,
@@ -356,10 +472,10 @@ const CBAdminDashboard = () => {
               }}
             >
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ 
-                  fontSize: '48px', 
-                  color: '#52c41a', 
-                  marginBottom: theme.token.margin 
+                <div style={{
+                  fontSize: '48px',
+                  color: '#52c41a',
+                  marginBottom: theme.token.margin
                 }}>
                   <UserOutlined />
                 </div>
@@ -374,8 +490,8 @@ const CBAdminDashboard = () => {
           </Col>
 
           <Col xs={24} sm={12} lg={6}>
-            <Card 
-              style={{ 
+            <Card
+              style={{
                 borderRadius: theme.token.borderRadiusLG,
                 height: '100%',
                 border: `1px solid ${theme.token.colorBorder}`,
@@ -384,10 +500,10 @@ const CBAdminDashboard = () => {
               }}
             >
               <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <div style={{ 
-                  fontSize: '48px', 
-                  color: '#06b6d4', 
-                  marginBottom: theme.token.margin 
+                <div style={{
+                  fontSize: '48px',
+                  color: '#06b6d4',
+                  marginBottom: theme.token.margin
                 }}>
                   <BookOutlined />
                 </div>
@@ -405,8 +521,8 @@ const CBAdminDashboard = () => {
         {/* Action Buttons */}
         <Row gutter={[16, 16]} style={{ marginBottom: theme.token.marginLG }}>
           <Col>
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<PlusOutlined />}
               onClick={() => navigate('/add-schools')}
               size="large"
@@ -415,8 +531,8 @@ const CBAdminDashboard = () => {
             </Button>
           </Col>
           <Col>
-            <Button 
-              type="default" 
+            <Button
+              type="default"
               icon={<PlusOutlined />}
               onClick={() => navigate('/add-super-admin')}
               size="large"
@@ -425,8 +541,8 @@ const CBAdminDashboard = () => {
             </Button>
           </Col>
           <Col>
-            <Button 
-              type="default" 
+            <Button
+              type="default"
               icon={<ReloadOutlined />}
               onClick={fetchDashboardData}
               loading={loading}
@@ -439,15 +555,15 @@ const CBAdminDashboard = () => {
 
         {/* Unified Management Table */}
         <Card
-        title={
-          <Space>
-            <BankOutlined />
-            <span>School Management</span>
-            <Tag color="blue">{schools.length} Schools</Tag>
-            <Tag color="gold">{superAdmins.length} Super Admins</Tag>
-          </Space>
-        }
-          style={{ 
+          title={
+            <Space>
+              <BankOutlined />
+              <span>School Management</span>
+              <Tag color="blue">{schools.length} Schools</Tag>
+              <Tag color="gold">{superAdmins.length} Super Admins</Tag>
+            </Space>
+          }
+          style={{
             borderRadius: theme.token.borderRadiusLG,
             border: `1px solid ${theme.token.colorBorder}`,
             boxShadow: theme.token.boxShadowSecondary,
@@ -457,8 +573,8 @@ const CBAdminDashboard = () => {
             columns={unifiedColumns}
             dataSource={tableData}
             rowKey="id"
-            pagination={{ 
-              pageSize: 10, 
+            pagination={{
+              pageSize: 10,
               showSizeChanger: true,
               showQuickJumper: true,
               showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} schools`
@@ -467,6 +583,64 @@ const CBAdminDashboard = () => {
             scroll={{ x: 1000 }}
           />
         </Card>
+
+        {/* Edit School Modal */}
+        <Modal
+          title="Edit School"
+          open={editModalVisible}
+          onOk={handleEditSchoolSubmit}
+          onCancel={() => {
+            setEditModalVisible(false);
+            setEditingSchool(null);
+            editForm.resetFields();
+          }}
+          okText="Update"
+          cancelText="Cancel"
+          width={600}
+        >
+          <Form
+            form={editForm}
+            layout="vertical"
+          >
+            <Form.Item
+              name="school_name"
+              label="School Name"
+              rules={[{ required: true, message: 'Please enter school name' }]}
+            >
+              <Input placeholder="Enter school name" />
+            </Form.Item>
+            <Form.Item
+              name="school_email"
+              label="Email"
+              rules={[
+                { required: true, message: 'Please enter email' },
+                { type: 'email', message: 'Please enter a valid email' },
+              ]}
+            >
+              <Input placeholder="Enter email" />
+            </Form.Item>
+            <Form.Item
+              name="school_phone"
+              label="Phone"
+              rules={[{ required: true, message: 'Please enter phone number' }]}
+            >
+              <Input placeholder="Enter phone number" />
+            </Form.Item>
+            <Form.Item
+              name="school_address"
+              label="Address"
+            >
+              <Input.TextArea rows={3} placeholder="Enter school address" />
+            </Form.Item>
+            <Form.Item
+              name="is_active"
+              label="Status"
+              valuePropName="checked"
+            >
+              <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+            </Form.Item>
+          </Form>
+        </Modal>
       </Spin>
 
     </Content>

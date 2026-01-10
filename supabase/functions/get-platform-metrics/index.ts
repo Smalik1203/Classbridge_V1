@@ -89,7 +89,6 @@ serve(async (req) => {
     }
 
     // SECURITY: Log the platform metrics access for audit purposes
-    console.log(`[SECURITY_AUDIT] CB Admin ${requester.email} accessing platform metrics`);
 
     // Get platform metrics using the safe RPC function
     const { data: metrics, error: metricsError } = await supabase.rpc('get_platform_summary');
