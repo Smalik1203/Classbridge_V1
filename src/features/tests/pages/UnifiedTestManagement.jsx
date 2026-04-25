@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, Button, Table, Modal, Form, Input, Select, DatePicker, message, Space, Typography, Row, Col, Statistic, Tag, Tooltip, Dropdown, Switch, Alert, Empty, Spin, Pagination, Upload, Tabs } from 'antd';
 import dayjs from 'dayjs';
-import { 
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
   EyeOutlined,
   ClockCircleOutlined,
   TrophyOutlined,
@@ -18,7 +19,8 @@ import {
   ReloadOutlined,
   PlayCircleOutlined,
   FileExcelOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons';
 import { useAuth } from '@/AuthProvider';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -38,6 +40,7 @@ import PreviewQuestionsModal from '@/features/tests/components/PreviewQuestionsM
 import OfflineTestMarksManager from '@/features/tests/components/OfflineTestMarksManagerCorrect';
 // import OfflineMarksPanel from '../components/OfflineMarksPanel'; // Deprecated - use OfflineTestMarksManager instead
 import TestAnalytics from './TestAnalytics';
+import AITestGeneratorWizard from '@/features/tests/components/AITestGeneratorWizard';
 
 const { Title, Text } = Typography;
 
@@ -62,11 +65,20 @@ const UnifiedTestManagement = () => {
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingTest, setEditingTest] = useState(null);
+  const [aiWizardVisible, setAiWizardVisible] = useState(false);
   const [form] = Form.useForm();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
       fetchData();
   }, []);
+
+  // Auto-open the AI wizard when navigated with ?mode=ai
+  useEffect(() => {
+    if (searchParams.get('mode') === 'ai') {
+      setAiWizardVisible(true);
+    }
+  }, [searchParams]);
 
   const fetchData = async () => {
     try {
@@ -432,6 +444,13 @@ const UnifiedTestManagement = () => {
               onClick={handleImportTests}
             >
               Import Tests
+            </Button>
+            <Button
+              icon={<ThunderboltOutlined />}
+              onClick={() => setAiWizardVisible(true)}
+              style={{ borderColor: '#722ed1', color: '#722ed1' }}
+            >
+              Generate with AI
             </Button>
             <Button
               type="primary"
@@ -917,6 +936,45 @@ const UnifiedTestManagement = () => {
           }}
         />
       )}
+
+      {/* AI Test Generator Modal */}
+      <Modal
+        open={aiWizardVisible}
+        onCancel={() => {
+          setAiWizardVisible(false);
+          // Strip ?mode=ai from URL so refreshes don't reopen the wizard
+          if (searchParams.get('mode')) {
+            const next = new URLSearchParams(searchParams);
+            next.delete('mode');
+            setSearchParams(next, { replace: true });
+          }
+        }}
+        title={<><ThunderboltOutlined style={{ color: '#722ed1' }} /> AI Test Generator</>}
+        footer={null}
+        width={920}
+        destroyOnClose
+        maskClosable={false}
+      >
+        <AITestGeneratorWizard
+          onCancel={() => {
+            setAiWizardVisible(false);
+            if (searchParams.get('mode')) {
+              const next = new URLSearchParams(searchParams);
+              next.delete('mode');
+              setSearchParams(next, { replace: true });
+            }
+          }}
+          onSaved={(testId) => {
+            setAiWizardVisible(false);
+            if (searchParams.get('mode')) {
+              const next = new URLSearchParams(searchParams);
+              next.delete('mode');
+              setSearchParams(next, { replace: true });
+            }
+            fetchData();
+          }}
+        />
+      </Modal>
     </div>
   );
 };

@@ -43,7 +43,7 @@ const customLocale = {
 // Eager imports (small, always needed)
 import { LoginPage, ForgotPasswordPage, ResetPasswordPage } from '@/features/auth';
 import { PrivateRoute } from '@/features/auth';
-import { Sidebar } from '@/shared/components';
+import { Sidebar, ComingSoon } from '@/shared/components';
 import { UnauthorizedPage } from '@/features/auth';
 import { routeAccess } from './routeAccess';
 
@@ -80,6 +80,34 @@ const StudentLearningResources = lazy(() => import('@/features/learning-resource
 const StudentCalendar = lazy(() => import('@/features/calendar/pages/StudentCalendar'));
 const StudentAttendance = lazy(() => import('@/features/students/pages/StudentAttendance'));
 const StudentAnalytics = lazy(() => import('@/features/students/pages/StudentAnalytics'));
+
+// HRMS
+const HrHub = lazy(() => import('@/features/hr/pages/HrHub'));
+
+// Communications
+const Announcements = lazy(() => import('@/features/communications/pages/Announcements'));
+const CommunicationHub = lazy(() => import('@/features/communications/pages/CommunicationHub'));
+const ReportComments = lazy(() => import('@/features/communications/pages/ReportComments'));
+const StaffDirectory = lazy(() => import('@/features/hr/pages/StaffDirectory'));
+const StaffDetail = lazy(() => import('@/features/hr/pages/StaffDetail'));
+const Payroll = lazy(() => import('@/features/hr/pages/Payroll'));
+const LeavesApprovals = lazy(() => import('@/features/hr/pages/LeavesApprovals'));
+const StaffAttendance = lazy(() => import('@/features/hr/pages/StaffAttendance'));
+const MyHr = lazy(() => import('@/features/hr/pages/MyHr'));
+const SalaryComponents = lazy(() => import('@/features/hr/pages/SalaryComponents'));
+
+// Admissions
+const AdmissionsPipeline = lazy(() => import('@/features/admissions/pages/AdmissionsPipeline'));
+
+// Inventory
+const Inventory = lazy(() => import('@/features/inventory/pages/Inventory'));
+
+// Finance (school GL)
+const FinanceHub          = lazy(() => import('@/features/finance/pages/FinanceHub'));
+const FinanceTransactions = lazy(() => import('@/features/finance/pages/Transactions'));
+const FinanceAccounts     = lazy(() => import('@/features/finance/pages/AccountsCategories'));
+const FinanceReports      = lazy(() => import('@/features/finance/pages/Reports'));
+const FinanceInconsistencies = lazy(() => import('@/features/finance/pages/Inconsistencies'));
 
 
 
@@ -220,6 +248,77 @@ function AppContent() {
               <Route path="/student/calendar" element={<PrivateRoute allowedRoles={['student']}><StudentCalendar /></PrivateRoute>} />
               <Route path="/student/attendance" element={<PrivateRoute allowedRoles={['student']}><StudentAttendance /></PrivateRoute>} />
               <Route path="/student/analytics" element={<PrivateRoute allowedRoles={['student']}><StudentAnalytics /></PrivateRoute>} />
+
+              {/* === Placeholders matching mobile (Classbridge) routes 1:1 === */}
+
+              {/* Transport (TMS) — mirrors /transport/* on mobile */}
+              <Route path="/transport" element={<ComingSoon module="Transport (TMS)" title="Transport Hub" />} />
+              <Route path="/transport/buses" element={<ComingSoon module="Transport (TMS)" title="Buses" />} />
+              <Route path="/transport/drivers" element={<ComingSoon module="Transport (TMS)" title="Drivers" />} />
+              <Route path="/transport/assignments" element={<ComingSoon module="Transport (TMS)" title="Bus Assignments" />} />
+              <Route path="/transport/routes" element={<ComingSoon module="Transport (TMS)" title="Routes" />} />
+              <Route path="/transport/live" element={<ComingSoon module="Transport (TMS)" title="Live Tracking" />} />
+              <Route path="/transport/simulator" element={<ComingSoon module="Transport (TMS)" title="Route Simulator" />} />
+              <Route path="/transport/school-location" element={<ComingSoon module="Transport (TMS)" title="School Location" />} />
+              <Route path="/transport/my-bus" element={<ComingSoon module="Transport (TMS)" title="My Bus" />} />
+              <Route path="/driver" element={<ComingSoon module="Transport (TMS)" title="Driver Console" />} />
+
+              {/* HRMS — mirrors /hr/* on mobile */}
+              <Route path="/hr" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><HrHub /></PrivateRoute>} />
+              <Route path="/hr/staff" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><StaffDirectory /></PrivateRoute>} />
+              <Route path="/hr/staff/:id" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><StaffDetail /></PrivateRoute>} />
+              <Route path="/hr/payroll" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><Payroll /></PrivateRoute>} />
+              <Route path="/hr/leaves" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><LeavesApprovals /></PrivateRoute>} />
+              <Route path="/hr/attendance" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><StaffAttendance /></PrivateRoute>} />
+              <Route path="/hr/my" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><MyHr /></PrivateRoute>} />
+              <Route path="/hr/salary-components" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><SalaryComponents /></PrivateRoute>} />
+
+              {/* Management hub — mirrors /manage/* on mobile */}
+              <Route path="/manage" element={<ComingSoon module="Management" title="Management Hub" />} />
+              <Route path="/manage/admissions" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><AdmissionsPipeline /></PrivateRoute>} />
+              <Route path="/manage/inventory" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><Inventory /></PrivateRoute>} />
+              <Route path="/manage/inactive-users" element={<ComingSoon module="School" title="Inactive Users" />} />
+              <Route path="/manage/my-class" element={<ComingSoon module="My Class" title="My Class" />} />
+
+              {/* Finance (school GL) — mirrors /finance on mobile (super-admin only) */}
+              <Route path="/finance"                  element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceHub /></PrivateRoute>} />
+              <Route path="/finance/transactions"     element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceTransactions /></PrivateRoute>} />
+              <Route path="/finance/accounts"         element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceAccounts /></PrivateRoute>} />
+              <Route path="/finance/reports"          element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceReports /></PrivateRoute>} />
+              <Route path="/finance/inconsistencies"  element={<PrivateRoute allowedRoles={['superadmin']}><FinanceInconsistencies /></PrivateRoute>} />
+
+              {/* AI tools — mirrors mobile */}
+              <Route path="/chatbot" element={<ComingSoon module="Sage" title="Sage Chatbot" />} />
+              {/* AI Test Generator — redirects into the unified Test Management hub */}
+              <Route path="/ai-test-generator" element={<Navigate to="/test-management?mode=ai" replace />} />
+
+              {/* Advanced analytics — mirrors /analytics/* on mobile */}
+              <Route path="/analytics/weak-areas" element={<ComingSoon module="Analytics" title="Weak Areas" />} />
+              <Route path="/analytics/topic-heatmap" element={<ComingSoon module="Analytics" title="Topic Heatmap" />} />
+              <Route path="/analytics/misconception-report" element={<ComingSoon module="Analytics" title="Misconception Report" />} />
+
+              {/* Academics — mirrors /academics/* on mobile (extras not yet built on web) */}
+              <Route path="/academics/announcements" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><Announcements /></PrivateRoute>} />
+              <Route path="/academics/communication-hub" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><CommunicationHub /></PrivateRoute>} />
+              <Route path="/academics/report-comments" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><ReportComments /></PrivateRoute>} />
+              <Route path="/academics/gradebook" element={<ComingSoon module="Academics" title="Grade Book" />} />
+              <Route path="/academics/progress" element={<ComingSoon module="Academics" title="Student Progress" />} />
+              <Route path="/academics/syllabus-student" element={<ComingSoon module="Academics" title="My Syllabus" />} />
+              <Route path="/academics/class-comparison" element={<ComingSoon module="Analytics" title="Class Comparison" />} />
+
+              {/* Test detail screens — mirrors /test/[testId]/* on mobile.
+                  Web folds these into the unified Test Management hub. */}
+              <Route path="/test/create" element={<Navigate to="/test-management" replace />} />
+              <Route path="/test/:testId/questions" element={<Navigate to="/test-management" replace />} />
+              <Route path="/test/:testId/results" element={<Navigate to="/test-management" replace />} />
+              <Route path="/test/:testId/marks" element={<Navigate to="/test-management" replace />} />
+
+              {/* Student-side */}
+              <Route path="/student/classmates" element={<ComingSoon module="My Class" title="Classmates" />} />
+
+              {/* Account */}
+              <Route path="/change-password" element={<ComingSoon module="Account" title="Change Password" />} />
+              <Route path="/settings" element={<ComingSoon module="Account" title="Settings & Profile" />} />
 
               {/* Error Routes */}
               <Route path="/unauthorized" element={<UnauthorizedPage />} />

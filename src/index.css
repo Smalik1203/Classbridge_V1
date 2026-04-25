@@ -224,6 +224,24 @@ body,
   font-weight: 400 !important;
 }
 
+/* Submenu title — keep readable contrast in all states (light theme).
+   AntD v5 was rendering an open submenu's title with a white text-fill on a
+   light-grey "open" background, making the header invisible. Force the title
+   to inherit the regular item color unless its own row is hovered/selected. */
+.ant-menu-light .ant-menu-submenu > .ant-menu-submenu-title,
+.ant-menu-light .ant-menu-submenu-open > .ant-menu-submenu-title,
+.ant-menu-light .ant-menu-submenu-active > .ant-menu-submenu-title {
+  color: rgba(0, 0, 0, 0.88) !important;
+  background: transparent !important;
+}
+.ant-menu-light .ant-menu-submenu > .ant-menu-submenu-title:hover {
+  color: rgba(0, 0, 0, 0.88) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+.ant-menu-light .ant-menu-submenu > .ant-menu-submenu-title .ant-menu-submenu-arrow {
+  color: rgba(0, 0, 0, 0.45) !important;
+}
+
 /* Tag consistency */
 .ant-tag {
   font-size: 11px !important;
@@ -3267,4 +3285,15 @@ body,
 .dark-theme .ant-picker {
   background: inherit !important;
   color: inherit !important;
+}
+/* ── Finance module ───────────────────────────────────────────────────────── */
+.finance-voided-row td {
+  opacity: 0.55;
+  background: rgba(148, 163, 184, 0.06);
+}
+.finance-voided-row td:not(:last-child) {
+  text-decoration: line-through;
+}
+.finance-import-error-row td {
+  background: rgba(239, 68, 68, 0.06);
 }

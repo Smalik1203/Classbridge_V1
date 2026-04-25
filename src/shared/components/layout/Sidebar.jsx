@@ -26,7 +26,28 @@ import {
   ExperimentOutlined,
   PlusOutlined,
   EditOutlined,
-  BookOutlined as TaskBookOutlined
+  BookOutlined as TaskBookOutlined,
+  CarOutlined,
+  IdcardOutlined,
+  SolutionOutlined,
+  InboxOutlined,
+  AccountBookOutlined,
+  RobotOutlined,
+  ThunderboltOutlined,
+  NotificationOutlined,
+  MessageOutlined,
+  CommentOutlined,
+  UsergroupAddOutlined,
+  UserDeleteOutlined,
+  FileDoneOutlined,
+  LockOutlined,
+  AppstoreOutlined,
+  EnvironmentOutlined,
+  DashboardOutlined,
+  ScheduleOutlined,
+  HeatMapOutlined,
+  WarningOutlined,
+  AimOutlined
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -144,6 +165,132 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         label: 'Task Management',
         roles: ['superadmin', 'admin', 'student']
       },
+      {
+        key: '/academics/gradebook',
+        icon: <FileDoneOutlined />,
+        label: 'Grade Book',
+        roles: ['superadmin', 'admin']
+      },
+      {
+        key: '/academics/progress',
+        icon: <BarChartOutlined />,
+        label: 'Student Progress',
+        roles: ['superadmin', 'admin']
+      },
+
+      // Transport (TMS) — paths match mobile /transport/*
+      {
+        key: 'transport-group',
+        icon: <CarOutlined />,
+        label: 'Transport',
+        roles: ['superadmin', 'admin'],
+        children: [
+          { key: '/transport', icon: <DashboardOutlined />, label: 'Transport Hub', roles: ['superadmin', 'admin'] },
+          { key: '/transport/buses', icon: <CarOutlined />, label: 'Buses', roles: ['superadmin', 'admin'] },
+          { key: '/transport/drivers', icon: <IdcardOutlined />, label: 'Drivers', roles: ['superadmin', 'admin'] },
+          { key: '/transport/assignments', icon: <ScheduleOutlined />, label: 'Assignments', roles: ['superadmin', 'admin'] },
+          { key: '/transport/routes', icon: <EnvironmentOutlined />, label: 'Routes', roles: ['superadmin', 'admin'] },
+          { key: '/transport/live', icon: <AimOutlined />, label: 'Live Tracking', roles: ['superadmin', 'admin'] },
+          { key: '/transport/simulator', icon: <ExperimentOutlined />, label: 'Simulator', roles: ['superadmin', 'admin'] },
+          { key: '/transport/school-location', icon: <EnvironmentOutlined />, label: 'School Location', roles: ['superadmin', 'admin'] },
+        ],
+      },
+
+      // HRMS — paths match mobile /hr/*
+      {
+        key: 'hr-group',
+        icon: <SolutionOutlined />,
+        label: 'HR',
+        roles: ['superadmin', 'admin'],
+        children: [
+          { key: '/hr', icon: <DashboardOutlined />, label: 'HR Hub', roles: ['superadmin', 'admin'] },
+          { key: '/hr/staff', icon: <TeamOutlined />, label: 'Staff', roles: ['superadmin', 'admin'] },
+          { key: '/hr/payroll', icon: <DollarOutlined />, label: 'Payroll', roles: ['superadmin', 'admin'] },
+          { key: '/hr/leaves', icon: <CalendarOutlined />, label: 'Leaves', roles: ['superadmin', 'admin'] },
+          { key: '/hr/attendance', icon: <CalendarOutlined />, label: 'Staff Attendance', roles: ['superadmin', 'admin'] },
+          { key: '/hr/my', icon: <UserOutlined />, label: 'My HR', roles: ['superadmin', 'admin', 'student'] },
+          { key: '/hr/salary-components', icon: <DollarOutlined />, label: 'Salary Components', roles: ['superadmin', 'admin'] },
+        ],
+      },
+
+      // Management hub — paths match mobile /manage/*
+      {
+        key: 'manage-group',
+        icon: <AppstoreOutlined />,
+        label: 'Management',
+        roles: ['superadmin', 'admin'],
+        children: [
+          { key: '/manage', icon: <DashboardOutlined />, label: 'Management Hub', roles: ['superadmin', 'admin'] },
+          { key: '/manage/admissions', icon: <UsergroupAddOutlined />, label: 'Admissions', roles: ['superadmin', 'admin'] },
+          { key: '/manage/inventory', icon: <InboxOutlined />, label: 'Inventory', roles: ['superadmin', 'admin'] },
+          { key: '/manage/inactive-users', icon: <UserDeleteOutlined />, label: 'Inactive Users', roles: ['superadmin', 'admin'] },
+          { key: '/manage/my-class', icon: <TeamOutlined />, label: 'My Class', roles: ['superadmin', 'admin'] },
+        ],
+      },
+
+      // Finance (school GL) — super admin manages, admin reads
+      {
+        key: 'finance-group',
+        icon: <AccountBookOutlined />,
+        label: 'Finance',
+        roles: ['superadmin', 'admin'],
+        children: [
+          { key: '/finance',                 icon: <DashboardOutlined />,   label: 'Finance Hub',          roles: ['superadmin', 'admin'] },
+          { key: '/finance/transactions',    icon: <FileTextOutlined />,    label: 'Transactions',         roles: ['superadmin', 'admin'] },
+          { key: '/finance/accounts',        icon: <BankOutlined />,        label: 'Accounts & Categories', roles: ['superadmin', 'admin'] },
+          { key: '/finance/reports',         icon: <BarChartOutlined />,    label: 'Reports',              roles: ['superadmin', 'admin'] },
+          { key: '/finance/inconsistencies', icon: <WarningOutlined />,     label: 'Inconsistencies',      roles: ['superadmin'] },
+        ],
+      },
+
+      // AI tools — paths match mobile
+      {
+        key: '/chatbot',
+        icon: <RobotOutlined />,
+        label: 'Sage Chatbot',
+        roles: ['superadmin', 'admin', 'student']
+      },
+      {
+        key: '/ai-test-generator',
+        icon: <ThunderboltOutlined />,
+        label: 'AI Test Generator',
+        roles: ['superadmin', 'admin']
+      },
+
+      // Advanced analytics — paths match mobile /analytics/*
+      {
+        key: 'analytics-extra',
+        icon: <BarChartOutlined />,
+        label: 'Advanced Analytics',
+        roles: ['superadmin', 'admin'],
+        children: [
+          { key: '/analytics/weak-areas', icon: <WarningOutlined />, label: 'Weak Areas', roles: ['superadmin', 'admin'] },
+          { key: '/analytics/topic-heatmap', icon: <HeatMapOutlined />, label: 'Topic Heatmap', roles: ['superadmin', 'admin'] },
+          { key: '/analytics/misconception-report', icon: <ExperimentOutlined />, label: 'Misconception Report', roles: ['superadmin', 'admin'] },
+        ],
+      },
+
+      // Communications — paths match mobile /academics/*
+      {
+        key: 'comms-group',
+        icon: <NotificationOutlined />,
+        label: 'Communications',
+        roles: ['superadmin', 'admin', 'student'],
+        children: [
+          { key: '/academics/announcements', icon: <NotificationOutlined />, label: 'Announcements', roles: ['superadmin', 'admin', 'student'] },
+          { key: '/academics/communication-hub', icon: <MessageOutlined />, label: 'Communication Hub', roles: ['superadmin', 'admin', 'student'] },
+          { key: '/academics/report-comments', icon: <CommentOutlined />, label: 'Report Comments', roles: ['superadmin', 'admin'] },
+        ],
+      },
+
+      // Driver console
+      {
+        key: '/driver',
+        icon: <CarOutlined />,
+        label: 'Driver Console',
+        roles: ['superadmin', 'admin']
+      },
+
       // Student routes
       {
         key: '/student/timetable',
@@ -198,6 +345,32 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         icon: <BarChartOutlined />,
         label: 'My Analytics',
         roles: ['student']
+      },
+      {
+        key: '/transport/my-bus',
+        icon: <CarOutlined />,
+        label: 'My Bus',
+        roles: ['student']
+      },
+      {
+        key: '/student/classmates',
+        icon: <TeamOutlined />,
+        label: 'Classmates',
+        roles: ['student']
+      },
+
+      // Account (all roles)
+      {
+        key: '/settings',
+        icon: <SettingOutlined />,
+        label: 'Settings',
+        roles: ['cb_admin', 'superadmin', 'admin', 'student']
+      },
+      {
+        key: '/change-password',
+        icon: <LockOutlined />,
+        label: 'Change Password',
+        roles: ['cb_admin', 'superadmin', 'admin', 'student']
       },
     ];
 
@@ -271,14 +444,22 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         bottom: 0,
         background: antdTheme.token.colorBgContainer,
         borderRight: collapsed ? 'none' : `1px solid ${antdTheme.token.colorBorder}`,
-        boxShadow: collapsed ? 'none' : antdTheme.token.boxShadowSecondary
+        boxShadow: collapsed ? 'none' : antdTheme.token.boxShadowSecondary,
+        overflow: 'hidden'
       }}
     >
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        background: antdTheme.token.colorBgContainer
+      }}>
       {/* Logo Section */}
-      <div style={{ 
+      <div style={{
         padding: collapsed ? '12px 8px' : antdTheme.token.paddingLG,
         borderBottom: `1px solid ${antdTheme.token.colorBorder}`,
         height: collapsed ? '60px' : '80px',
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'space-between',
@@ -387,18 +568,19 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
 
 
       {/* Navigation Menu */}
-      <div style={{ 
-        flex: 1, 
+      <div style={{
+        flex: '1 1 auto',
+        minHeight: 0,
         background: antdTheme.token.colorBgContainer,
         padding: '8px 0',
-        overflow: 'auto',
-        maxHeight: 'calc(100vh - 200px)' // Account for header, theme toggle, and logout sections
+        overflowY: 'auto',
+        overflowX: 'hidden'
       }}>
         <Menu
           mode="inline"
           selectedKeys={[location.pathname]}
           items={getMenuItems()}
-          style={{ 
+          style={{
             border: 'none',
             background: antdTheme.token.colorBgContainer
           }}
@@ -411,6 +593,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
         padding: collapsed ? '8px' : antdTheme.token.padding,
         borderTop: `1px solid ${antdTheme.token.colorBorder}`,
         background: antdTheme.token.colorBgContainer,
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'space-between'
@@ -444,7 +627,8 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
       <div style={{
         padding: collapsed ? '8px' : antdTheme.token.padding,
         borderTop: `1px solid ${antdTheme.token.colorBorder}`,
-        background: antdTheme.token.colorBgContainer
+        background: antdTheme.token.colorBgContainer,
+        flexShrink: 0
       }}>
         <Tooltip title="Sign Out" placement="right">
           <Button
@@ -466,6 +650,7 @@ const AppSidebar = ({ collapsed, onCollapse }) => {
             {!collapsed && 'Sign Out'}
           </Button>
         </Tooltip>
+      </div>
       </div>
     </Sider>
   );
