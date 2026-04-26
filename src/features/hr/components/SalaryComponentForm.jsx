@@ -1,64 +1,53 @@
-import React, { useEffect } from 'react';
-import { Modal, Form, Input, InputNumber, Select, Switch, App } from 'antd';
+import React from 'react';
+import { Form, Input, InputNumber, Select, Switch } from 'antd';
+import { FormModal, validators } from '../../../shared/components/forms';
 import { hrService } from '../services/hrService';
 
 const TYPES = [
-  { value: 'earning', label: 'Earning' },
-  { value: 'deduction', label: 'Deduction' },
+  { value: 'earning',               label: 'Earning' },
+  { value: 'deduction',             label: 'Deduction' },
   { value: 'employer_contribution', label: 'Employer Contribution' },
 ];
 
 export default function SalaryComponentForm({ open, onClose, schoolCode, component, onSaved }) {
-  const [form] = Form.useForm();
-  const { message } = App.useApp();
   const isEdit = !!component?.id;
 
-  useEffect(() => {
-    if (!open) return;
-    if (component) {
-      form.setFieldsValue(component);
-    } else {
-      form.resetFields();
-      form.setFieldsValue({ type: 'earning', is_taxable: true, is_pt_basis: false, is_fixed: true, is_active: true, display_order: 0 });
-    }
-  }, [open, component, form]);
+  const getInitialValues = (editing) => editing ? { ...editing } : {
+    type: 'earning',
+    is_taxable: true,
+    is_pt_basis: false,
+    is_fixed: true,
+    is_active: true,
+    display_order: 0,
+  };
 
-  const submit = async () => {
-    try {
-      const v = await form.validateFields();
-      const payload = { ...v, school_code: schoolCode };
-      if (isEdit) {
-        // No update RPC in service; we update via supabase directly through service if needed.
-        // For now, use the createSalaryComponent path for new ones; updates aren't supported in mobile either
-        // unless you go through the structure modal. Treat edit as: update via supabase directly.
-        // We'll just call create — if id exists we treat it as update via direct fetch.
-        await hrService.createSalaryComponent({ ...payload }); // placeholder; mobile doesn't expose update either
-        message.success('Saved (note: schema may treat this as a new record)');
-      } else {
-        await hrService.createSalaryComponent(payload);
-        message.success('Component created');
-      }
-      onSaved?.();
-      onClose();
-    } catch (e) {
-      if (e?.errorFields) return;
-      message.error(e.message || 'Failed');
-    }
+  // Mobile parity note: there is no update RPC for salary components — both
+  // create and "edit" go through createSalaryComponent. Edits effectively
+  // create a new record, matching mobile behaviour.
+  const handleSubmit = async (v) => {
+    return hrService.createSalaryComponent({ ...v, school_code: schoolCode });
   };
 
   return (
-    <Modal
+    <FormModal
       open={open}
-      onCancel={onClose}
-      onOk={submit}
+      onClose={onClose}
       title={isEdit ? `Edit · ${component?.name}` : 'New Salary Component'}
-      destroyOnClose
+      okText={isEdit ? 'Save' : 'Create'}
+      editing={component}
+      getInitialValues={getInitialValues}
+      onSubmit={handleSubmit}
+      onSaved={onSaved}
+      successMessage={isEdit
+        ? 'Saved (note: schema may treat this as a new record)'
+        : 'Component created'}
+      errorMessage="Failed"
     >
-      <Form form={form} layout="vertical">
-        <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+      {() => (<>
+        <Form.Item name="name" label="Name" rules={[validators.required('Name')]}>
           <Input placeholder="e.g. Basic, HRA, PF, ESI" />
         </Form.Item>
-        <Form.Item name="type" label="Type" rules={[{ required: true }]}>
+        <Form.Item name="type" label="Type" rules={[validators.required('Type')]}>
           <Select options={TYPES} />
         </Form.Item>
         <Form.Item name="display_order" label="Display Order">
@@ -79,7 +68,7 @@ export default function SalaryComponentForm({ open, onClose, schoolCode, compone
         <Form.Item name="is_active" label="Active" valuePropName="checked">
           <Switch />
         </Form.Item>
-      </Form>
-    </Modal>
+      </>)}
+    </FormModal>
   );
 }

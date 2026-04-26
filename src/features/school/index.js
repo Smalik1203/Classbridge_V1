@@ -1,10 +1,9 @@
 // School Feature - Public API
-export { default as AddAdmin } from './components/AddAdmin';
-export { default as AddSuperAdmin } from './components/AddSuperAdmin';
+//
+// Note: AddAdmin, AddSuperAdmin, SignUpUser, SuperAdminCounter, and AddStudent
+// were moved to src/features/users/ as part of the User Management consolidation.
 export { default as AddSpecificClass } from './components/AddSpecificClass';
 export { default as AddSubjects } from './components/AddSubjects';
-export { default as SignUpUser } from './components/SignUpUser';
-export { default as SuperAdminCounter } from './components/SuperAdminCounter';
 
 export { default as AddSchoolsPage } from './pages/AddSchools';
 export { default as SetupSchoolPage } from './pages/SetupSchool';

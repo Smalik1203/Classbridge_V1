@@ -137,4 +137,39 @@ export const calculatePercentage = (amountPaise, totalPaise) => {
 export const fmtINRWithPercentage = (amountPaise, totalPaise) => {
   const percentage = calculatePercentage(amountPaise, totalPaise);
   return `${fmtINR(amountPaise)} (${percentage}%)`;
-}; 
+};
+
+/**
+ * Format an INR rupee amount (NOT paise). For invoice-first fee model where
+ * fee_invoices.total_amount and fee_payments.amount_inr are stored as rupees.
+ * @param {number} rupees
+ * @returns {string} e.g. "₹1,250.00"
+ */
+export const fmtRupees = (rupees) => {
+  const n = Number(rupees || 0);
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(n) ? n : 0);
+  } catch {
+    return `₹${(Number.isFinite(n) ? n : 0).toFixed(2)}`;
+  }
+};
+
+/**
+ * Compact rupee format for KPIs (e.g. ₹1.2K, ₹3.4L, ₹2.1Cr).
+ * @param {number} rupees
+ */
+export const fmtRupeesCompact = (rupees) => {
+  const n = Number(rupees || 0);
+  if (!Number.isFinite(n)) return '₹0';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(1)}Cr`;
+  if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(1)}L`;
+  if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(1)}K`;
+  return fmtRupees(n);
+};

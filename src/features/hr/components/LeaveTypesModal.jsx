@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal, Table, Form, Input, InputNumber, Switch, Select, Button, Space, App, Popconfirm, Tag,
+  Modal, Table, Form, Input, InputNumber, Switch, Select, Button, Space, App, Tag,
 } from 'antd';
 import { PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { FormModal, validators } from '../../../shared/components/forms';
 import { hrService } from '../services/hrService';
 
 export default function LeaveTypesModal({ open, onClose, schoolCode }) {
@@ -10,7 +11,6 @@ export default function LeaveTypesModal({ open, onClose, schoolCode }) {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [form] = Form.useForm();
   const { message } = App.useApp();
 
   const load = async () => {
@@ -25,42 +25,15 @@ export default function LeaveTypesModal({ open, onClose, schoolCode }) {
     }
   };
 
-  useEffect(() => { if (open) load(); /* eslint-disable-next-line */ }, [open, schoolCode]);
-
-  const openEditor = (lt) => {
-    setEditing(lt);
-    if (lt) {
-      form.setFieldsValue(lt);
-    } else {
-      form.resetFields();
-      form.setFieldsValue({ is_active: true, is_paid: true, requires_approval: true, is_carry_forwardable: false });
-    }
-    setEditorOpen(true);
-  };
-
-  const submit = async () => {
-    try {
-      const v = await form.validateFields();
-      const payload = { ...v, school_code: schoolCode };
-      if (editing) {
-        await hrService.updateLeaveType(editing.id, payload);
-        message.success('Leave type updated');
-      } else {
-        await hrService.createLeaveType(payload);
-        message.success('Leave type created');
-      }
-      setEditorOpen(false);
-      load();
-    } catch (e) {
-      if (e?.errorFields) return;
-      message.error(e.message || 'Failed');
-    }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) load(); }, [open, schoolCode]);
 
   return (
     <Modal open={open} onCancel={onClose} footer={null} title="Leave Types" width={760} destroyOnClose>
       <Space style={{ marginBottom: 12 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor(null)}>Add Type</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); setEditorOpen(true); }}>
+          Add Type
+        </Button>
       </Space>
       <Table
         rowKey="id"
@@ -75,31 +48,76 @@ export default function LeaveTypesModal({ open, onClose, schoolCode }) {
           { title: 'Paid', dataIndex: 'is_paid', render: (v) => v ? <Tag color="green">Yes</Tag> : <Tag>No</Tag> },
           { title: 'Carry Fwd', dataIndex: 'is_carry_forwardable', render: (v, r) => v ? `Up to ${r.max_carry_forward ?? '∞'}` : '—' },
           { title: 'Active', dataIndex: 'is_active', render: (v) => v ? <Tag color="blue">Active</Tag> : <Tag>Inactive</Tag> },
-          { title: '', key: 'edit', render: (_, r) => <Button size="small" icon={<EditOutlined />} onClick={() => openEditor(r)} /> },
+          { title: '', key: 'edit', render: (_, r) => <Button size="small" icon={<EditOutlined />} onClick={() => { setEditing(r); setEditorOpen(true); }} /> },
         ]}
       />
 
-      <Modal
+      <LeaveTypeEditor
         open={editorOpen}
-        onCancel={() => setEditorOpen(false)}
-        onOk={submit}
-        title={editing ? `Edit ${editing.name}` : 'New Leave Type'}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item name="code" label="Code" rules={[{ required: true }]}><Input placeholder="CL / SL / PL" style={{ textTransform: 'uppercase' }} /></Form.Item>
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="annual_quota" label="Annual Quota (days)" rules={[{ required: true, type: 'number', min: 0 }]}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="is_paid" label="Paid Leave" valuePropName="checked"><Switch /></Form.Item>
-          <Form.Item name="requires_approval" label="Requires Approval" valuePropName="checked"><Switch /></Form.Item>
-          <Form.Item name="is_carry_forwardable" label="Can Carry Forward" valuePropName="checked"><Switch /></Form.Item>
-          <Form.Item name="max_carry_forward" label="Max Carry Forward (days)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="gender_restricted_to" label="Gender Restricted To">
-            <Select allowClear options={[{ value: 'male', label: 'Male only' }, { value: 'female', label: 'Female only' }, { value: 'other', label: 'Other only' }]} />
-          </Form.Item>
-          <Form.Item name="is_active" label="Active" valuePropName="checked"><Switch /></Form.Item>
-        </Form>
-      </Modal>
+        editing={editing}
+        schoolCode={schoolCode}
+        onClose={() => setEditorOpen(false)}
+        onSaved={load}
+      />
     </Modal>
+  );
+}
+
+function LeaveTypeEditor({ open, editing, schoolCode, onClose, onSaved }) {
+  const isEdit = !!editing;
+
+  const getInitialValues = (editing) => editing ? { ...editing } : {
+    is_active: true,
+    is_paid: true,
+    requires_approval: true,
+    is_carry_forwardable: false,
+  };
+
+  const handleSubmit = async (v) => {
+    const payload = { ...v, school_code: schoolCode };
+    return isEdit
+      ? hrService.updateLeaveType(editing.id, payload)
+      : hrService.createLeaveType(payload);
+  };
+
+  return (
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? `Edit ${editing.name}` : 'New Leave Type'}
+      okText={isEdit ? 'Save' : 'Create'}
+      editing={editing}
+      getInitialValues={getInitialValues}
+      onSubmit={handleSubmit}
+      onSaved={onSaved}
+      successMessage={isEdit ? 'Leave type updated' : 'Leave type created'}
+      errorMessage="Failed"
+    >
+      {() => (<>
+        <Form.Item name="code" label="Code" rules={[validators.required('Code')]}>
+          <Input placeholder="CL / SL / PL" style={{ textTransform: 'uppercase' }} />
+        </Form.Item>
+        <Form.Item name="name" label="Name" rules={[validators.required('Name')]}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="annual_quota" label="Annual Quota (days)" rules={[{ required: true, type: 'number', min: 0 }]}>
+          <InputNumber min={0} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="is_paid" label="Paid Leave" valuePropName="checked"><Switch /></Form.Item>
+        <Form.Item name="requires_approval" label="Requires Approval" valuePropName="checked"><Switch /></Form.Item>
+        <Form.Item name="is_carry_forwardable" label="Can Carry Forward" valuePropName="checked"><Switch /></Form.Item>
+        <Form.Item name="max_carry_forward" label="Max Carry Forward (days)">
+          <InputNumber min={0} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="gender_restricted_to" label="Gender Restricted To">
+          <Select allowClear options={[
+            { value: 'male',   label: 'Male only' },
+            { value: 'female', label: 'Female only' },
+            { value: 'other',  label: 'Other only' },
+          ]} />
+        </Form.Item>
+        <Form.Item name="is_active" label="Active" valuePropName="checked"><Switch /></Form.Item>
+      </>)}
+    </FormModal>
   );
 }

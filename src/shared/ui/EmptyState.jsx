@@ -3,6 +3,11 @@
 
 import React from 'react';
 import { Empty, Typography, Button, Space } from 'antd';
+import {
+  TeamOutlined, AppstoreOutlined, BarChartOutlined, DollarOutlined,
+  BookOutlined, ClockCircleOutlined, ReadOutlined, FileDoneOutlined,
+  WarningOutlined, InboxOutlined,
+} from '@ant-design/icons';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const { Text } = Typography;
@@ -41,64 +46,68 @@ const EmptyState = ({
 }) => {
   const { theme: antdTheme } = useTheme();
 
-  // Predefined empty state configurations for common patterns
+  // Predefined empty state configs. Icons are AntD components so they pick
+  // up the theme token color automatically (works in light + dark) instead of
+  // 3D color emojis that look out of place against the rest of the iconography.
   const getEmptyStateConfig = () => {
     const configs = {
       students: {
         title: 'No students yet',
         description: 'Get started by adding your first student to the system.',
-        icon: '👩‍🎓',
+        icon: <TeamOutlined />,
         actionText: '+ Add Student',
       },
       classes: {
         title: 'No classes found',
         description: 'Create your first class to start organizing students and marking attendance.',
-        icon: '📅',
+        icon: <AppstoreOutlined />,
         actionText: '+ Create Class',
       },
       analytics: {
         title: 'Analytics will appear here',
-        description: 'Once you\'ve added students and recorded attendance, analytics will show insights and trends.',
-        icon: '📊',
+        description: "Once tests are taken and attendance is recorded, you'll see trends here.",
+        icon: <BarChartOutlined />,
         actionText: null,
-        secondaryActionText: 'Start by adding students',
       },
       fees: {
         title: 'No fee components yet',
         description: 'Create fee components to start managing student fees and collections.',
-        icon: '💰',
+        icon: <DollarOutlined />,
         actionText: '+ Add Fee Component',
       },
       subjects: {
         title: 'No subjects yet',
         description: 'Add subjects to organize your curriculum and create structured learning paths.',
-        icon: '📚',
+        icon: <BookOutlined />,
         actionText: '+ Add Subjects',
       },
       timetable: {
         title: 'No timetable created yet',
         description: 'Create a timetable to organize classes, subjects, and schedules.',
-        icon: '🕒',
+        icon: <ClockCircleOutlined />,
         actionText: '+ Create Timetable',
       },
       syllabus: {
         title: 'No syllabus found',
         description: 'Create a syllabus for this subject and class to organize learning content.',
-        icon: '📖',
+        icon: <ReadOutlined />,
         actionText: '+ Create Syllabus',
       },
       tests: {
         title: 'No tests found',
         description: 'Create your first test to start assessing student progress and performance.',
-        icon: '📝',
+        icon: <FileDoneOutlined />,
         actionText: '+ Create Your First Test',
       },
       error: {
         title: 'Something went wrong',
         description: 'We encountered an error while loading your data. Please try again.',
-        icon: '⚠️',
+        icon: <WarningOutlined />,
         actionText: '↻ Refresh',
         secondaryActionText: 'Sign in again',
+      },
+      default: {
+        icon: <InboxOutlined />,
       },
     };
 
@@ -128,15 +137,19 @@ const EmptyState = ({
       }}
     >
       <Empty
-        image={image || Empty.PRESENTED_IMAGE_SIMPLE}
+        // We render our own large themed icon above. Suppress AntD's default
+        // image/illustration unless the caller explicitly passed one.
+        image={image || null}
+        imageStyle={{ display: image ? undefined : 'none' }}
         description={
           <div>
             {finalIcon && (
               <div
                 style={{
-                  fontSize: '48px',
-                  marginBottom: antdTheme?.token?.margin || 16,
+                  fontSize: 48,
                   lineHeight: 1,
+                  marginBottom: antdTheme?.token?.margin || 16,
+                  color: antdTheme?.token?.colorTextQuaternary || '#bfbfbf',
                 }}
               >
                 {finalIcon}

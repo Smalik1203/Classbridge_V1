@@ -1,506 +1,214 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Card, Table, Space, Typography, Alert, Spin, Tag, Progress, 
-  Row, Col, Statistic, Descriptions, Divider, Empty, Skeleton
+  Card, Row, Col, Statistic, Table, Tag, Space, Button, Empty, Alert, Spin, Typography, Divider,
 } from 'antd';
-import {
-  WalletOutlined, FileTextOutlined, CheckCircleOutlined, 
-  ClockCircleOutlined, DollarOutlined, EyeOutlined
-} from '@ant-design/icons';
-import { supabase } from '@/config/supabaseClient';
-import { useAuth } from '@/AuthProvider';
-import { getStudentCode, getSchoolCode } from '@/shared/utils/metadata';
-import { fmtINR } from '@/features/fees/utils/money';
+import { FilePdfOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { useFees } from '../context/FeesContext';
+import { useAuth } from '@/AuthProvider';
+import { getSchoolCode } from '@/shared/utils/metadata';
+import { getByStudent, resolveStudentForUser } from '../services/feesService';
+import { fmtRupees } from '../utils/money';
+import InvoiceDocumentViewer from './InvoiceDocumentViewer';
 
 const { Title, Text } = Typography;
 
-const StudentFees = () => {
+const STATUS_COLORS = { paid: 'green', partial: 'gold', pending: 'red', overdue: 'volcano' };
+
+function deriveStatus(inv) {
+  const t = Number(inv.total_amount || 0);
+  const p = Number(inv.paid_amount || 0);
+  if (p >= t && t > 0) return 'paid';
+  if (p > 0) return 'partial';
+  if (inv.due_date && dayjs(inv.due_date).isBefore(dayjs(), 'day')) return 'overdue';
+  return 'pending';
+}
+
+export default function StudentFees() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [alert, setAlert] = useState(null);
+  const schoolCode = getSchoolCode(user);
   const [student, setStudent] = useState(null);
-  const [feeData, setFeeData] = useState(null);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [docInvoiceId, setDocInvoiceId] = useState(null);
 
-  // Fetch student data
-  useEffect(() => {
-    const fetchStudent = async () => {
-      if (!user) return;
-      
-      setLoading(true);
-      try {
-        const studentCode = getStudentCode(user);
-        const schoolCode = getSchoolCode(user);
-        
-        if (!schoolCode) {
-          throw new Error("School information not found");
-        }
-
-        // Try to find student by auth_user_id first (most reliable)
-        let { data, error } = await supabase
-          .from('student')
-          .select(`
-            id, 
-            full_name, 
-            student_code, 
-            class_instance_id, 
-            school_code,
-            class_instances!inner(grade, section)
-          `)
-          .eq('auth_user_id', user.id)
-          .eq('school_code', schoolCode)
-          .maybeSingle();
-
-        // If not found by auth_user_id, try by student_code or email
-        if (!data && !error) {
-          let query = supabase
-            .from('student')
-            .select(`
-              id, 
-              full_name, 
-              student_code, 
-              class_instance_id, 
-              school_code,
-              class_instances!inner(grade, section)
-            `)
-            .eq('school_code', schoolCode);
-
-          if (studentCode) {
-            query = query.eq('student_code', studentCode);
-          } else if (user.email) {
-            query = query.eq('email', user.email);
-          }
-
-          const result = await query.maybeSingle();
-          data = result.data;
-          error = result.error;
-        }
-
-        if (error) throw error;
-        setStudent(data);
-      } catch (err) {
-        setAlert({ type: 'error', message: 'Could not fetch student data. Please try again.' });
-      } finally {
-        setLoading(false);
+  const load = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const s = await resolveStudentForUser(user.id);
+      if (!s) {
+        setError('No student record linked to your account.');
+        return;
       }
-    };
-
-    fetchStudent();
-  }, [user]);
-
-  // Fetch fee data for the student
-  useEffect(() => {
-    const fetchFeeData = async () => {
-      if (!student) return;
-      
-      try {
-        // Get student's fee plan
-        const { data: plans, error: plansError } = await supabase
-          .from('fee_student_plans')
-          .select('id, school_code')
-          .eq('student_id', student.id)
-          .eq('class_instance_id', student.class_instance_id)
-          .eq('school_code', student.school_code)
-          .maybeSingle();
-
-        if (plansError) {
-          console.error('Fee plan error:', plansError);
-          throw plansError;
-        }
-
-        if (!plans) {
-          setFeeData({ hasPlan: false });
-          return;
-        }
-
-        // Get fee plan items
-        const { data: planItems, error: itemsError } = await supabase
-          .from('fee_student_plan_items')
-          .select(`
-            amount_paise,
-            quantity,
-            fee_component_types!inner(id, name, code)
-          `)
-          .eq('plan_id', plans.id);
-
-        if (itemsError) {
-          console.error('Fee plan items error:', itemsError);
-          throw itemsError;
-        }
-
-        // Get payments made
-        const { data: payments, error: paymentsError } = await supabase
-          .from('fee_payments')
-          .select(`
-            amount_paise,
-            payment_date,
-            payment_method,
-            component_type_id,
-            receipt_number,
-            fee_component_types!inner(name)
-          `)
-          .eq('student_id', student.id)
-          .eq('school_code', student.school_code);
-
-        if (paymentsError) {
-          console.error('Fee payments error:', paymentsError);
-          throw paymentsError;
-        }
-
-        // Calculate totals and outstanding amounts
-        const totalPlanAmount = (planItems || []).reduce((sum, item) => sum + (item.amount_paise || 0), 0);
-        const totalPaid = (payments || []).reduce((sum, payment) => sum + (payment.amount_paise || 0), 0);
-        const outstanding = totalPlanAmount - totalPaid;
-        const paymentPercentage = totalPlanAmount > 0 ? Math.round((totalPaid / totalPlanAmount) * 100) : 0;
-
-        // Group payments by component
-        const paymentsByComponent = {};
-        (payments || []).forEach(payment => {
-          const componentId = payment.component_type_id;
-          if (!paymentsByComponent[componentId]) {
-            paymentsByComponent[componentId] = 0;
-          }
-          paymentsByComponent[componentId] += payment.amount_paise || 0;
-        });
-
-        // Prepare fee breakdown
-        const feeBreakdown = (planItems || []).map(item => {
-          const componentId = item.fee_component_types.id;
-          const paidAmount = paymentsByComponent[componentId] || 0;
-          const outstandingAmount = (item.amount_paise || 0) - paidAmount;
-          const componentPercentage = item.amount_paise > 0 ? 
-            Math.round((paidAmount / item.amount_paise) * 100) : 0;
-
-          return {
-            id: componentId,
-            name: item.fee_component_types.name,
-            code: item.fee_component_types.code,
-            planAmount: item.amount_paise,
-            paidAmount,
-            outstandingAmount,
-            percentage: componentPercentage,
-            status: outstandingAmount <= 0 ? 'paid' : outstandingAmount < item.amount_paise ? 'partial' : 'unpaid'
-          };
-        });
-
-        setFeeData({
-          hasPlan: true,
-          totalPlanAmount,
-          totalPaid,
-          outstanding,
-          paymentPercentage,
-          feeBreakdown,
-          payments: payments || [],
-          planItems: planItems || []
-        });
-
-      } catch (err) {
-        setAlert({ type: 'error', message: 'Failed to load fee information. Please try again.' });
-      }
-    };
-
-    fetchFeeData();
-  }, [student]);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'paid': return 'success';
-      case 'partial': return 'warning';
-      case 'unpaid': return 'error';
-      default: return 'default';
+      setStudent(s);
+      const rows = await getByStudent(s.id, schoolCode || s.school_code);
+      setInvoices(rows || []);
+    } catch (err) {
+      setError(err?.message || 'Failed to load your fees');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'paid': return 'Paid';
-      case 'partial': return 'Partial';
-      case 'unpaid': return 'Unpaid';
-      default: return 'Unknown';
-    }
-  };
+  useEffect(() => { load(); }, [user, schoolCode]);
 
-  const feeBreakdownColumns = [
-    {
-      title: 'Fee Component',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name, record) => (
-        <div>
-          <Text strong>{name}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.code}
-          </Text>
-        </div>
-      )
-    },
-    {
-      title: 'Total Amount',
-      dataIndex: 'planAmount',
-      key: 'planAmount',
-      align: 'right',
-      render: (amount) => (
-        <Text strong>{fmtINR(amount)}</Text>
-      )
-    },
-    {
-      title: 'Paid Amount',
-      dataIndex: 'paidAmount',
-      key: 'paidAmount',
-      align: 'right',
-      render: (amount) => (
-        <Text style={{ color: amount > 0 ? '#52c41a' : '#8c8c8c' }}>
-          {fmtINR(amount)}
-        </Text>
-      )
-    },
-    {
-      title: 'Outstanding',
-      dataIndex: 'outstandingAmount',
-      key: 'outstandingAmount',
-      align: 'right',
-      render: (amount) => (
-        <Text style={{ color: amount > 0 ? '#ff4d4f' : '#52c41a' }}>
-          {amount > 0 ? `+${fmtINR(amount)}` : fmtINR(amount)}
-        </Text>
-      )
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      align: 'center',
-      render: (status) => (
-        <Tag color={getStatusColor(status)}>
-          {getStatusText(status)}
-        </Tag>
-      )
-    },
-    {
-      title: 'Progress',
-      key: 'progress',
-      align: 'center',
-      render: (_, record) => (
-        <Progress
-          percent={record.percentage}
-          size="small"
-          strokeColor={
-            record.percentage >= 100 ? '#52c41a' :
-            record.percentage >= 50 ? '#faad14' :
-            '#ff4d4f'
-          }
-        />
-      )
+  const totals = useMemo(() => {
+    let total = 0, paid = 0;
+    for (const inv of invoices) {
+      total += Number(inv.total_amount || 0);
+      paid += Number(inv.paid_amount || 0);
     }
-  ];
+    return { total, paid, outstanding: Math.max(0, total - paid) };
+  }, [invoices]);
 
-  const paymentHistoryColumns = [
-    {
-      title: 'Date',
-      dataIndex: 'payment_date',
-      key: 'payment_date',
-      render: (date) => dayjs(date).format('DD MMM YYYY')
-    },
-    {
-      title: 'Component',
-      dataIndex: 'fee_component_types',
-      key: 'component',
-      render: (component) => component?.name || 'Unknown'
-    },
-    {
-      title: 'Amount',
-      dataIndex: 'amount_paise',
-      key: 'amount',
-      align: 'right',
-      render: (amount) => (
-        <Text strong style={{ color: '#52c41a' }}>
-          {fmtINR(amount)}
-        </Text>
-      )
-    },
-    {
-      title: 'Method',
-      dataIndex: 'payment_method',
-      key: 'method',
-      render: (method) => (
-        <Tag color="blue">
-          {method ? method.charAt(0).toUpperCase() + method.slice(1) : 'Not specified'}
-        </Tag>
-      )
+  const allPayments = useMemo(() => {
+    const flat = [];
+    for (const inv of invoices) {
+      for (const p of inv.payments || []) {
+        flat.push({ ...p, billing_period: inv.billing_period, invoice_id: inv.id });
+      }
     }
-  ];
+    return flat.sort((a, b) =>
+      new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime(),
+    );
+  }, [invoices]);
 
   if (loading) {
     return (
-      <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
-        <Card style={{ maxWidth: 1200, margin: '0 auto', borderRadius: 12 }}>
-          <Skeleton active />
-        </Card>
+      <div style={{ padding: 48, textAlign: 'center' }}>
+        <Spin size="large" tip="Loading your fees..." />
       </div>
     );
   }
 
+  if (error) {
+    return <div style={{ padding: 24 }}><Alert type="error" showIcon message={error} /></div>;
+  }
+
+  if (!student) {
+    return <div style={{ padding: 24 }}><Empty description="No student record" /></div>;
+  }
+
   return (
     <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
-      <Card style={{ maxWidth: 1200, margin: '0 auto', borderRadius: 12 }}>
-        <Title level={3} style={{ color: '#1e293b', marginBottom: 24 }}>
-          My Fee Information {student ? `- ${student.full_name}` : ''}
-        </Title>
-        
-        {alert && (
-          <Alert
-            type={alert.type}
-            message={alert.message}
-            showIcon
-            closable
-            onClose={() => setAlert(null)}
-            style={{ marginBottom: 16 }}
-          />
-        )}
-
-        {!student && !loading && (
-          <Empty description="Student information could not be loaded." />
-        )}
-
-        {student && feeData && (
+      <Card
+        size="small"
+        style={{
+          marginBottom: 16,
+          background: totals.outstanding > 0
+            ? 'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)'
+            : 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+          border: 'none',
+          borderRadius: 12,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white', flexWrap: 'wrap' }}>
           <div>
-            {/* Summary Statistics */}
-            {feeData.hasPlan ? (
-              <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                                 <Col xs={24} sm={12} md={6}>
-                   <Card>
-                     <Statistic
-                       title="Total Fee Amount"
-                       value={feeData.totalPlanAmount / 100}
-                       precision={2}
-                       valueStyle={{ color: '#1890ff' }}
-                       prefix={<><WalletOutlined /> ₹</>}
-                     />
-                   </Card>
-                 </Col>
-                 <Col xs={24} sm={12} md={6}>
-                   <Card>
-                     <Statistic
-                       title="Amount Paid"
-                       value={feeData.totalPaid / 100}
-                       precision={2}
-                       valueStyle={{ color: '#52c41a' }}
-                       prefix={<><CheckCircleOutlined /> ₹</>}
-                     />
-                   </Card>
-                 </Col>
-                 <Col xs={24} sm={12} md={6}>
-                   <Card>
-                     <Statistic
-                       title="Outstanding Amount"
-                       value={feeData.outstanding / 100}
-                       precision={2}
-                       valueStyle={{ color: feeData.outstanding > 0 ? '#ff4d4f' : '#52c41a' }}
-                       prefix={<><ClockCircleOutlined /> ₹</>}
-                     />
-                   </Card>
-                 </Col>
-                <Col xs={24} sm={12} md={6}>
-                  <Card>
-                    <Statistic
-                      title="Payment Progress"
-                      value={feeData.paymentPercentage}
-                      precision={1}
-                      valueStyle={{ color: '#722ed1' }}
-                      prefix={<DollarOutlined />}
-                      suffix="%"
-                    />
-                  </Card>
-                </Col>
-              </Row>
-            ) : (
-              <Alert
-                message="No Fee Plan Found"
-                description="You don't have a fee plan assigned yet. Please contact your school administration."
-                type="info"
-                showIcon
-                style={{ marginBottom: 24 }}
-              />
-            )}
-
-            {/* Overall Progress */}
-            {feeData.hasPlan && (
-              <Card title="Payment Progress" style={{ marginBottom: 24 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <Text>Overall Payment Progress</Text>
-                    <Text strong>{feeData.paymentPercentage}%</Text>
-                  </div>
-                  <Progress
-                    percent={feeData.paymentPercentage}
-                    strokeColor={
-                      feeData.paymentPercentage >= 100 ? '#52c41a' :
-                      feeData.paymentPercentage >= 75 ? '#1890ff' :
-                      feeData.paymentPercentage >= 50 ? '#faad14' :
-                      '#ff4d4f'
-                    }
-                    size="large"
-                  />
-                </div>
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Text type="secondary">Total Fee: </Text>
-                    <Text strong>{fmtINR(feeData.totalPlanAmount)}</Text>
-                  </Col>
-                  <Col span={8}>
-                    <Text type="secondary">Paid: </Text>
-                    <Text strong style={{ color: '#52c41a' }}>
-                      {fmtINR(feeData.totalPaid)}
-                    </Text>
-                  </Col>
-                  <Col span={8}>
-                    <Text type="secondary">Outstanding: </Text>
-                    <Text strong style={{ color: feeData.outstanding > 0 ? '#ff4d4f' : '#52c41a' }}>
-                      {fmtINR(feeData.outstanding)}
-                    </Text>
-                  </Col>
-                </Row>
-              </Card>
-            )}
-
-            {/* Fee Breakdown */}
-            {feeData.hasPlan && (
-              <Card title="Fee Breakdown" style={{ marginBottom: 24 }}>
-                <Table
-                  dataSource={feeData.feeBreakdown}
-                  columns={feeBreakdownColumns}
-                  pagination={false}
-                  size="small"
-                  rowKey="id"
-                />
-              </Card>
-            )}
-
-            {/* Payment History */}
-            {feeData.hasPlan && feeData.payments.length > 0 && (
-              <Card title="Payment History" extra={<EyeOutlined />}>
-                <Table
-                  dataSource={feeData.payments}
-                  columns={paymentHistoryColumns}
-                  pagination={{ pageSize: 10, hideOnSinglePage: true }}
-                  size="small"
-                  rowKey="id"
-                />
-              </Card>
-            )}
-
-            {feeData.hasPlan && feeData.payments.length === 0 && (
-              <Card title="Payment History">
-                <Empty description="No payment records found yet." />
-              </Card>
-            )}
+            <Title level={4} style={{ color: 'white', margin: 0 }}>
+              {totals.outstanding > 0 ? 'Outstanding fees' : 'All fees paid'}
+            </Title>
+            <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
+              {student.full_name}{student.student_code ? ` · ${student.student_code}` : ''}
+            </Text>
           </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtRupees(totals.outstanding)}</div>
+            <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
+              of {fmtRupees(totals.total)} billed · paid {fmtRupees(totals.paid)}
+            </Text>
+          </div>
+        </div>
+      </Card>
+
+      <Row gutter={12} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={8}><Card size="small"><Statistic title="Total billed" value={fmtRupees(totals.total)} /></Card></Col>
+        <Col xs={24} md={8}><Card size="small"><Statistic title="Paid" value={fmtRupees(totals.paid)} valueStyle={{ color: '#3f8600' }} /></Card></Col>
+        <Col xs={24} md={8}><Card size="small"><Statistic title="Outstanding" value={fmtRupees(totals.outstanding)} valueStyle={{ color: '#cf1322' }} /></Card></Col>
+      </Row>
+
+      <Card title="My invoices" extra={<Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>}>
+        {invoices.length === 0 ? (
+          <Empty description="No invoices issued yet" />
+        ) : (
+          invoices.map((inv) => {
+            const status = deriveStatus(inv);
+            const balance = Math.max(0, Number(inv.total_amount || 0) - Number(inv.paid_amount || 0));
+            return (
+              <Card
+                key={inv.id}
+                size="small"
+                style={{ marginBottom: 12 }}
+                title={
+                  <Space>
+                    <span>Period: {inv.billing_period}</span>
+                    <Tag color={STATUS_COLORS[status]}>{status.toUpperCase()}</Tag>
+                    {inv.due_date && (
+                      <Text type="secondary">Due {dayjs(inv.due_date).format('DD MMM YYYY')}</Text>
+                    )}
+                  </Space>
+                }
+                extra={
+                  <Button size="small" icon={<FilePdfOutlined />} onClick={() => setDocInvoiceId(inv.id)}>
+                    View document
+                  </Button>
+                }
+              >
+                <Row gutter={12}>
+                  <Col xs={8}><Statistic title="Total" value={fmtRupees(inv.total_amount)} valueStyle={{ fontSize: 16 }} /></Col>
+                  <Col xs={8}><Statistic title="Paid" value={fmtRupees(inv.paid_amount)} valueStyle={{ color: '#3f8600', fontSize: 16 }} /></Col>
+                  <Col xs={8}><Statistic title="Balance" value={fmtRupees(balance)} valueStyle={{ color: balance > 0 ? '#cf1322' : '#3f8600', fontSize: 16 }} /></Col>
+                </Row>
+
+                {inv.items?.length > 0 && (
+                  <>
+                    <Divider style={{ margin: '12px 0 8px' }} />
+                    <Table
+                      size="small"
+                      pagination={false}
+                      rowKey="id"
+                      dataSource={inv.items}
+                      columns={[
+                        { title: 'Description', dataIndex: 'label' },
+                        {
+                          title: 'Amount', dataIndex: 'amount', align: 'right', width: 140,
+                          render: (v) => <span style={{ color: Number(v) < 0 ? '#cf1322' : undefined }}>{fmtRupees(v)}</span>,
+                        },
+                      ]}
+                    />
+                  </>
+                )}
+              </Card>
+            );
+          })
         )}
       </Card>
+
+      {allPayments.length > 0 && (
+        <Card title="Payment history" style={{ marginTop: 16 }}>
+          <Table
+            size="small"
+            rowKey="id"
+            dataSource={allPayments}
+            columns={[
+              { title: 'Date', dataIndex: 'payment_date', width: 120, render: (v) => v ? dayjs(v).format('DD MMM YYYY') : '—' },
+              { title: 'Period', dataIndex: 'billing_period', width: 120 },
+              { title: 'Amount', dataIndex: 'amount_inr', align: 'right', width: 140, render: (v) => fmtRupees(v) },
+              { title: 'Method', dataIndex: 'payment_method', width: 130, render: (v) => <Tag>{v?.replace('_', ' ')}</Tag> },
+              { title: 'Receipt #', dataIndex: 'receipt_number', render: (v) => v || '—' },
+              { title: 'Remarks', dataIndex: 'remarks', render: (v) => v || '' },
+            ]}
+            pagination={{ pageSize: 10 }}
+          />
+        </Card>
+      )}
+
+      <InvoiceDocumentViewer
+        open={!!docInvoiceId}
+        invoiceId={docInvoiceId}
+        onClose={() => setDocInvoiceId(null)}
+      />
     </div>
   );
-};
-
-export default StudentFees;
+}

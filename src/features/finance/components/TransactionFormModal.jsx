@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Modal, Form, InputNumber, Input, DatePicker, Select, Radio, Space, Button,
+  Form, InputNumber, Input, DatePicker, Select, Radio, Space,
   Alert, Typography, Divider, App, Tag,
 } from 'antd';
-import { PlusOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { FormModal, validators, fromDayjs, DATE_DISPLAY } from '../../../shared/components/forms';
 import {
   financeTransactionsService,
   financeAccountsService,
@@ -26,11 +26,8 @@ export default function TransactionFormModal({
   schoolCode, userId, userRole, defaultType = 'expense',
 }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm();
-  const [accounts, setAccounts]     = useState([]);
+  const [accounts,   setAccounts]   = useState([]);
   const [categories, setCategories] = useState([]);
-  const [type, setType]             = useState(defaultType);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open || !schoolCode) return;
@@ -43,34 +40,100 @@ export default function TransactionFormModal({
     }).catch(err => message.error(err.message || 'Failed to load reference data'));
   }, [open, schoolCode, message]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (mode === 'edit' && txn) {
-      setType(txn.type);
-      form.setFieldsValue({
-        type: txn.type,
-        txn_date: dayjs(txn.txn_date),
-        amount: Number(txn.amount),
-        category_id: txn.category_id,
-        account_id: txn.account_id,
-        description: txn.description || '',
-      });
-    } else {
-      setType(defaultType);
-      form.setFieldsValue({
-        type: defaultType,
-        txn_date: dayjs(),
-        amount: undefined,
-        category_id: undefined,
-        account_id: undefined,
-        description: '',
+  const isEdit = mode === 'edit' && !!txn;
+
+  const getInitialValues = () => isEdit ? {
+    type: txn.type,
+    txn_date: dayjs(txn.txn_date),
+    amount: Number(txn.amount),
+    category_id: txn.category_id,
+    account_id: txn.account_id,
+    description: txn.description || '',
+  } : {
+    type: defaultType,
+    txn_date: dayjs(),
+    amount: undefined,
+    category_id: undefined,
+    account_id: undefined,
+    description: '',
+  };
+
+  const handleSubmit = async (values) => {
+    const payload = {
+      schoolCode,
+      userId,
+      userRole,
+      txnDate: fromDayjs(values.txn_date),
+      amount: Number(values.amount),
+      type: values.type,
+      categoryId: values.category_id,
+      accountId: values.account_id,
+      description: values.description || '',
+    };
+    if (isEdit) {
+      return financeTransactionsService.update({
+        id: txn.id, schoolCode, userId, userRole,
+        patch: {
+          txn_date:    payload.txnDate,
+          amount:      payload.amount,
+          type:        payload.type,
+          category_id: payload.categoryId,
+          account_id:  payload.accountId,
+          description: payload.description,
+        },
       });
     }
-  }, [open, mode, txn, defaultType, form]);
+    return financeTransactionsService.create({ ...payload, sourceType: 'manual' });
+  };
+
+  // For create, the success toast wording depends on the submitted type
+  // (income vs expense), so we fire it inside onSubmit instead of letting
+  // the wrapper show successMessage.
+  const successMessage = isEdit ? 'Transaction updated' : null;
+
+  return (
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? 'Edit Transaction' : 'New Transaction'}
+      okText={isEdit ? 'Save changes' : 'Post transaction'}
+      width={560}
+      requiredMark={false}
+      editing={isEdit ? txn : null}
+      getInitialValues={getInitialValues}
+      onSubmit={async (values) => {
+        const result = await handleSubmit(values);
+        if (!isEdit) {
+          message.success(`${values.type === 'income' ? 'Income' : 'Expense'} recorded`);
+        }
+        return result;
+      }}
+      onSaved={onSuccess}
+      successMessage={successMessage}
+      errorMessage="Failed to save"
+    >
+      {(form) => (
+        <TransactionFormBody
+          form={form}
+          mode={mode}
+          accounts={accounts}
+          categories={categories}
+          defaultType={defaultType}
+        />
+      )}
+    </FormModal>
+  );
+}
+
+function TransactionFormBody({ form, mode, accounts, categories, defaultType }) {
+  const liveType   = Form.useWatch('type',        form) || defaultType;
+  const liveAmount = Form.useWatch('amount',      form);
+  const liveCatId  = Form.useWatch('category_id', form);
+  const liveAccId  = Form.useWatch('account_id',  form);
 
   const filteredCategories = useMemo(
-    () => categories.filter(c => c.type === type),
-    [categories, type],
+    () => categories.filter(c => c.type === liveType),
+    [categories, liveType],
   );
 
   // If type changes and the current category is the wrong type, clear it.
@@ -79,165 +142,103 @@ export default function TransactionFormModal({
     if (cur && !filteredCategories.find(c => c.id === cur)) {
       form.setFieldValue('category_id', undefined);
     }
-  }, [type, filteredCategories, form]);
+  }, [liveType, filteredCategories, form]);
 
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      setSubmitting(true);
-      const payload = {
-        schoolCode,
-        userId,
-        userRole,
-        txnDate: values.txn_date.format('YYYY-MM-DD'),
-        amount: Number(values.amount),
-        type: values.type,
-        categoryId: values.category_id,
-        accountId: values.account_id,
-        description: values.description || '',
-      };
-      if (mode === 'edit' && txn) {
-        await financeTransactionsService.update({
-          id: txn.id, schoolCode, userId, userRole,
-          patch: {
-            txn_date:    payload.txnDate,
-            amount:      payload.amount,
-            type:        payload.type,
-            category_id: payload.categoryId,
-            account_id:  payload.accountId,
-            description: payload.description,
-          },
-        });
-        message.success('Transaction updated');
-      } else {
-        await financeTransactionsService.create({
-          ...payload,
-          sourceType: 'manual',
-        });
-        message.success(`${values.type === 'income' ? 'Income' : 'Expense'} recorded`);
-      }
-      onSuccess?.();
-      onClose?.();
-    } catch (err) {
-      if (err?.errorFields) return; // form validation
-      message.error(err.message || 'Failed to save');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const liveAmount  = Form.useWatch('amount', form);
-  const liveType    = Form.useWatch('type',   form) || type;
-  const liveCatId   = Form.useWatch('category_id', form);
-  const liveAccId   = Form.useWatch('account_id',  form);
-  const liveCat     = categories.find(c => c.id === liveCatId);
-  const liveAcc     = accounts.find(a   => a.id === liveAccId);
+  const liveCat = categories.find(c => c.id === liveCatId);
+  const liveAcc = accounts.find(a   => a.id === liveAccId);
 
   return (
-    <Modal
-      open={open}
-      onCancel={onClose}
-      title={mode === 'edit' ? 'Edit Transaction' : 'New Transaction'}
-      width={560}
-      destroyOnClose
-      footer={[
-        <Button key="cancel" onClick={onClose} icon={<CloseOutlined />}>Cancel</Button>,
-        <Button key="submit" type="primary" loading={submitting} onClick={handleSubmit} icon={<SaveOutlined />}>
-          {mode === 'edit' ? 'Save changes' : 'Post transaction'}
-        </Button>,
-      ]}
-    >
-      <Form form={form} layout="vertical" requiredMark={false}>
-        <Form.Item name="type" label="Type" rules={[{ required: true }]}>
-          <Radio.Group
-            buttonStyle="solid"
-            disabled={mode === 'edit'}
-            onChange={(e) => setType(e.target.value)}
-          >
-            <Radio.Button value="expense">Expense</Radio.Button>
-            <Radio.Button value="income">Income</Radio.Button>
-          </Radio.Group>
-        </Form.Item>
+    <>
+      <Form.Item name="type" label="Type" rules={[validators.required('Type')]}>
+        <Radio.Group buttonStyle="solid" disabled={mode === 'edit'}>
+          <Radio.Button value="expense">Expense</Radio.Button>
+          <Radio.Button value="income">Income</Radio.Button>
+        </Radio.Group>
+      </Form.Item>
 
-        <Space.Compact block>
-          <Form.Item name="txn_date" label="Date" rules={[{ required: true, message: 'Date required' }]} style={{ flex: 1, marginRight: 8 }}>
-            <DatePicker style={{ width: '100%' }} format="DD MMM YYYY" allowClear={false} />
-          </Form.Item>
-          <Form.Item
-            name="amount"
-            label="Amount (₹)"
-            rules={[
-              { required: true, message: 'Amount required' },
-              { type: 'number', min: 0.01, message: 'Must be > 0' },
-            ]}
-            style={{ flex: 1 }}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0.01}
-              step={0.01}
-              precision={2}
-              placeholder="0.00"
-              formatter={(v) => v ? Number(v).toLocaleString('en-IN') : ''}
-              parser={(v) => v?.replace(/[^\d.]/g, '') || ''}
-            />
-          </Form.Item>
-        </Space.Compact>
-
+      <Space.Compact block>
         <Form.Item
-          name="category_id"
-          label={`Category (${type})`}
-          rules={[{ required: true, message: 'Pick a category' }]}
-          extra={filteredCategories.length === 0 ? `No ${type} categories yet — add one in Accounts & Categories.` : null}
+          name="txn_date"
+          label="Date"
+          rules={[{ required: true, message: 'Date required' }]}
+          style={{ flex: 1, marginRight: 8 }}
         >
-          <Select
-            placeholder={`Select a ${type} category`}
-            options={filteredCategories.map(c => ({ value: c.id, label: c.name }))}
-            showSearch
-            optionFilterProp="label"
+          <DatePicker style={{ width: '100%' }} format={DATE_DISPLAY} allowClear={false} />
+        </Form.Item>
+        <Form.Item
+          name="amount"
+          label="Amount (₹)"
+          rules={[
+            { required: true, message: 'Amount required' },
+            validators.positiveNumber('Amount'),
+          ]}
+          style={{ flex: 1 }}
+        >
+          <InputNumber
+            style={{ width: '100%' }}
+            min={0.01}
+            step={0.01}
+            precision={2}
+            placeholder="0.00"
+            formatter={(v) => v ? Number(v).toLocaleString('en-IN') : ''}
+            parser={(v) => v?.replace(/[^\d.]/g, '') || ''}
           />
         </Form.Item>
+      </Space.Compact>
 
-        <Form.Item name="account_id" label="Account" rules={[{ required: true, message: 'Pick an account' }]}>
-          <Select
-            placeholder="Select an account (Cash / Bank / UPI…)"
-            options={accounts.map(a => ({
-              value: a.id,
-              label: <span>{a.name} <Tag color={a.type === 'cash' ? 'green' : a.type === 'bank' ? 'blue' : 'purple'} style={{ marginLeft: 6 }}>{a.type}</Tag></span>,
-            }))}
-            showSearch
-            optionFilterProp="value"
-            filterOption={(input, opt) => {
-              const a = accounts.find(x => x.id === opt.value);
-              return a?.name?.toLowerCase().includes(input.toLowerCase());
-            }}
-          />
-        </Form.Item>
-
-        <Form.Item name="description" label="Description (optional)">
-          <Input.TextArea rows={2} maxLength={500} placeholder="Optional note (vendor, invoice #, purpose…)" />
-        </Form.Item>
-
-        <Divider style={{ margin: '12px 0' }} />
-
-        <Alert
-          type={liveType === 'income' ? 'success' : 'warning'}
-          showIcon
-          message={
-            <Space size="small" wrap>
-              <Text strong>{liveType === 'income' ? 'Will increase' : 'Will decrease'}</Text>
-              <Text>{liveAcc ? liveAcc.name : 'selected account'}</Text>
-              <Text>by</Text>
-              <Text strong style={{ color: liveType === 'income' ? '#10b981' : '#ef4444' }}>
-                ₹{Number(liveAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Text>
-              {liveCat && (
-                <Text type="secondary">· logged under <Text strong>{liveCat.name}</Text></Text>
-              )}
-            </Space>
-          }
+      <Form.Item
+        name="category_id"
+        label={`Category (${liveType})`}
+        rules={[{ required: true, message: 'Pick a category' }]}
+        extra={filteredCategories.length === 0 ? `No ${liveType} categories yet — add one in Accounts & Categories.` : null}
+      >
+        <Select
+          placeholder={`Select a ${liveType} category`}
+          options={filteredCategories.map(c => ({ value: c.id, label: c.name }))}
+          showSearch
+          optionFilterProp="label"
         />
-      </Form>
-    </Modal>
+      </Form.Item>
+
+      <Form.Item name="account_id" label="Account" rules={[{ required: true, message: 'Pick an account' }]}>
+        <Select
+          placeholder="Select an account (Cash / Bank / UPI…)"
+          options={accounts.map(a => ({
+            value: a.id,
+            label: <span>{a.name} <Tag color={a.type === 'cash' ? 'green' : a.type === 'bank' ? 'blue' : 'purple'} style={{ marginLeft: 6 }}>{a.type}</Tag></span>,
+          }))}
+          showSearch
+          optionFilterProp="value"
+          filterOption={(input, opt) => {
+            const a = accounts.find(x => x.id === opt.value);
+            return a?.name?.toLowerCase().includes(input.toLowerCase());
+          }}
+        />
+      </Form.Item>
+
+      <Form.Item name="description" label="Description (optional)">
+        <Input.TextArea rows={2} maxLength={500} placeholder="Optional note (vendor, invoice #, purpose…)" />
+      </Form.Item>
+
+      <Divider style={{ margin: '12px 0' }} />
+
+      <Alert
+        type={liveType === 'income' ? 'success' : 'warning'}
+        showIcon
+        message={
+          <Space size="small" wrap>
+            <Text strong>{liveType === 'income' ? 'Will increase' : 'Will decrease'}</Text>
+            <Text>{liveAcc ? liveAcc.name : 'selected account'}</Text>
+            <Text>by</Text>
+            <Text strong style={{ color: liveType === 'income' ? '#10b981' : '#ef4444' }}>
+              ₹{Number(liveAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+            {liveCat && (
+              <Text type="secondary">· logged under <Text strong>{liveCat.name}</Text></Text>
+            )}
+          </Space>
+        }
+      />
+    </>
   );
 }

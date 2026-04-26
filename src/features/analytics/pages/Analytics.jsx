@@ -1,67 +1,58 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '@/AuthProvider';
-import { getUserRole } from '@/shared/utils/metadata';
-import AdminAnalytics from './AdminAnalytics';
-import StudentAnalytics from '@/features/students/pages/StudentAnalytics';
-import SuperAdminAnalytics from './SuperAdminAnalytics';
-import AttendanceOverview from '@/features/attendance/pages/AttendanceOverview';
-import ClassComparison from './ClassComparison';
-import StudentComparison from './StudentComparison';
+import { AcademicYearProvider } from '../context/AcademicYearContext';
+import AnalyticsShell from './AnalyticsShell';
 import AnalyticsHub from './AnalyticsHub';
+import AttendanceAnalytics from './AttendanceAnalytics';
+import FeesAnalytics from './FeesAnalytics';
+import TasksAnalytics from './TasksAnalytics';
+import SyllabusAnalytics from './SyllabusAnalytics';
+import AcademicAnalytics from './AcademicAnalytics';
+import HrAnalytics from './HrAnalytics';
+import StudentScopedAnalytics from './StudentScopedAnalytics';
+import ClassScopedAnalytics from './ClassScopedAnalytics';
 
-const AnalyticsPage = () => {
-  const { user } = useAuth();
-  const role = getUserRole(user);
-
-  // Role-based access control
-  const canAccessAttendanceAnalytics = ['superadmin', 'admin', 'student'].includes(role);
-  const canAccessClassComparison = ['superadmin', 'admin'].includes(role);
-  const canAccessStudentComparison = ['superadmin', 'admin'].includes(role);
-  const canAccessAnalyticsHub = ['superadmin', 'admin', 'student'].includes(role);
-
-  return (
-    <Routes>
-      {/* Default redirect based on role */}
-      <Route 
-        path="/" 
-        element={
-          <Navigate 
-            to={role === 'student' ? '/analytics/attendance/overview' : '/analytics/hub'} 
-            replace 
-          />
-        } 
-      />
-      
-      {/* Analytics Hub */}
-      {canAccessAnalyticsHub && (
-        <Route path="/hub" element={<AnalyticsHub />} />
-      )}
-      
-      {/* Attendance Analytics Routes */}
-      {canAccessAttendanceAnalytics && (
-        <>
-          <Route path="/attendance/overview" element={<AttendanceOverview />} />
-        </>
-      )}
-      
-      {canAccessClassComparison && (
-        <Route path="/attendance/classes" element={<ClassComparison />} />
-      )}
-      
-      {canAccessStudentComparison && (
-        <Route path="/attendance/students" element={<StudentComparison />} />
-      )}
-
-      {/* Legacy Analytics Routes */}
-      <Route path="/admin" element={<AdminAnalytics />} />
-      <Route path="/student" element={<StudentAnalytics />} />
-      <Route path="/superadmin" element={<SuperAdminAnalytics />} />
-      
-      {/* Fallback */}
-      <Route path="*" element={<div>Page not found</div>} />
-    </Routes>
-  );
+// Legacy URL → new-IA redirects so old links don't 404.
+const legacyToFeature = {
+  '/analytics/daily-trends':         '/analytics/attendance',
+  '/analytics/student-performance':  '/analytics/academic',
+  '/analytics/class-comparison':     '/analytics/academic',
+  '/analytics/status-distribution':  '/analytics/academic',
+  '/analytics/weak-areas':           '/analytics/academic?view=weak-areas',
+  '/analytics/topic-heatmap':        '/analytics/academic?view=heatmap',
+  '/analytics/misconception-report': '/analytics/academic?view=misconceptions',
 };
 
-export default AnalyticsPage;
+const LegacyRedirect = ({ to }) => <Navigate to={to} replace />;
+
+export default function AnalyticsRouter() {
+  return (
+    <AcademicYearProvider>
+      <Routes>
+        <Route element={<AnalyticsShell />}>
+          <Route path="/" element={<AnalyticsHub />} />
+          <Route path="/attendance" element={<AttendanceAnalytics />} />
+          <Route path="/fees" element={<FeesAnalytics />} />
+          <Route path="/tasks" element={<TasksAnalytics />} />
+          <Route path="/syllabus" element={<SyllabusAnalytics />} />
+          <Route path="/academic" element={<AcademicAnalytics />} />
+          <Route path="/hr" element={<HrAnalytics />} />
+        </Route>
+
+        {/* Detail drill-down pages render their own header (legacy UnifiedAnalytics) */}
+        <Route path="/student/:studentId" element={<StudentScopedAnalytics />} />
+        <Route path="/class/:classInstanceId" element={<ClassScopedAnalytics />} />
+
+        {/* Legacy URLs */}
+        {Object.entries(legacyToFeature).map(([from, to]) => (
+          <Route key={from} path={from.replace('/analytics', '')} element={<LegacyRedirect to={to} />} />
+        ))}
+        <Route path="/hub" element={<Navigate to="/analytics" replace />} />
+        <Route path="/admin" element={<Navigate to="/analytics" replace />} />
+        <Route path="/superadmin" element={<Navigate to="/analytics" replace />} />
+        <Route path="/student" element={<Navigate to="/analytics" replace />} />
+        <Route path="*" element={<Navigate to="/analytics" replace />} />
+      </Routes>
+    </AcademicYearProvider>
+  );
+}

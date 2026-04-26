@@ -25,6 +25,7 @@ export type RouteKey =
   | 'analytics'
   | 'learningResources'
   | 'signup'
+  | 'users'
   | 'unauthorized';
 
 type RouteAccess = Record<RouteKey, AppRole[]>;
@@ -63,6 +64,10 @@ export const routeAccess: RouteAccess = {
   
 
   signup: ['cb_admin', 'superadmin', 'admin', 'student'],
+
+  // User management
+  users: ['cb_admin', 'superadmin', 'admin'],
+
   unauthorized: ['cb_admin', 'superadmin', 'admin', 'student'],
 };
 

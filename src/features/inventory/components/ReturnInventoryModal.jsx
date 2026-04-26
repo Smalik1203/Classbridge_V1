@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, Form, Input, Switch, Alert, Descriptions, Tag, Space, Typography, App } from 'antd';
+import { Form, Input, Switch, Alert, Descriptions, Tag, Space, Typography } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { FormModal } from '../../../shared/components/forms';
 import { inventoryIssuesService } from '../services/inventoryService';
 
 const { Text } = Typography;
@@ -14,17 +15,6 @@ const { Text } = Typography;
 export default function ReturnInventoryModal({
   open, onClose, schoolCode, issue, onReturned,
 }) {
-  const { message } = App.useApp();
-  const [form] = Form.useForm();
-  const [submitting, setSubmitting] = useState(false);
-  const [markAsLost, setMarkAsLost] = useState(false);
-
-  React.useEffect(() => {
-    if (!open) return;
-    form.resetFields();
-    setMarkAsLost(false);
-  }, [open, form]);
-
   if (!issue) return null;
 
   const item = issue.inventory_item;
@@ -33,79 +23,92 @@ export default function ReturnInventoryModal({
     ? new Date(issue.expected_return_date) < new Date()
     : false;
 
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      if (markAsLost && !values.return_notes?.trim()) {
-        message.error('Return notes are required when marking an item as lost');
-        return;
-      }
-      setSubmitting(true);
-      await inventoryIssuesService.returnIssue(schoolCode, issue.id, {
-        return_notes: values.return_notes?.trim() || undefined,
-        mark_as_lost: markAsLost,
-      });
-      message.success(markAsLost
-        ? 'Marked as lost — quantity and fees reversed'
-        : 'Returned — quantity and fees reversed');
-      onReturned?.();
-      onClose();
-    } catch (e) {
-      if (e?.errorFields) return;
-      message.error(e.message || 'Failed to process return');
-    } finally {
-      setSubmitting(false);
+  return (
+    <ReturnModalInner
+      key={issue.id}
+      open={open}
+      onClose={onClose}
+      schoolCode={schoolCode}
+      issue={issue}
+      item={item}
+      itemName={itemName}
+      isOverdue={isOverdue}
+      onReturned={onReturned}
+    />
+  );
+}
+
+function ReturnModalInner({ open, onClose, schoolCode, issue, item, itemName, isOverdue, onReturned }) {
+  const [markAsLost, setMarkAsLost] = useState(false);
+
+  // Reset markAsLost on open.
+  React.useEffect(() => {
+    if (open) setMarkAsLost(false);
+  }, [open]);
+
+  const handleSubmit = async (values) => {
+    if (markAsLost && !values.return_notes?.trim()) {
+      throw new Error('Return notes are required when marking an item as lost');
     }
+    return inventoryIssuesService.returnIssue(schoolCode, issue.id, {
+      return_notes: values.return_notes?.trim() || undefined,
+      mark_as_lost: markAsLost,
+    });
   };
 
   return (
-    <Modal
+    <FormModal
       open={open}
-      onCancel={onClose}
-      onOk={handleSubmit}
-      okText={markAsLost ? 'Mark as Lost' : 'Return Item'}
-      okButtonProps={{ danger: markAsLost }}
-      confirmLoading={submitting}
+      onClose={onClose}
       title={markAsLost ? 'Mark Item as Lost' : 'Return Inventory Item'}
+      okText={markAsLost ? 'Mark as Lost' : 'Return Item'}
       width={560}
-      destroyOnClose
+      requiredMark={false}
+      modalProps={{ okButtonProps: { danger: markAsLost } }}
+      getInitialValues={() => ({})}
+      onSubmit={handleSubmit}
+      onSaved={onReturned}
+      successMessage={markAsLost
+        ? 'Marked as lost — quantity and fees reversed'
+        : 'Returned — quantity and fees reversed'}
+      errorMessage="Failed to process return"
     >
-      <Descriptions
-        size="small"
-        column={1}
-        bordered
-        style={{ marginBottom: 12 }}
-        items={[
-          { key: 'name', label: 'Item', children: <><Text strong>{itemName}</Text> {item?.category && <Text type="secondary">— {item.category}</Text>}</> },
-          { key: 'recipient', label: 'Issued To', children: issue.issued_to_name || '—' },
-          { key: 'qty', label: 'Quantity', children: issue.quantity },
-          { key: 'date', label: 'Issued On', children: dayjs(issue.issue_date).format('DD MMM YYYY') },
-          ...(issue.expected_return_date ? [{
-            key: 'return',
-            label: 'Expected Return',
-            children: (
-              <Space>
-                {dayjs(issue.expected_return_date).format('DD MMM YYYY')}
-                {isOverdue && <Tag color="red">Overdue</Tag>}
-              </Space>
-            ),
-          }] : []),
-          ...(issue.charge_amount ? [{
-            key: 'charge',
-            label: 'Charge',
-            children: (
-              <Space>
-                <Text>₹{issue.charge_amount}</Text>
-                {issue.charge_type === 'deposit' && <Tag color="blue">Refundable deposit</Tag>}
-                {issue.charge_type === 'one_time' && <Tag>One-time</Tag>}
-              </Space>
-            ),
-          }] : []),
-          ...(issue.serial_number ? [{ key: 'sn', label: 'Serial #', children: issue.serial_number }] : []),
-        ]}
-      />
+      {() => (<>
+        <Descriptions
+          size="small"
+          column={1}
+          bordered
+          style={{ marginBottom: 12 }}
+          items={[
+            { key: 'name', label: 'Item', children: <><Text strong>{itemName}</Text> {item?.category && <Text type="secondary">— {item.category}</Text>}</> },
+            { key: 'recipient', label: 'Issued To', children: issue.issued_to_name || '—' },
+            { key: 'qty', label: 'Quantity', children: issue.quantity },
+            { key: 'date', label: 'Issued On', children: dayjs(issue.issue_date).format('DD MMM YYYY') },
+            ...(issue.expected_return_date ? [{
+              key: 'return',
+              label: 'Expected Return',
+              children: (
+                <Space>
+                  {dayjs(issue.expected_return_date).format('DD MMM YYYY')}
+                  {isOverdue && <Tag color="red">Overdue</Tag>}
+                </Space>
+              ),
+            }] : []),
+            ...(issue.charge_amount ? [{
+              key: 'charge',
+              label: 'Charge',
+              children: (
+                <Space>
+                  <Text>₹{issue.charge_amount}</Text>
+                  {issue.charge_type === 'deposit' && <Tag color="blue">Refundable deposit</Tag>}
+                  {issue.charge_type === 'one_time' && <Tag>One-time</Tag>}
+                </Space>
+              ),
+            }] : []),
+            ...(issue.serial_number ? [{ key: 'sn', label: 'Serial #', children: issue.serial_number }] : []),
+          ]}
+        />
 
-      <Form form={form} layout="vertical" requiredMark={false}>
         <Form.Item label={`Return Notes ${markAsLost ? '(required)' : '(optional)'}`} name="return_notes">
           <Input.TextArea
             rows={3}
@@ -154,7 +157,7 @@ export default function ReturnInventoryModal({
             }
           />
         )}
-      </Form>
-    </Modal>
+      </>)}
+    </FormModal>
   );
 }

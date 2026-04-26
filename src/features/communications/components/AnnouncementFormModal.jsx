@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal, Form, Input, Select, Radio, Upload, Button, Space, Tag, Typography, App,
+  Form, Input, Select, Radio, Upload, Button, Space, Tag, Typography, App,
 } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { FormModal, validators } from '../../../shared/components/forms';
 import {
   announcementsService, PRIORITY_META,
 } from '../services/communicationsService';
@@ -17,36 +18,34 @@ export default function AnnouncementFormModal({
   open, onClose, onSaved, schoolCode, classes = [], editing,
 }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm();
-  const [submitting, setSubmitting] = useState(false);
   const [imagePath, setImagePath] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const isEdit = !!editing;
 
+  // Image state lives outside the form, so we sync it manually with `open`.
   useEffect(() => {
     if (!open) return;
+    setImagePath(editing?.image_url || null);
+    setImageFile(null);
+  }, [open, editing]);
+
+  const getInitialValues = (editing) => {
     if (editing) {
       const ids = editing.class_instance_ids?.length
         ? editing.class_instance_ids
         : (editing.class_instance_id ? [editing.class_instance_id] : []);
-      form.setFieldsValue({
+      return {
         title: editing.title || '',
         message: editing.message || '',
         priority: editing.priority || 'medium',
         target_type: editing.target_type || 'all',
         class_instance_ids: ids,
-      });
-      setImagePath(editing.image_url || null);
-    } else {
-      form.resetFields();
-      form.setFieldsValue({ priority: 'medium', target_type: 'all', class_instance_ids: [] });
-      setImagePath(null);
+      };
     }
-    setImageFile(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editing]);
+    return { priority: 'medium', target_type: 'all', class_instance_ids: [] };
+  };
 
   const handleImagePick = async (file) => {
     setImageFile(file);
@@ -63,16 +62,13 @@ export default function AnnouncementFormModal({
     return false; // prevent AntD auto upload
   };
 
-  const handleSubmit = async () => {
-    let values;
-    try { values = await form.validateFields(); } catch { return; }
+  const handleSubmit = async (values) => {
     const title = (values.title || '').trim() || (values.message || '').trim().slice(0, 60);
     const target_type = values.target_type;
     const class_instance_ids = target_type === 'class' ? (values.class_instance_ids || []) : [];
 
     if (target_type === 'class' && class_instance_ids.length === 0) {
-      message.error('Select at least one class');
-      return;
+      throw new Error('Select at least one class');
     }
 
     const payload = {
@@ -86,49 +82,44 @@ export default function AnnouncementFormModal({
       school_code: schoolCode,
     };
 
-    try {
-      setSubmitting(true);
-      if (isEdit) {
-        await announcementsService.update(editing.id, {
-          title: payload.title,
-          message: payload.message,
-          priority: payload.priority,
-          image_url: payload.image_url,
-          target_type: payload.target_type,
-          class_instance_id: payload.class_instance_id,
-          class_instance_ids: payload.class_instance_ids,
-        });
-        message.success('Announcement updated');
-      } else {
-        const res = await announcementsService.create(payload);
-        const notified = res?.notified;
-        message.success(
-          notified != null
-            ? `Announcement posted • ${notified} recipient${notified === 1 ? '' : 's'} notified`
-            : 'Announcement posted'
-        );
-      }
-      onSaved?.();
-      onClose?.();
-    } catch (e) {
-      message.error(e.message || 'Failed to save announcement');
-    } finally {
-      setSubmitting(false);
+    if (isEdit) {
+      await announcementsService.update(editing.id, {
+        title: payload.title,
+        message: payload.message,
+        priority: payload.priority,
+        image_url: payload.image_url,
+        target_type: payload.target_type,
+        class_instance_id: payload.class_instance_id,
+        class_instance_ids: payload.class_instance_ids,
+      });
+      message.success('Announcement updated');
+    } else {
+      const res = await announcementsService.create(payload);
+      const notified = res?.notified;
+      message.success(
+        notified != null
+          ? `Announcement posted • ${notified} recipient${notified === 1 ? '' : 's'} notified`
+          : 'Announcement posted'
+      );
     }
   };
 
   return (
-    <Modal
+    <FormModal
       open={open}
-      onCancel={submitting ? undefined : onClose}
+      onClose={onClose}
       title={isEdit ? 'Edit Announcement' : 'Post Announcement'}
-      onOk={handleSubmit}
       okText={isEdit ? 'Save changes' : 'Post'}
-      confirmLoading={submitting}
       width={680}
-      destroyOnClose
+      requiredMark="optional"
+      editing={editing}
+      getInitialValues={getInitialValues}
+      onSubmit={handleSubmit}
+      onSaved={onSaved}
+      successMessage={null}
+      errorMessage="Failed to save announcement"
     >
-      <Form layout="vertical" form={form} initialValues={{ priority: 'medium', target_type: 'all' }}>
+      {() => (<>
         <Form.Item label="Title (optional)" name="title">
           <Input placeholder="Auto-fills from message if blank" maxLength={120} />
         </Form.Item>
@@ -141,7 +132,7 @@ export default function AnnouncementFormModal({
           <TextArea autoSize={{ minRows: 4, maxRows: 10 }} placeholder="Share an update with the school…" />
         </Form.Item>
 
-        <Form.Item label="Priority" name="priority" rules={[{ required: true }]}>
+        <Form.Item label="Priority" name="priority" rules={[validators.required('Priority')]}>
           <Radio.Group buttonStyle="solid" optionType="button">
             {PRIORITIES.map((p) => (
               <Radio.Button key={p} value={p} style={{ textTransform: 'capitalize' }}>
@@ -151,7 +142,7 @@ export default function AnnouncementFormModal({
           </Radio.Group>
         </Form.Item>
 
-        <Form.Item label="Audience" name="target_type" rules={[{ required: true }]}>
+        <Form.Item label="Audience" name="target_type" rules={[validators.required('Audience')]}>
           <Radio.Group>
             <Radio value="all">Everyone in school</Radio>
             <Radio value="class">Specific classes</Radio>
@@ -203,7 +194,7 @@ export default function AnnouncementFormModal({
             Stored in the <Tag>Lms</Tag> bucket at <code>announcements/{schoolCode}/…</code>
           </Text>
         </Form.Item>
-      </Form>
-    </Modal>
+      </>)}
+    </FormModal>
   );
 }

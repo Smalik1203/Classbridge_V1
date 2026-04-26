@@ -301,10 +301,72 @@ read-only — write controls auto-disable). `/finance/inconsistencies` is
 
 Ready for manual test. Move to 🟩 once verified.
 
-### 6. Sage / Chatbot — 🟥
-| # | Screen | Mobile | Web | Status |
+### 6. Sage / Chatbot — 🟨 Built, awaiting user manual test
+Mobile: `app/(tabs)/chatbot.tsx` + `src/features/chatbot/{ChatbotScreen,components,hooks,types}`
+Web: `src/features/chatbot/{pages/Chatbot.jsx, services/chatbotService.js, hooks/{useChatbot.js, useChatSuggestions.js}, components/{MessageBubble, MarkdownRenderer, TypingIndicator, WelcomeCard, ChatInput, ConversationSidebar}.jsx}`
+
+| # | Screen | Mobile route | Web route | Status |
 |---|---|---|---|---|
-| 1 | Sage Chatbot | `/(tabs)/chatbot` | `/chatbot` | 🟥 |
+| 1 | Sage Chatbot | `/(tabs)/chatbot` | `/chatbot` | 🟨 built (full-screen chat with sidebar history, markdown rendering, streaming, voice input, regenerate/edit/copy/export) |
+
+**Service layer:** `src/features/chatbot/services/chatbotService.js` — JS port of mobile
+`src/features/chatbot/hooks/useChatbot.ts`. Same Supabase Edge Function (`chatbot`),
+byte-identical request payload (`{ message, history, academicYearId, stream: true }`),
+same headers (`Authorization: Bearer <jwt>`, `apikey: <anon>`, `Content-Type: application/json`),
+same NDJSON stream protocol with `phase | content | progress | done | error` events,
+same fallback chain (ReadableStream → full-text NDJSON → plain JSON `{reply, suggestedActions}`).
+Same persistence: reads `chatbot_conversations` (columns `id, role, content, created_at`,
+filtered by `user_id`, ordered desc, limit 20). Edge Function owns INSERTs — client never writes.
+Same constants: `HISTORY_LOAD_LIMIT = 20`, `CONTEXT_WINDOW = 8`.
+
+**Web enhancements (10 of 10 from the brief, all shipped):**
+1. **Conversation history sidebar** — left rail groups past user messages by day
+   (Today / Yesterday / dated). Click a row to jump-and-flash the message in the chat.
+   Mobile only has a single rolling thread.
+2. **Rich markdown rendering** — self-contained renderer (no new deps). Headings 1–4,
+   bullet/numbered lists, dividers, **bold** / *italic* / `inline code` / `[links](url)`,
+   tables with horizontal scroll + numeric right-alignment, **plus fenced code blocks
+   with syntax-styling and a copy button** (mobile renders these as plain text).
+3. **Copy-to-clipboard** on every assistant message and every code block.
+4. **Regenerate response** button on the last assistant message — re-runs the same
+   user prompt, dropping the previous reply.
+5. **Edit-and-resubmit** the last user message via a modal — mirrors the ChatGPT pattern.
+6. **Export conversation as Markdown** — downloads a timestamped `.md` file with
+   role-tagged turns and message timestamps.
+7. **Voice input** via the Web Speech API (Chrome/Edge). Falls back to a hint message
+   if unavailable; transcript appends to the input as it streams.
+8. **Draft autosave** — input text persisted to localStorage on every keystroke
+   (debounced) so a tab reload preserves what was being typed.
+9. **Server-side suggested-actions shelf** — when the Edge Function returns
+   `suggestedActions`, they render as one-tap chip buttons under the last response.
+   Mobile reads these but doesn't surface them in UI.
+10. **Smart auto-scroll** — sticks to bottom on new messages but does NOT snap
+    when the user has scrolled up (60px threshold).
+
+**Parity-preserving choices:**
+- Stop button replaces Send while a response streams; abort signals propagate
+  through `AbortController` to cancel both fetch and stream-reader cleanly.
+- Streaming cursor (blinking caret) on the in-progress assistant bubble.
+- 5-second slow-hint ("Still working on it…") matches mobile timing.
+- Three-dot pulse + phase text in the typing indicator.
+- Same starter prompts verbatim per role (superadmin / admin-teacher), plus a new
+  student-tailored set so students who land on the route also see useful starters.
+- Errors render as an in-thread assistant bubble (not a toast) — same UX as mobile.
+- 429 → "usage limit" message. 403 → "permission" message. Other → wrapped error.
+
+**Route gating:** `/chatbot` is gated to `['superadmin', 'admin', 'student']` —
+matches mobile's "any signed-in non-cb_admin user". Sidebar entry shown for the
+same roles.
+
+**Known gaps (none affecting parity):**
+- Multi-conversation server-side threads: backend exposes a single rolling thread
+  per user via `chatbot_conversations`; the sidebar groups by day rather than by
+  conversation since no `conversation_id` column exists. If a thread/conversation
+  table is added later, the sidebar can switch to per-thread without UI changes.
+- File / image attachments: paperclip button is rendered disabled until the Edge
+  Function gains an attachments contract. Mobile also has no attachment support.
+
+Ready for manual test. Move to 🟩 once verified.
 
 ### 7. AI Test Generator — 🟨 Built (integrated into Test Management), awaiting user manual test
 Mobile: `app/ai-test-generator/index.tsx` + `src/features/ai-test-generator/AITestGeneratorScreen.tsx` + `src/services/aiTestGeneratorFetch.ts`
@@ -389,12 +451,161 @@ Difference from mobile: web uses browser FileReader + base64 instead of
 
 Ready for manual test. Move to 🟩 once verified.
 
-### 8. Advanced Analytics — 🟥
-| # | Screen | Mobile | Web | Status |
+### 8. Advanced Analytics — 🟨 Built (full parity + significant web enhancements + hub consolidation), awaiting user manual test
+Mobile: `app/analytics/{topic-heatmap,weak-areas,misconception-report}.tsx` + `src/features/analytics/{StudentTopicHeatmapScreen,ClassWeakAreasScreen,MisconceptionReportScreen}.tsx` + `src/hooks/analytics/{useTopicHeatmap,useWeakAreas,useMisconceptionReport}.ts`
+Web: `src/features/analytics/{pages,components,services,utils}` (one feature folder, unified hub)
+
+| # | Screen | Mobile route | Web route | Status |
 |---|---|---|---|---|
-| 1 | Weak Areas | `/analytics/weak-areas` | `/analytics/weak-areas` | 🟥 |
-| 2 | Topic Heatmap | `/analytics/topic-heatmap` | `/analytics/topic-heatmap` | 🟥 |
-| 3 | Misconception Report | `/analytics/misconception-report` | `/analytics/misconception-report` | 🟥 |
+| 1 | Unified Analytics Hub | (split across many) | `/analytics` | 🟨 built — scope picker (School / Class / Student), 9 tabs, drill-down breadcrumbs |
+| 2 | Class-scoped analytics | (per-class drilldowns) | `/analytics/class/:classInstanceId` | 🟨 built (locked-scope wrapper around the hub) |
+| 3 | Student-scoped analytics | `/student/analytics`, drilldowns | `/analytics/student/:studentId` and `/student/analytics` | 🟨 built (locked-scope wrapper; student self-route resolves auth → student record) |
+| 4 | Weak Areas | `/analytics/weak-areas` | `/analytics?tab=weak-areas` (legacy URL → redirect) | 🟨 built (3-threshold toggle, urgency banding, "Create practice test" deep-link) |
+| 5 | Topic Heatmap | `/analytics/topic-heatmap` | `/analytics?tab=heatmap` | 🟨 built (chapter-grouped grid, click-to-drill drawer, class-avg overlay, question-level drill from cells) |
+| 6 | Misconception Report | `/analytics/misconception-report` | `/analytics?tab=misconceptions` | 🟨 built (per-question collapse, option-distribution bars, dominant-wrong-option badge, "Explain" insight generator) |
+
+**Service layer:** `src/features/analytics/services/analyticsService.js` — single unified module.
+- Mobile-parity RPCs ported byte-compatibly:
+  - `get_student_topic_heatmap(p_student_id, p_class_instance_id, p_subject_id)` → TopicHeatmapCell[]
+  - `get_class_weak_topics(p_class_instance_id, p_subject_id, p_threshold)` → ClassWeakTopic[]
+  - `get_question_misconception_report(p_test_id)` → QuestionMisconceptionData[]
+- Existing web RPCs kept (same param shape):
+  - `attendance_analytics`, `fees_analytics`, `exams_analytics`, `learning_analytics`
+- Reference-data helpers (`listClasses`, `listStudents`, `listSubjects`, `getStudentById`,
+  `getClassInstanceById`) consolidated for the toolbar.
+- Test-attempt + attendance fetchers (`getStudentTestAttempts`, `getClassTestAttempts`,
+  `getSchoolTestAttempts`, `getAttendanceRows`) used by tabs that don't have a dedicated RPC.
+- Pure aggregators (`statusDistribution`, `trendByDay`, `trendBySubject`,
+  `dailyAttendanceTrend`, `attendancePerformanceCorrelation`, `studentSubjectMatrix`,
+  `dominantWrongOption`) — no Supabase calls — keep tabs cheap to render.
+
+**Components built:**
+- `AnalyticsToolbar` — scope segmented + class/student/subject pickers + range picker + quick ranges (7/30/90/Term/Year) + Refresh / Export / Print / Compare / Save view buttons
+- `OverviewTab` — KPIs (tests / avg / pass rate / attendance), trend area chart, status pie, subject bars, ranking list (clickable to drill)
+- `PerformanceTrendsTab` — Overall area / By-subject multi-line / By-test-type cards
+- `WeakAreasTab` — 3-threshold toggle (50/60/70), urgency-coloured rank list, per-row "Create practice test" link, CSV export. In student-scope, computes weak topics from heatmap cells with the same threshold rule mobile uses.
+- `TopicHeatmapTab` — chapter-grouped colour grid (≥70 green / 40–69 amber / <40 red / untested gray), summary stats, optional class-average overlay layer (student scope), drilldown drawer + question-level modal listing test_questions for a topic with the student's response highlighted, CSV export
+- `MisconceptionsTab` — test picker, per-question collapsible cards, option-distribution bars (correct = green, dominant wrong = red), misconception alert when one wrong option ≥ 20%, "Explain" button that generates an insight summary from problem questions, CSV export
+- `ComparisonsTab` — Class ranking bar chart (school scope), class-trend multi-line, Student × Subject matrix table (class scope) with click-to-drill student, Top-5 radar overlay
+- `StatusDistributionTab` — Grade bands (Distinction / First / Second / Pass / Fail) with pie + bar, plus attendance status breakdown
+- `DailyTrendsTab` — Daily / Weekly / Monthly composed chart (stacked P/A/L bars + rate area line)
+- `AttendanceCorrelationTab` — Weekly attendance % vs avg score line overlay + Pearson r
+- `ComparisonDrawer` — side-by-side comparison drawer (class-vs-class or student-vs-student)
+- `AnalyticsKPI` — small statistic card (kept for AttendanceOverview compatibility)
+
+**Web enhancements over mobile (10 of 11 suggested in brief):**
+1. **One scope picker, one filter bar** — flip School/Class/Student and every tab reflows without page reload.
+2. **Drill-down breadcrumbs** with back navigation. Click a class row → `/analytics/class/:id`. Click a student row → `/analytics/student/:id`.
+3. **Side-by-side comparison drawer** — pick 2 classes or 2 students, see overlaid trend chart + KPIs.
+4. **CSV export of every chart's underlying data** — every tab has a data-export action.
+5. **Print-ready report layout** — iframe + window.print pattern (mirrors HrDocumentViewer / Finance Reports) with title, period, school header.
+6. **Saved views** — name + persist filter+scope+tab combinations in localStorage; modal-driven Apply / Delete (no schema needed).
+7. **Inline "Explain" insight generator on Misconceptions** — picks the top problem questions, identifies dominant wrong options, writes a teacher-facing recommendation paragraph (rule-based since mobile doesn't ship an LLM Edge Function for misconceptions).
+8. **Topic heatmap with class-average overlay** — translucent layer behind student bars when `Class avg` switch is on.
+9. **Question-level drilldown from heatmap** — click a topic cell → drawer → "View questions on this topic" → modal listing every test_question on that topic with the student's selected option highlighted vs the correct option.
+10. **Attendance × Performance correlation chart** with Pearson r and Strong/Moderate/Weak interpretation.
+11. **Empty-state copy on every tab** — clear "Once tests are taken / Pick a subject / No data yet" messaging instead of broken charts.
+
+**Routing changes (App.jsx):**
+- `/analytics/*` is now a single nested router (`features/analytics/pages/Analytics.jsx`) that handles:
+  - `/analytics` → unified hub
+  - `/analytics/student/:studentId` → student-scoped wrapper
+  - `/analytics/class/:classInstanceId` → class-scoped wrapper
+  - Legacy paths → `?tab=` redirects: `/analytics/daily-trends → ?tab=daily-trends`,
+    `/analytics/student-performance → ?tab=performance`,
+    `/analytics/class-comparison → ?tab=comparisons`,
+    `/analytics/status-distribution → ?tab=status`,
+    `/analytics/weak-areas → ?tab=weak-areas`,
+    `/analytics/topic-heatmap → ?tab=heatmap`,
+    `/analytics/misconception-report → ?tab=misconceptions`,
+    `/analytics/attendance/overview → ?tab=daily-trends`,
+    `/analytics/attendance/classes → ?tab=comparisons`,
+    `/analytics/attendance/students → ?tab=performance`,
+    `/analytics/{admin,student,superadmin}` → `/analytics`
+  - 3 ComingSoon placeholders for the advanced analytics screens REMOVED.
+- `/student/analytics` now routes to `StudentSelfAnalytics` which resolves the auth user
+  to a student record (auth_user_id → student_code → email fallbacks) and renders a
+  student-locked unified hub.
+- The 4 explicit duplicate `/analytics/{daily-trends,student-performance,class-comparison,status-distribution}` routes that previously pointed back to the same `<Analytics>` element have been collapsed to the single `/analytics/*` wildcard.
+
+**Domain rules ported byte-compatible from mobile:**
+- Heatmap colour buckets: ≥70% strong (green) / 40–69% developing (amber) / <40% weak (red) / untested (gray)
+- Weak-area sort: ascending by `avg_class_accuracy`
+- Weak-area thresholds: 50 / 60 / 70 (default 60), urgency bands at <40 / 40–55 / ≥55
+- Misconception flag: dominant wrong option ≥ 20% of responses
+- Test-attempt percent fallback: `(earned_points / total_points) * 100` if `score` not set
+- Status bands (web-native): Distinction ≥75 / First 60–74 / Second 45–59 / Pass 33–44 / Fail <33
+- All Supabase calls preserve mobile param names (`p_student_id`, `p_class_instance_id`, `p_subject_id`, `p_threshold`, `p_test_id`)
+
+**Role gating:**
+- `/analytics`, `/analytics/student/:id`, `/analytics/class/:id` → `superadmin + admin` (matches `routeAccess.analytics`)
+- `/student/analytics` → `student` only; the page resolves the auth user to its student record before mounting the unified hub, so a student cannot view another student's data.
+- Admin/teacher = full hub. Student = locked-scope wrapper, can only see their own.
+
+**Known limits / parity notes:**
+- The 3 advanced RPCs (`get_student_topic_heatmap`, `get_class_weak_topics`, `get_question_misconception_report`) are documented in mobile but the actual SQL implementation is in Supabase (out of scope for web — web only calls them). If the RPCs are not yet deployed to a given Supabase project, the screens render empty-state messages instead of crashing.
+- Misconception "Explain" is rule-based (top problem questions + dominant wrong options + recommended action) since mobile does not ship an Edge Function for this. If `analyze-misconceptions` (or similar) is added later, swap the local `generateExplanation` function for `supabase.functions.invoke()`.
+- Question-level drilldown on the heatmap reads `test_questions` joined with the student's `test_attempts.answers` JSON to highlight selected vs correct option — same data the mobile bottom-sheet would expose, but mobile keeps it implicit.
+- Old fragmented files DELETED: `Analytics.jsx` rewritten as a Routes shell; `AnalyticsHub.jsx`, `AnalyticsPreview.jsx`, `AdminAnalytics.jsx`, `SuperAdminAnalytics.jsx`, `ClassComparison.jsx`, `StudentComparison.jsx`, `DailyTrendsAnalytics.jsx`, `StudentPerformanceAnalytics.jsx`, `ClassComparisonAnalytics.jsx`, `StatusDistributionAnalytics.jsx`, `AnalyticsCard.jsx`, `AnalyticsFilterBar.jsx`, `AnalyticsChart.jsx`, `AnalyticsSection.jsx`, `useLearningAnalytics.js` — all removed. `AnalyticsKPI.jsx` retained (used by AttendanceOverview).
+- Mobile cache TTLs (10min heatmap/weak-areas, 5min misconceptions) not mirrored — web refetches on filter change; the explicit Refresh button gives users the same control.
+
+Ready for manual test. Move to 🟩 once verified.
+
+### 8b. Analytics Rewrite — AY-scoped, feature-wise IA — 🟨 In progress
+Goal: replace the surface-level Unified hub with a deep, cross-domain analytics centre. Each feature gets its own page; every report is scoped through a top-level Academic Year picker (defaults to active AY, with Compare AYs mode).
+
+**Foundational rule (per user):** the AY scope means "show only events whose `class_instance` has `academic_year_id = selectedAyId`". Every event with a `class_instance_id` is scoped via that join, not via its own AY column. AY-direct tables (HR / leaves / staff_attendance / fee_invoices) scope by their own `academic_year_id`. Date-only tables scope by `year_start..year_end`. Master tables (student / employees / subjects / class_instances) are NOT scoped — their events are.
+
+**Phase 0 — Foundations (DONE):**
+- `src/features/analytics/context/AcademicYearContext.jsx` — loads `academic_years` for the school, picks `is_active` by default, persists user's selection in localStorage. Exposes `selectedAyId`, `compareAyId`, `formatYearLabel`, `setSelectedAyId`, `setCompareAyId`, `clearCompare`, `reload`.
+- `src/features/analytics/services/ayScope.js` — central scoping helper.
+  - `SCOPE_MAP`: per-table audit-driven dictionary mapping each table to one of `{class, ay, date, none}`.
+  - `getClassInstanceIdsForAy(schoolCode, ayId)` — cached lookup of class_instance ids belonging to an AY.
+  - `getAyDateRange(ayId)` — cached `{start, end}` from `academic_years.start_date/end_date` (or `year_start/year_end` fallback).
+  - `scopeQuery(query, table, {ayId, schoolCode})` — applies the right path for the given table.
+  - `ayCaption(year, {allTime})` — caption helper for chart subtitles.
+- `src/features/analytics/components/AcademicYearPicker.jsx` — top-of-page picker + Compare AY toggle.
+- `src/features/analytics/pages/AnalyticsShell.jsx` — wraps every analytics route with breadcrumbs + AY picker.
+- `src/features/analytics/pages/Analytics.jsx` — REWRITTEN as router with AcademicYearProvider + new feature routes. Legacy `?tab=` redirects mapped onto new feature pages.
+- `src/features/analytics/pages/AnalyticsHub.jsx` — landing page with feature cards (Attendance, Fees, Tasks, Syllabus, Academic, HR).
+
+**Phase 1 — Attendance Analytics (DONE):**
+Web route: `/analytics/attendance`. Two top-level tabs: Student Attendance | Staff Attendance.
+- Service: `src/features/analytics/services/attendanceAnalyticsService.js`
+  - `getDailyAttendanceTrend` — class-bound path: `attendance` filtered via student → `class_instance_id IN (class_instances WHERE academic_year_id = ay)`.
+  - `getPerClassSummary` — same class-bound path; aggregated per class_instance.
+  - `getTopAbsentees` — same class-bound path; ranked.
+  - `getStatusDistribution` — same class-bound path; donut buckets.
+  - `getPeriodHeatmap` — `period_attendance` direct `class_instance_id IN (…)`.
+  - `getMonthlyCalendar` — same class-bound path; calendar grid.
+  - `getStaffAttendanceSummary` — RPC `get_staff_attendance_summary(p_school_code, p_year, p_month)` (ay-direct path on staff_attendance).
+  - `getHeadlineKpis` — KPI tile aggregates.
+- Page: `src/features/analytics/pages/AttendanceAnalytics.jsx` — School / Class / Student segmented scope, optional date range inside AY, charts: KPI cards, daily trend area, status pie, per-class bars, chronic absentees, period heatmap (subject × DOW), monthly calendar grid, staff summary table.
+
+**Per-query scoping path:**
+| Query | Path | Notes |
+|---|---|---|
+| `getDailyAttendanceTrend` | class | via student → class_instances (AY filter on class_instances) |
+| `getPerClassSummary` | class | same |
+| `getTopAbsentees` | class | same |
+| `getStatusDistribution` | class | same |
+| `getPeriodHeatmap` | class | direct class_instance_id IN (…) |
+| `getMonthlyCalendar` | class | via student → class_instances |
+| `getStaffAttendanceSummary` | ay-direct | RPC takes p_school_code + p_year + p_month |
+| `getHeadlineKpis` | class | via student → class_instances |
+
+**Schema change — `attendance.academic_year_id` added 2026-04-26:**
+The student `attendance` table now has a direct `academic_year_id UUID NOT NULL` column with FK to `academic_years.id`. Migration applied via Supabase MCP and mirrored at `~/Desktop/classbridge/supabase/migrations/20260426120000_attendance_academic_year_id.sql`. Backfill: 16,380 rows (SCH019 25-26: 11,109 / SCH019 26-27: 5,203 / SCH101 25-26: 68; zero NULLs). Indexes: `(school_code, academic_year_id, date)` and `(academic_year_id, student_id)`. Web `ayScope.SCOPE_MAP['attendance']` switched from `class` to `ay`; `attendanceAnalyticsService` queries simplified to one-step `.eq('school_code', x).eq('academic_year_id', ayId)`. **Mobile insert paths must populate `academic_year_id` on every new attendance row going forward** — the column is NOT NULL so inserts will fail otherwise.
+
+**Phase 2 — Fees Analytics:** scaffolded (`/analytics/fees`), implementation next.
+**Phase 3 — Tasks Analytics:** scaffolded.
+**Phase 4 — Syllabus Analytics:** scaffolded.
+**Phase 5 — Academic Performance:** scaffolded (consolidates the existing weak-areas / heatmap / misconceptions tabs into a single Academic page).
+**Phase 6 — HR Analytics:** scaffolded.
+
+**Migration note:** the old `UnifiedAnalytics.jsx` and its 12 tab components are still on disk; `StudentScopedAnalytics` and `ClassScopedAnalytics` still wrap UnifiedAnalytics for the detail-page drill-down routes (`/analytics/student/:id`, `/analytics/class/:id`). Cleanup of the old hub will happen after each feature page lands.
+
+In progress.
 
 ### 9. Communications — 🟨 Built (full parity + web enhancements), awaiting user manual test
 Mobile: `app/academics/{announcements,communication-hub,report-comments}.tsx` + `src/features/{announcements,feedback,report-comments}/*`
@@ -440,6 +651,95 @@ same Storage bucket (`Lms`) at path `announcements/{school_code}/{ts}_{rand}.{ex
 
 Ready for manual test. Move to 🟩 once verified.
 
+### 9b. Fees — 🟨 Rewritten in place (full mobile parity + web enhancements), awaiting user manual test
+Mobile: `app/finance/{fees,fees-student}.tsx` + `src/features/fees/FeesScreen.tsx` + `src/components/fees/{InvoiceList,InvoiceDetailModal,InvoiceDocumentViewer,InvoiceViewer,PaymentScreen,StudentFeesView,GenerateFeesModal,ClassSelectorModal}.tsx` + `src/services/fees.ts` (canonical contract: `invoiceService`)
+Web: `src/features/fees/{pages,components,services,context,utils}` (rewritten in place — same routes `/fees`, same folder, same imports)
+
+| # | Screen | Mobile route | Web route | Status |
+|---|---|---|---|---|
+| 1 | Fees Hub (admin) | `/finance/fees` | `/fees` | 🟨 rewritten — KPIs + aged-receivables + invoice table + analytics tab + bulk reminders |
+| 2 | Student fees view | `/finance/fees-student` | `/fees` (auto-routed by role) | 🟨 rewritten — hero + invoices + payment history |
+
+**The bug being fixed:** Old web Fees module used `fee_student_plans` + `fee_student_plan_items` + `fee_component_types` while mobile (and Inventory's fee linkage) writes to `fee_invoices` + `fee_invoice_items` + `fee_payments`. A fee created on mobile didn't appear on web; an inventory item issued on web wrote to `fee_invoices` and was invisible to web's Fees page. **Now fixed.** Web reads/writes the same tables as mobile.
+
+**Service layer:** `src/features/fees/services/feesService.js` — JS port of mobile `services/fees.ts` `invoiceService`. Method names match mobile exactly:
+- `getByClass`, `getByStudent`, `getDetail` (joined: items + payments + student + recorded_by name)
+- `createInvoice`, `generateForClass` (bulk, single due date, skips existing billing_period+academic_year)
+- `recordPayment`, `recordItemPayment` — validates remaining balance, immutable `recorded_by_user_id`, recomputes `paid_amount`+`status`, auto-posts to Finance GL when collector is super admin (mirrors mobile `fees.ts:574-606`)
+- `addItems`, `removeItems`, `updateItem` — recompute total + status after every mutation
+- `updateInvoice` (due_date / notes), `deleteInvoice` (blocked when payments exist)
+- `generateInvoiceDocument`, `sendPaymentReminder`, `sendBulkReminders`
+- Reference data: `listClasses`, `listStudents`, `resolveStudentForUser` (auth_user_id → student record)
+- Aggregations: `summariseInvoices`, `ageReceivables` (0–30 / 31–60 / 61–90 / 90+ buckets)
+
+**Shared invoice helpers (extracted from inventory):** `src/features/fees/services/invoiceHelpers.js` — `getOrCreateInvoice`, `addInvoiceItems`, `recalculateInvoiceTotal`, `recalculateInvoicePaidAmount`, `calculateInvoiceStatus`, `calculateInvoiceTotal`, `billingPeriodFor`, `getActiveAcademicYear`. Inventory now imports these instead of carrying its own copy → the two modules **cannot diverge again**.
+
+**Tables now used (1:1 with mobile):** `fee_invoices`, `fee_invoice_items`, `fee_payments`, `class_instances`, `student`, `users`, `academic_years`. Edge Functions: `generate-invoice-document`, `send-fee-notification`. Status enum: **`'DUE' / 'PARTIAL' / 'PAID'` (uppercase)** — exactly matches the DB `fee_invoices_status_check` constraint and mobile's `InvoiceStatusSchema`. Computed from amounts; never trusted from client. Amounts in **rupees** (no paise).
+
+**Status enum gotcha:** an earlier inventory implementation tried to write lowercase `'pending' / 'partial' / 'paid'` which violates the DB CHECK constraint. The error was being silently swallowed (the auto-fees block in `inventory.issue` is wrapped in `try { ... } catch { /* ... */ }` to mirror mobile). The new shared `calculateInvoiceStatus` returns the canonical uppercase values, so any future writes from inventory or fees can never trip the constraint.
+
+**Components built:**
+- `InvoiceTable` — sortable/filterable, status pills, inline Record-Payment / View-Document / Reminder actions, multi-select for bulk reminders
+- `InvoiceDetailDrawer` — descriptions block with shown math (`Total − Paid = Balance`), line item table with inline edit/delete, Add-items spreadsheet form, payment history table, Edit due/notes drawer, Delete (blocked if payments), Send-reminder, View-document
+- `PaymentDrawer` — payment form with amount validation against remaining balance, 6-method radio buttons (cash/upi/card/cheque/bank_transfer/online), receipt #, remarks, "Full" quick-fill
+- `GenerateInvoicesDrawer` — bulk class invoice creation with quick-add presets (Tuition / Transport / Books / Activity / Lab / Exam) and live per-student total; single due date; skips students already invoiced for the period
+- `CreateInvoiceDrawer` — single-student invoice creation
+- `InvoiceDocumentViewer` — iframe + window.print (mirrors HrDocumentViewer / Finance Reports); calls `generate-invoice-document` Edge Function so totals are server-computed
+- `BulkRemindersDrawer` — multi-select overdue invoices → progress tracker + per-row success/failure list
+- `StudentFees` — student-side hero (outstanding banner with gradient), invoices grouped by period with line items, payment history table
+- `FeeAnalytics` — daily-collections area chart, status pie, billing-period stacked bar, period summary table with collection-rate tags
+
+**Web enhancements over mobile (8 of the 8 suggested):**
+1. **Spreadsheet-style bulk invoice creation** — class + line items + single click → invoices for every student, with quick-add presets and live per-student total (mobile creates one at a time)
+2. **CSV/XLSX export** of filtered invoices (XLSX via `xlsx` already in deps; column set: Student / Code / Period / Due / Total / Paid / Balance / Status / Created at)
+3. **Iframe + window.print receipt viewer** — same pattern as HrDocumentViewer; document HTML comes from `generate-invoice-document` Edge Function so totals are authoritative
+4. **Inline "Record payment" action** on every unpaid row → opens PaymentDrawer side-panel without leaving the table
+5. **Bulk reminder send** — multi-select rows, run reminders sequentially via `send-fee-notification`, per-row success/failure progress display
+6. **Aged-receivables card** at the top of the hub (Not yet due / 0–30 / 31–60 / 61–90 / 90+ days)
+7. **Quick "Remind all overdue" button** that auto-selects every overdue invoice and pipes them through the bulk reminder flow
+8. **Status segmented filter + due-date range picker + free-text search** on the invoice table (mobile only had class selector + paid/unpaid pill)
+
+**Inventory linkage preserved:** `inventoryService.js`'s `addInvoiceItems` helper is now a thin alias to the shared `invoiceHelpers.addInvoiceItems`; the inline `recalculateInvoiceTotal` in `returnIssue` is replaced by the shared helper. Item label format (`${item.name}${quantity > 1 ? ` (x${quantity})` : ''}`), billing period format (`${year_start}-${year_end}`), invoice get-or-create defaults (`total_amount=0, paid_amount=0, due_date=today+1month`) and the three-tier refund deletion (delete-by-id → delete-by-label-match → fallback negative line) are all unchanged. Verified byte-compatible by an Explore-agent audit.
+
+**Outside consumers updated:**
+- `src/features/students/pages/Dashboard.jsx:189` — replaced `fee_student_plans` query with `fee_invoices` so the realtime fee channel still triggers a refetch but no longer hits a deprecated table
+- `src/features/analytics/services/analyticsSummaryService.js` `getFeesSummary` — switched from plans+items+`amount_paise` to `fee_invoices.total_amount/paid_amount` + `fee_payments.amount_inr` (rupees, then converted to paise at render time so the legacy `fmtINR` paise API still works)
+- Realtime channel filter on `fee_payments` in Dashboard is unchanged (table name is the same on both apps)
+
+**Files removed (dead plan-based components):**
+- `components/FeeComponents.jsx`, `FeeManage.jsx`, `RecordPayments.jsx`, `FeeCollections.jsx`, `CollectionsView.jsx`, `FeeAnalyticsEnhanced.jsx`, `CsvDrawer.jsx`
+- `utils/feeAdapters.js` (plan-specific UI shapers)
+- `hooks/useFeesAnalytics.js` (plan-specific hook; folder removed)
+- All zero references confirmed via grep
+
+**FeesContext rewritten:** simplified to expose `schoolCode`, `userRole`, `academicYear`, `classes`, `loading`, `error`, `refresh()`. Old plan-based reducer state (`studentPlans`, `payments`, `feeComponents`) and methods (`loadStudentPlans`, `loadPayments`, `addPayment`, `updateStudentPlan`, `getStudentOutstanding`) were removed. Verified no external feature imported them; only the fees folder used the context.
+
+**Critical safety / accounting safeguards:**
+- Every write wrapped in try/catch with explicit `message.error` user feedback
+- Live "Total − Paid = Balance" math shown in the InvoiceDetailDrawer descriptions block
+- Payment amount is validated client-side AND re-validated server-side before insert (cannot exceed remaining balance)
+- `precision={2}` on every InputNumber, IN locale for ₹ display
+- Delete is blocked on invoices with payments (mirrors mobile `InvoiceHasPaymentsError`)
+- Status is **always derived** from amounts in services/UI, never trusted from a stale write
+- Server computes invoice document totals via Edge Function; client just renders the HTML
+
+**Role gating:** Admin/superadmin → manage everything; student → auto-routed to `StudentFees` (read-only own invoices, payment history, and document viewer).
+
+**Known limits / parity notes:**
+- Receipt generation for individual *payments* (mobile's `generate-invoice-pdf` Edge Function) is not yet wired on web; the *invoice document* viewer (which lists payments inside) is. If a per-payment receipt becomes needed, plug `generate-invoice-pdf` into `InvoiceDocumentViewer` keyed by payment id.
+- `fees.read` / `fees.write` / `fees.record_payments` capability strings are mirrored in mobile but are enforced via Supabase RLS, not a client-side `assertCapability` wrapper. Web mirrors mobile's pattern: relies on RLS + client role gating.
+- Mobile uses React Query for caching; web fetches on filter change with manual Refresh button. The Hub's KPIs and aged buckets recompute purely from the in-memory invoice list, so a Refresh is a single round trip.
+- **Migration consideration:** any historical data in the deprecated `fee_student_plans` / `fee_student_plan_items` / `fee_component_types` / `fee_payments` (with `amount_paise` / `plan_id` / `component_type_id`) tables is **not auto-migrated** by this change. If a school has live data on the old plan model, a one-off SQL migration is needed to project plan-driven amounts into `fee_invoices` + `fee_invoice_items` rows. This work is out of scope for the web rewrite (web never modifies schema or migrations).
+
+Ready for manual test. Test cases:
+1. Create an invoice on web → appears on mobile
+2. Issue an inventory item on web → resulting line item appears in both Fees hubs
+3. Record a payment on web → balance updates on mobile, super-admin sees a new income transaction in `/finance`
+4. Bulk-generate for a class → notifications fire, students see invoices on mobile
+5. Send a bulk reminder for overdue invoices → users receive `send-fee-notification` push/email
+
+Move to 🟩 once verified.
+
 ### 10. Test detail screens — 🟥
 | # | Screen | Mobile | Web | Status |
 |---|---|---|---|---|
@@ -460,10 +760,79 @@ Ready for manual test. Move to 🟩 once verified.
 | # | Screen | Mobile | Web | Status |
 |---|---|---|---|---|
 | 1 | My Class | `/manage/my-class` | `/manage/my-class` | 🟥 |
-| 2 | Inactive Users | `/manage/inactive-users` | `/manage/inactive-users` | 🟥 |
+| 2 | Inactive Users | `/manage/inactive-users` | `/users/inactive` | 🟨 folded into #13 User Management |
 | 3 | Classmates | `/student/classmates` | `/student/classmates` | 🟥 |
-| 4 | Settings & Profile | `/settings` | `/settings` | 🟥 |
-| 5 | Change Password | `/change-password` | `/change-password` | 🟥 |
+| 4 | Settings & Profile | `/settings` | `/users/me` | 🟨 folded into #13 User Management |
+| 5 | Change Password | `/change-password` | `/change-password` | 🟨 folded into #13 User Management |
+
+### 13. User Management — 🟨 Built (full parity + web enhancements), awaiting user manual test
+Mobile: `app/manage/{add-admin,add-student,inactive-users}.tsx` + `app/change-password.tsx` + `src/features/admin/*` + `src/hooks/{useAdmins,useStudents,useInactiveUsersList,useUserActivityStats}.ts`
+Web: `src/features/users/{pages,components,services}` — single consolidated hub.
+
+This consolidates the previously-scattered web pages (`AddAdmin`, `AddSuperAdmin`, `AddStudent`, `SignUpUser`, `SuperAdminCounter`) and mobile screens (Add Admin, Add Student, Inactive Users, Change Password) into one coherent /users hub.
+
+| # | Screen | Mobile route | Web route | Status |
+|---|---|---|---|---|
+| 1 | Users hub (cross-role roster) | (mobile splits across `add-admin` + `add-student`) | `/users` | 🟨 built (KPI strip, scope picker, search, bulk ops, CSV export, print roster) |
+| 2 | User detail drawer | (no mobile equivalent) | `/users` (drawer) | 🟨 built (identity, linked records, capabilities tab, danger zone) |
+| 3 | Invite user (single + bulk CSV) | `app/manage/add-admin.tsx`, `add-student.tsx` | `/users/invite?role=…` | 🟨 built (single + bulk CSV/XLSX with validation preview + per-row reporting) |
+| 4 | Inactive users | `/manage/inactive-users` | `/users/inactive` | 🟨 built (Deactivated / Never / Idle filters via mobile RPC) |
+| 5 | My profile | (mobile `/settings`) | `/users/me` | 🟨 built (edit profile, change password, sign-out everywhere, capability readout) |
+| 6 | Change password (self-service) | `/change-password` | `/change-password` | 🟨 built (re-verifies current password, strength meter, force re-login) |
+
+**Service layer:** `src/features/users/services/usersService.js` — byte-compatible with mobile contracts:
+- Edge Functions: `create-admin`, `create-student`, `create-super-admin`, `delete-admin`, `delete-student`
+- RPCs: `get_users_for_superadmin` (unified roster), `get_user_activity_stats`, `get_inactive_users_list`, `get_all_super_admins`
+- Tables: `users`, `admin`, `student`, `super_admin`, `class_instances`
+- Self-service auth: `supabase.auth.updateUser({ password })`, `supabase.auth.signOut({ scope: 'global' })`, `resetPasswordForEmail`
+
+**Components built:**
+- `UserDetailDrawer` — side drawer with Identity / Linked records / Capabilities / Danger zone tabs; cross-link to HR detail when an employee record is found
+
+**Web enhancements over mobile:**
+1. Single unified roster (mobile keeps admins + students on separate screens)
+2. Scope picker: All / Super Admins / Admins / Students / Inactive (with live counts in pills)
+3. Bulk select → bulk deactivate / bulk reactivate / bulk export / bulk role change
+4. CSV / XLSX bulk-invite with downloadable role-specific template, client-side per-row validation, preview, per-row error reporting
+5. Capability matrix readout per role (so admins know what they're granting)
+6. Linked-entity quick-link from a user row → opens HR detail in one click (when an employees row exists for that user_id)
+7. User detail drawer with cross-role identity, linked records, audit-friendly metadata
+8. Type-to-confirm hard delete (must type the email) for irreversible actions
+9. Print-roster button (window.print HTML page) for school records
+10. Self-service "Sign out everywhere" (revokes all sessions globally)
+11. Password strength meter on change-password; re-authenticates against current password before changing
+
+**Role gating (mirrors mobile capability rules):**
+- `cb_admin` — sees all schools, can invite super_admins
+- `superadmin` — manages all users in their school (admin, student); can hard-delete
+- `admin` — can invite students; cannot hard-delete or invite super_admins
+- `student` — only `/users/me` and `/change-password` (cannot reach `/users` hub)
+
+**Backwards-compat redirects (in App.jsx):**
+- `/add-admin` → `/users/invite?role=admin`
+- `/add-super-admin` → `/users/invite?role=superadmin`
+- `/add-student` → `/users/invite?role=student`
+- `/super-admin-count` → `/users?scope=superadmin`
+- `/signup-user` → `/users/invite`
+- `/manage/inactive-users` → `/users/inactive`
+
+**Sidebar:** scattered "Super Admin / Manage Admins / Students" entries replaced by a single **Users** entry plus an **Inactive Users** entry. The CB Admin section now has one "Users" link instead of "Super Admin".
+
+**Files removed (logic folded into /users):**
+- `src/features/school/components/AddAdmin.jsx`
+- `src/features/school/components/AddSuperAdmin.jsx`
+- `src/features/school/components/SignUpUser.jsx`
+- `src/features/school/components/SuperAdminCounter.jsx`
+- `src/features/students/components/AddStudent.jsx`
+- `src/features/students/components/StudentFormModal.jsx`
+
+**Known limits:**
+- MFA section is a placeholder ("coming soon") — Supabase MFA is not yet enabled on this project
+- `auth.users.last_sign_in_at` and `email_confirmed_at` are read from the live session for the *current* user only; for *other* users, last sign-in comes via the existing `get_user_activity_stats` / `get_inactive_users_list` RPCs (mobile uses the same path)
+- `delete-admin` / `delete-student` Edge Functions are referenced by the existing web flows but were not visible in the mobile repo's local `supabase/functions/` directory — they exist on the live project (web has been calling them in production). If they're missing in any environment, hard-delete will return an error and the user is shown that error verbatim
+- "Send invitation reminder" for pending invites is not yet implemented (mobile doesn't track invitation-pending state separately from `is_active`)
+
+Ready for manual test. Move to 🟩 once verified.
 
 ---
 
@@ -481,8 +850,6 @@ From earlier audit — these are NOT placeholders, they have real impls but diff
 | Take test (student) | Offline + submission RPC parity unverified |
 | Tasks | Feature-by-feature comparison needed |
 | Student/class progress | Split differently across pages |
-| Analytics hub | Legacy subroutes inside one file |
-| Fees | Different data model (fee_student_plans vs fee_invoices) |
 | School profile | Partial overlap with `/school-setup` |
 
 These get a sweep pass after the 12 missing modules above are done.

@@ -1,4 +1,8 @@
 import { supabase } from '@/config/supabaseClient';
+import {
+  addInvoiceItems as sharedAddInvoiceItems,
+  recalculateInvoiceTotal as sharedRecalculateInvoiceTotal,
+} from '@/features/fees/services/invoiceHelpers';
 
 /**
  * Inventory service — direct port of mobile `src/services/inventory.ts`.
@@ -6,6 +10,9 @@ import { supabase } from '@/config/supabaseClient';
  * fee_invoice_items, academic_years), same join shapes, same defaults.
  * Web UI rebuilt with AntD; this layer must stay byte-compatible with mobile
  * so an item issued from web vs mobile produces identical fee rows.
+ *
+ * Fee-invoice writes go through src/features/fees/services/invoiceHelpers.js
+ * so Inventory and the Fees module share one source of truth.
  */
 
 // ── Constants (mirror mobile UI choices) ─────────────────────────────────────
@@ -150,49 +157,11 @@ export const inventoryItemsService = {
   },
 };
 
-// ── Invoice helpers (replicates mobile fees.invoiceService.addItems behaviour) ──
+// ── Invoice helpers (delegates to shared src/features/fees/services/invoiceHelpers.js) ──
+// Identical contract to the previous local implementation; centralised so the
+// fees module and inventory cannot diverge.
 
-async function addInvoiceItems(invoiceId, items) {
-  // Insert
-  const { error: insertErr } = await supabase
-    .from('fee_invoice_items')
-    .insert(items.map(it => ({
-      invoice_id: invoiceId,
-      label: it.label,
-      amount: it.amount,
-    })));
-  if (insertErr) throw insertErr;
-
-  // Recalculate total
-  const { data: allItems, error: fetchErr } = await supabase
-    .from('fee_invoice_items')
-    .select('amount')
-    .eq('invoice_id', invoiceId);
-  if (fetchErr) throw fetchErr;
-
-  const newTotal = (allItems || []).reduce(
-    (sum, it) => sum + parseFloat(it.amount?.toString?.() ?? it.amount ?? 0),
-    0
-  );
-
-  // Get paid_amount to recompute status
-  const { data: invoice } = await supabase
-    .from('fee_invoices')
-    .select('paid_amount')
-    .eq('id', invoiceId)
-    .single();
-
-  const paid = Number(invoice?.paid_amount ?? 0);
-  let status = 'pending';
-  if (paid >= newTotal && newTotal > 0) status = 'paid';
-  else if (paid > 0) status = 'partial';
-
-  const { error: updateErr } = await supabase
-    .from('fee_invoices')
-    .update({ total_amount: newTotal, status })
-    .eq('id', invoiceId);
-  if (updateErr) throw updateErr;
-}
+const addInvoiceItems = sharedAddInvoiceItems;
 
 // ── Issuance ─────────────────────────────────────────────────────────────────
 
@@ -290,13 +259,15 @@ export const inventoryIssuesService = {
         if (academicYear) {
           const billingPeriod = `${academicYear.year_start}-${academicYear.year_end}`;
 
+          // Match the DB unique key (school_code, student_id, billing_period) —
+          // do NOT include academic_year_id or we'll false-miss and trip
+          // fee_invoices_school_code_student_id_billing_period_key.
           const { data: existingInvoice } = await supabase
             .from('fee_invoices')
             .select('id')
-            .eq('student_id', input.issued_to_id)
             .eq('school_code', schoolCode)
+            .eq('student_id', input.issued_to_id)
             .eq('billing_period', billingPeriod)
-            .eq('academic_year_id', academicYear.id)
             .maybeSingle();
 
           let invoiceId;
@@ -320,7 +291,19 @@ export const inventoryIssuesService = {
               })
               .select('id')
               .single();
-            if (!invError && newInvoice) invoiceId = newInvoice.id;
+            if (!invError && newInvoice) {
+              invoiceId = newInvoice.id;
+            } else if (invError?.code === '23505') {
+              // Race: another caller inserted concurrently — re-read.
+              const { data: raceRow } = await supabase
+                .from('fee_invoices')
+                .select('id')
+                .eq('school_code', schoolCode)
+                .eq('student_id', input.issued_to_id)
+                .eq('billing_period', billingPeriod)
+                .maybeSingle();
+              if (raceRow) invoiceId = raceRow.id;
+            }
           }
 
           if (invoiceId) {
@@ -483,13 +466,13 @@ export const inventoryIssuesService = {
 
           if (academicYear) {
             const billingPeriod = `${academicYear.year_start}-${academicYear.year_end}`;
+            // Match the DB unique key (school_code, student_id, billing_period).
             const { data: invoice } = await supabase
               .from('fee_invoices')
               .select('id')
-              .eq('student_id', issue.issued_to_id)
               .eq('school_code', schoolCode)
+              .eq('student_id', issue.issued_to_id)
               .eq('billing_period', billingPeriod)
-              .eq('academic_year_id', academicYear.id)
               .maybeSingle();
 
             if (invoice) {
@@ -543,21 +526,8 @@ export const inventoryIssuesService = {
               }
             }
 
-            // Recalc total after raw delete
-            const { data: remainingItems } = await supabase
-              .from('fee_invoice_items')
-              .select('amount')
-              .eq('invoice_id', invoiceId);
-            if (remainingItems) {
-              const newTotal = remainingItems.reduce(
-                (sum, it) => sum + parseFloat(it.amount?.toString?.() ?? it.amount ?? 0),
-                0
-              );
-              await supabase
-                .from('fee_invoices')
-                .update({ total_amount: newTotal })
-                .eq('id', invoiceId);
-            }
+            // Recalc total after raw delete (shared helper)
+            await sharedRecalculateInvoiceTotal(invoiceId);
           }
         }
       } catch (feeError) {

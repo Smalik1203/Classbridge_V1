@@ -1,304 +1,178 @@
-// src/pages/analytics/AnalyticsHub.jsx
-// Unified analytics hub with percentage-first design
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Row, Col, Typography, Space, Tag } from 'antd';
+import {
+  CheckCircleOutlined, DollarOutlined, FileDoneOutlined, BookOutlined,
+  ExperimentOutlined, TeamOutlined, ArrowRightOutlined,
+} from '@ant-design/icons';
+import { useAcademicYear } from '../context/AcademicYearContext';
+import { HeroStat } from '../components/primitives';
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Row, Col, Typography, Alert } from 'antd';
-import { useAuth } from '@/AuthProvider';
-import { getUserRole, getSchoolCode } from '@/shared/utils/metadata';
-import { supabase } from '@/config/supabaseClient';
-import { useTheme } from '@/contexts/ThemeContext';
-import AnalyticsCard from '@/features/analytics/components/AnalyticsCard';
-import CompactFilterBar from '@/shared/ui/CompactFilterBar';
-import { useAttendanceAnalytics } from '@/features/attendance/hooks/useAttendanceAnalytics';
-import { useFeesAnalytics } from '@/features/fees/hooks/useFeesAnalytics';
-import { useExamsAnalytics } from '@/features/tests/hooks/useExamsAnalytics';
-import { useLearningAnalytics } from '@/features/analytics/hooks/useLearningAnalytics';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
-import '@/styles/analytics-responsive.css';
+const { Text } = Typography;
 
-// Configure dayjs for IST timezone
-dayjs.extend(utc);
-dayjs.extend(timezone);
+const FEATURES = [
+  {
+    key: 'attendance',
+    to: '/analytics/attendance',
+    icon: <CheckCircleOutlined />,
+    title: 'Attendance',
+    desc: 'Daily / monthly trends, period heatmap, chronic absentees, staff attendance.',
+    accent: '#10b981',
+    accentSoft: '#ecfdf5',
+  },
+  {
+    key: 'fees',
+    to: '/analytics/fees',
+    icon: <DollarOutlined />,
+    title: 'Fees',
+    desc: 'Collection rate over time, aging buckets, top defaulters, category mix.',
+    accent: '#f59e0b',
+    accentSoft: '#fffbeb',
+  },
+  {
+    key: 'tasks',
+    to: '/analytics/tasks',
+    icon: <FileDoneOutlined />,
+    title: 'Tasks',
+    desc: 'Submission rate, on-time vs late, by class & subject, top engagers.',
+    accent: '#3b82f6',
+    accentSoft: '#eff6ff',
+  },
+  {
+    key: 'syllabus',
+    to: '/analytics/syllabus',
+    icon: <BookOutlined />,
+    title: 'Syllabus',
+    desc: 'Topics taught vs total, pacing vs plan, untaught topics by class & subject.',
+    accent: '#a855f7',
+    accentSoft: '#faf5ff',
+  },
+  {
+    key: 'academic',
+    to: '/analytics/academic',
+    icon: <ExperimentOutlined />,
+    title: 'Academic Performance',
+    desc: 'Test trends, status distribution, weak areas, topic heatmap, misconceptions.',
+    accent: '#ef4444',
+    accentSoft: '#fef2f2',
+  },
+  {
+    key: 'hr',
+    to: '/analytics/hr',
+    icon: <TeamOutlined />,
+    title: 'HR',
+    desc: 'Staff attendance trend, leave usage by type, payroll cost over time.',
+    accent: '#14b8a6',
+    accentSoft: '#f0fdfa',
+  },
+];
 
-const { Title, Text } = Typography;
-const IST_TIMEZONE = 'Asia/Kolkata';
-
-const AnalyticsHub = () => {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
-  const { isDarkMode, theme } = useTheme();
-  const userRole = getUserRole(user);
-  const schoolCode = getSchoolCode(user);
-
-  // URL state management with IST timezone
-  const [dateRange, setDateRange] = useState(() => {
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
-    if (from && to) {
-      return [
-        dayjs(from).tz(IST_TIMEZONE),
-        dayjs(to).tz(IST_TIMEZONE)
-      ];
-    }
-    return [
-      dayjs().tz(IST_TIMEZONE).subtract(30, 'days'),
-      dayjs().tz(IST_TIMEZONE)
-    ];
-  });
-  const [selectedClassId, setSelectedClassId] = useState(searchParams.get('class_id') || 'all');
-
-  // Classes state
-  const [classes, setClasses] = useState([]);
-
-  // Update URL when filters change
-  useEffect(() => {
-    const params = new URLSearchParams();
-    if (dateRange[0]) params.set('from', dateRange[0].format('YYYY-MM-DD'));
-    if (dateRange[1]) params.set('to', dateRange[1].format('YYYY-MM-DD'));
-    if (selectedClassId) params.set('class_id', selectedClassId);
-    setSearchParams(params);
-  }, [dateRange, selectedClassId, setSearchParams]);
-
-  // Load classes
-  useEffect(() => {
-    const loadClasses = async () => {
-      try {
-        let query = supabase
-          .from('class_instances')
-          .select('id, grade, section')
-          .eq('school_code', schoolCode)
-          .order('grade', { ascending: true })
-          .order('section', { ascending: true });
-
-        if (userRole === 'admin') {
-          query = query.eq('class_teacher_id', user.id);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        
-        const transformedData = (data || []).map(cls => ({
-          ...cls,
-          class_name: `${cls.grade}-${cls.section}`
-        }));
-        
-        // Add "All Classes" option at the beginning
-        const classesWithAll = [
-          { id: 'all', class_name: 'All Classes', grade: 'All', section: 'Classes' },
-          ...transformedData
-        ];
-        
-        setClasses(classesWithAll);
-      } catch (error) {
-        console.error('Error loading classes:', error);
-      }
-    };
-
-    if (schoolCode) {
-      loadClasses();
-    }
-  }, [userRole, schoolCode, user?.id]);
-
-  // Use analytics hooks
-  const attendanceAnalytics = useAttendanceAnalytics({
-    startDate: dateRange[0],
-    endDate: dateRange[1],
-    classId: selectedClassId
-  });
-
-  const feesAnalytics = useFeesAnalytics({
-    startDate: dateRange[0],
-    endDate: dateRange[1],
-    classId: selectedClassId
-  });
-
-  const examsAnalytics = useExamsAnalytics({
-    startDate: dateRange[0],
-    endDate: dateRange[1],
-    classId: selectedClassId
-  });
-
-  const learningAnalytics = useLearningAnalytics({
-    startDate: dateRange[0],
-    endDate: dateRange[1],
-    classId: selectedClassId
-  });
-
-  // Filter handlers
-  const handleDateRangeChange = (dates) => {
-    setDateRange(dates);
-  };
-
-  const handleClassChange = (classId) => {
-    setSelectedClassId(classId);
-  };
-
-  const handleRefresh = () => {
-    // Data will reload automatically due to hook dependencies
-    window.location.reload();
-  };
-
-  // Role-based visibility
-  const canViewAttendance = ['superadmin', 'admin', 'student'].includes(userRole);
-  const canViewFees = ['superadmin', 'admin'].includes(userRole);
-  const canViewExams = ['superadmin', 'admin', 'student'].includes(userRole);
-  const canViewLearning = ['superadmin', 'admin', 'student'].includes(userRole);
-
-  // Check if any analytics are loading
-  const anyLoading = attendanceAnalytics.loading || feesAnalytics.loading || 
-                    examsAnalytics.loading || learningAnalytics.loading;
+export default function AnalyticsHub() {
+  const { selectedYear, formatYearLabel } = useAcademicYear();
+  const ayLabel = selectedYear ? formatYearLabel(selectedYear) : '—';
 
   return (
-    <div 
-      className="analytics-hub-container"
-      style={{ 
-        padding: '16px 20px', 
-        background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
-        minHeight: '100vh',
-        maxWidth: '100%',
-        overflowX: 'hidden'
-      }}
-    >
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'flex-start', 
-          flexWrap: 'wrap', 
-          gap: 16 
-        }}>
-          <div style={{ flex: 1, minWidth: '280px' }}>
-            <Title level={2} style={{ 
-              margin: 0, 
-              fontSize: window.innerWidth < 768 ? 20 : 28, 
-              fontWeight: 600, 
-              color: theme.token.colorTextHeading, 
-              marginBottom: 8,
-              lineHeight: 1.2
-            }}>
-              📊 Analytics Hub
-            </Title>
-            <Text type="secondary" style={{ 
-              fontSize: window.innerWidth < 768 ? 13 : 16, 
-              color: theme.token.colorTextSecondary,
-              lineHeight: 1.4
-            }}>
-              Unified percentage-based analytics across all modules
-            </Text>
-          </div>
-        </div>
-      </div>
-
-      {/* Compact Filter Bar */}
-      <CompactFilterBar
-        dateRange={dateRange}
-        selectedClassId={selectedClassId}
-        classes={classes}
-        onDateRangeChange={handleDateRangeChange}
-        onClassChange={handleClassChange}
-        onRefresh={handleRefresh}
-        loading={anyLoading}
-      />
-
-      {/* Analytics Grid - 2x2 on desktop, 1x4 on mobile */}
-      <Row gutter={[20, 20]}>
-        {/* Attendance Analytics */}
-        {canViewAttendance && (
-          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
-            <AnalyticsCard
-              title="Attendance"
-              primaryPercent={attendanceAnalytics.data?.primaryPercent || 0}
-              primaryLabel={attendanceAnalytics.data?.primaryLabel || 'Present'}
-              secondaryPercent={attendanceAnalytics.data?.secondaryPercent || 0}
-              secondaryLabel={attendanceAnalytics.data?.secondaryLabel || 'Absent'}
-              supporting={attendanceAnalytics.data?.supporting || []}
-              onViewDetails={() => navigate('/analytics/attendance/overview')}
-              loading={attendanceAnalytics.loading}
-              error={attendanceAnalytics.error}
-            />
-          </Col>
-        )}
-
-        {/* Fees Analytics */}
-        {canViewFees && (
-          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
-            <AnalyticsCard
-              title="Fees"
-              primaryPercent={feesAnalytics.data?.primaryPercent || 0}
-              primaryLabel={feesAnalytics.data?.primaryLabel || 'Collected'}
-              secondaryPercent={feesAnalytics.data?.secondaryPercent || 0}
-              secondaryLabel={feesAnalytics.data?.secondaryLabel || 'Outstanding'}
-              supporting={feesAnalytics.data?.supporting || []}
-              onViewDetails={() => navigate('/fees')}
-              loading={feesAnalytics.loading}
-              error={feesAnalytics.error}
-            />
-          </Col>
-        )}
-
-        {/* Exams Analytics */}
-        {canViewExams && (
-          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
-            <AnalyticsCard
-              title="Exams"
-              primaryPercent={examsAnalytics.data?.primaryPercent || 0}
-              primaryLabel={examsAnalytics.data?.primaryLabel || 'Pass'}
-              secondaryPercent={examsAnalytics.data?.secondaryPercent || 0}
-              secondaryLabel={examsAnalytics.data?.secondaryLabel || 'Fail'}
-              supporting={examsAnalytics.data?.supporting || []}
-              onViewDetails={() => navigate('/test-management')}
-              loading={examsAnalytics.loading}
-              error={examsAnalytics.error}
-            />
-          </Col>
-        )}
-
-        {/* Learning Analytics */}
-        {canViewLearning && (
-          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
-            <AnalyticsCard
-              title="Learning"
-              primaryPercent={learningAnalytics.data?.primaryPercent || 0}
-              primaryLabel={learningAnalytics.data?.primaryLabel || 'Completed'}
-              secondaryPercent={learningAnalytics.data?.secondaryPercent || 0}
-              secondaryLabel={learningAnalytics.data?.secondaryLabel || 'Pending'}
-              supporting={learningAnalytics.data?.supporting || []}
-              onViewDetails={() => navigate('/learning-resources')}
-              loading={learningAnalytics.loading}
-              error={learningAnalytics.error}
-            />
-          </Col>
-        )}
+    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+      {/* Hero strip */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={14}>
+          <HeroStat
+            gradient="brand"
+            eyebrow={`Academic Year · ${ayLabel}`}
+            value={6}
+            suffix=" reports"
+            label="Pick a feature below — every chart is scoped to the AY at the top."
+            height={160}
+          />
+        </Col>
+        <Col xs={24} md={10}>
+          <HeroStat
+            gradient="midnight"
+            eyebrow="Tip"
+            value="↻"
+            label="Switch the AY at top to compare years. Toggle Compare to overlay two AYs side-by-side."
+            height={160}
+          />
+        </Col>
       </Row>
 
-      {/* Date Range Summary */}
-      {dateRange[0] && dateRange[1] && (
-        <div style={{ 
-          marginTop: 24,
-          textAlign: 'center',
-          padding: '16px',
-          background: theme.token.colorBgContainer,
-          borderRadius: 12,
-          border: `1px solid ${theme.token.colorBorder}`
+      {/* Features */}
+      <div>
+        <Text style={{
+          fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.6,
+          fontWeight: 600, marginBottom: 12, display: 'block',
         }}>
-          <Text type="secondary" style={{ 
-            fontSize: '14px',
-            color: theme.token.colorTextSecondary
-          }}>
-            📅 Showing data from {dateRange[0].format('DD MMM YYYY')} to {dateRange[1].format('DD MMM YYYY')}
-            {selectedClassId !== 'all' && (
-              <span> • {classes.find(c => c.id === selectedClassId)?.class_name || 'Selected Class'}</span>
-            )}
-          </Text>
-        </div>
-      )}
-    </div>
+          Reports
+        </Text>
+        <Row gutter={[16, 16]}>
+          {FEATURES.map((f) => <FeatureCard key={f.key} feature={f} />)}
+        </Row>
+      </div>
+    </Space>
   );
-};
+}
 
-export default AnalyticsHub;
+function FeatureCard({ feature }) {
+  const f = feature;
+  return (
+    <Col xs={24} sm={12} lg={8}>
+      <Link to={f.to} style={{ textDecoration: 'none' }}>
+        <div className="ay-feature-card" style={{
+          background: '#fff',
+          border: '1px solid #eef2ff',
+          borderRadius: 14,
+          padding: 20,
+          cursor: 'pointer',
+          height: '100%',
+          minHeight: 168,
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          transition: 'all 0.2s ease',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.borderColor = f.accent;
+          e.currentTarget.style.boxShadow = `0 12px 24px -10px ${f.accent}33`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.borderColor = '#eef2ff';
+          e.currentTarget.style.boxShadow = 'none';
+        }}>
+          {/* Soft accent in corner */}
+          <div aria-hidden style={{
+            position: 'absolute', right: -30, top: -30, width: 110, height: 110,
+            background: f.accentSoft, borderRadius: '50%',
+          }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10,
+              background: f.accent, color: '#fff',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, marginBottom: 14,
+              boxShadow: `0 6px 14px -4px ${f.accent}66`,
+            }}>
+              {f.icon}
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', marginBottom: 4, letterSpacing: -0.3 }}>
+              {f.title}
+            </div>
+            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+              {f.desc}
+            </div>
+          </div>
+          <div style={{
+            position: 'relative', zIndex: 1, marginTop: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <Tag color="default" style={{ borderRadius: 999, fontSize: 11, margin: 0 }}>AY-scoped</Tag>
+            <span style={{ color: f.accent, fontWeight: 600, fontSize: 13 }}>
+              Open <ArrowRightOutlined />
+            </span>
+          </div>
+        </div>
+      </Link>
+    </Col>
+  );
+}

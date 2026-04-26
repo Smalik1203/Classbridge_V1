@@ -1,20 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Form, Select, Input, Radio, App } from 'antd';
+import { Form, Select, Input, Radio, App } from 'antd';
+import { FormModal, validators } from '../../../shared/components/forms';
 import { feedbackService, STUDENT_REMARK_CATEGORIES, CATEGORY_LABELS } from '../services/communicationsService';
 
 const { TextArea } = Input;
 
 export default function StudentFeedbackModal({ open, onClose, onSaved, schoolCode, fromUserId }) {
   const { message } = App.useApp();
-  const [form] = Form.useForm();
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
   const [selectedClass, setSelectedClass] = useState();
 
   useEffect(() => {
     if (!open) return;
-    form.resetFields();
     setSelectedClass(undefined);
     Promise.all([
       feedbackService.listStudents(schoolCode),
@@ -22,49 +20,42 @@ export default function StudentFeedbackModal({ open, onClose, onSaved, schoolCod
     ])
       .then(([s, c]) => { setStudents(s); setClasses(c); })
       .catch((e) => message.error(e.message || 'Failed to load students'));
-    // eslint-disable-next-line
-  }, [open]);
+  }, [open, schoolCode, message]);
 
   const filteredStudents = useMemo(() => {
     if (!selectedClass) return students;
     return students.filter((s) => s.class_instance_id === selectedClass);
   }, [students, selectedClass]);
 
-  const submit = async () => {
-    let v;
-    try { v = await form.validateFields(); } catch { return; }
-    try {
-      setSubmitting(true);
-      await feedbackService.sendStudentFeedback({
-        from_user_id: fromUserId,
-        to_user_id: v.to_user_id,
-        class_instance_id: v.class_instance_id || null,
-        category: v.category,
-        content: v.content,
-        school_code: schoolCode,
-      });
-      message.success('Feedback sent to student');
-      onSaved?.();
-      onClose?.();
-    } catch (e) {
-      message.error(e.message || 'Failed to send');
-    } finally { setSubmitting(false); }
+  const handleSubmit = async (v) => {
+    return feedbackService.sendStudentFeedback({
+      from_user_id: fromUserId,
+      to_user_id: v.to_user_id,
+      class_instance_id: v.class_instance_id || null,
+      category: v.category,
+      content: v.content,
+      school_code: schoolCode,
+    });
   };
 
   return (
-    <Modal
+    <FormModal
       open={open}
+      onClose={onClose}
       title="Send Feedback to Student"
-      onCancel={submitting ? undefined : onClose}
-      onOk={submit}
       okText="Send feedback"
-      confirmLoading={submitting}
       width={600}
-      destroyOnClose
+      requiredMark="optional"
+      getInitialValues={() => ({ category: 'observation' })}
+      onSubmit={handleSubmit}
+      onSaved={onSaved}
+      successMessage="Feedback sent to student"
+      errorMessage="Failed to send"
+      formProps={{
+        onValuesChange: (c) => { if ('class_instance_id' in c) setSelectedClass(c.class_instance_id); },
+      }}
     >
-      <Form form={form} layout="vertical" initialValues={{ category: 'observation' }}
-        onValuesChange={(c) => { if ('class_instance_id' in c) setSelectedClass(c.class_instance_id); }}
-      >
+      {() => (<>
         <Form.Item label="Class (filter)" name="class_instance_id">
           <Select
             allowClear
@@ -80,7 +71,7 @@ export default function StudentFeedbackModal({ open, onClose, onSaved, schoolCod
             options={filteredStudents.map((s) => ({ value: s.id, label: s.full_name }))}
           />
         </Form.Item>
-        <Form.Item label="Category" name="category" rules={[{ required: true }]}>
+        <Form.Item label="Category" name="category" rules={[validators.required('Category')]}>
           <Radio.Group buttonStyle="solid" optionType="button">
             {STUDENT_REMARK_CATEGORIES.map((c) => (
               <Radio.Button key={c} value={c}>{CATEGORY_LABELS[c]}</Radio.Button>
@@ -90,7 +81,7 @@ export default function StudentFeedbackModal({ open, onClose, onSaved, schoolCod
         <Form.Item label="Feedback" name="content" rules={[{ required: true, whitespace: true }]}>
           <TextArea autoSize={{ minRows: 4, maxRows: 8 }} placeholder="Share remark, appreciation or improvement note…" />
         </Form.Item>
-      </Form>
-    </Modal>
+      </>)}
+    </FormModal>
   );
 }

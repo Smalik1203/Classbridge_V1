@@ -162,52 +162,41 @@ export const getFeesSummary = async (schoolCode, dateRange, classId = null) => {
 
     const studentIds = students.map(s => s.id);
 
-    // Get fee plans
-    const { data: plans, error: plansError } = await supabase
-      .from('fee_student_plans')
-      .select('id, student_id')
+    // Invoice-first model — read fee_invoices + fee_payments (rupees, not paise)
+    const { data: invoices, error: invErr } = await supabase
+      .from('fee_invoices')
+      .select('id, student_id, total_amount, paid_amount')
       .in('student_id', studentIds)
       .eq('school_code', schoolCode);
+    if (invErr) throw invErr;
 
-    if (plansError) throw plansError;
-
-    const planIds = plans?.map(p => p.id) || [];
-    let planItems = [];
     let payments = [];
-
-    if (planIds.length > 0) {
-      // Get plan items
-      const { data: items, error: itemsError } = await supabase
-        .from('fee_student_plan_items')
-        .select('plan_id, amount_paise')
-        .in('plan_id', planIds);
-
-      if (itemsError) throw itemsError;
-      planItems = items || [];
-
-      // Get payments with date filter
+    if (invoices?.length) {
       let paymentQuery = supabase
         .from('fee_payments')
-        .select('student_id, amount_paise')
+        .select('student_id, amount_inr, payment_date')
         .in('student_id', studentIds)
         .eq('school_code', schoolCode);
-
       if (startDate && endDate) {
         paymentQuery = paymentQuery
-          .gte('created_at', startDate.startOf('day').toISOString())
-          .lte('created_at', endDate.endOf('day').toISOString());
+          .gte('payment_date', startDate.startOf('day').format('YYYY-MM-DD'))
+          .lte('payment_date', endDate.endOf('day').format('YYYY-MM-DD'));
       }
-
       const { data: paymentData, error: paymentError } = await paymentQuery;
       if (paymentError) throw paymentError;
       payments = paymentData || [];
     }
 
-    // Calculate totals
-    const totalAmount = planItems.reduce((sum, item) => sum + item.amount_paise, 0);
-    const totalCollected = payments.reduce((sum, payment) => sum + payment.amount_paise, 0);
-    const totalOutstanding = totalAmount - totalCollected;
-    const collectionRate = totalAmount > 0 ? (totalCollected / totalAmount) * 100 : 0;
+    // Totals are in RUPEES; convert to paise for the legacy fmtINR API at render time.
+    const totalAmountRupees = (invoices || []).reduce((s, i) => s + Number(i.total_amount || 0), 0);
+    const totalCollectedRupees = payments.reduce((s, p) => s + Number(p.amount_inr || 0), 0);
+    const totalOutstandingRupees = Math.max(0, totalAmountRupees - totalCollectedRupees);
+    const collectionRate = totalAmountRupees > 0 ? (totalCollectedRupees / totalAmountRupees) * 100 : 0;
+
+    // Convert to paise for fmtINR (which expects paise) so KPI strings render correctly.
+    const totalAmount = Math.round(totalAmountRupees * 100);
+    const totalCollected = Math.round(totalCollectedRupees * 100);
+    const totalOutstanding = Math.round(totalOutstandingRupees * 100);
 
     // Chart data for stacked bar
     const chartData = [

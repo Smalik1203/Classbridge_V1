@@ -1,7 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ConfigProvider, App as AntApp, Spin, Button } from 'antd';
-import { MenuUnfoldOutlined } from '@ant-design/icons';
+import { Layout, ConfigProvider, App as AntApp, Spin } from 'antd';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
@@ -43,7 +42,7 @@ const customLocale = {
 // Eager imports (small, always needed)
 import { LoginPage, ForgotPasswordPage, ResetPasswordPage } from '@/features/auth';
 import { PrivateRoute } from '@/features/auth';
-import { Sidebar, ComingSoon } from '@/shared/components';
+import { Sidebar } from '@/shared/components';
 import { UnauthorizedPage } from '@/features/auth';
 import { routeAccess } from './routeAccess';
 
@@ -55,11 +54,12 @@ const Assessments = lazy(() => import('@/features/tests/pages/Assessments'));
 const Attendance = lazy(() => import('@/features/attendance/pages/Attendance'));
 const Fees = lazy(() => import('@/features/fees/pages/Fees'));
 const SetupSchool = lazy(() => import('@/features/school/pages/SetupSchool'));
-const AddAdmin = lazy(() => import('@/features/school/components/AddAdmin'));
-const AddStudent = lazy(() => import('@/features/students/components/AddStudent'));
 const AddSpecificClass = lazy(() => import('@/features/school/components/AddSpecificClass'));
-const AddSuperAdmin = lazy(() => import('@/features/school/components/AddSuperAdmin'));
 const AddSubjects = lazy(() => import('@/features/school/components/AddSubjects'));
+
+// Single user-management page — replaces AddAdmin / AddSuperAdmin / AddStudent
+// / SuperAdminCounter / SignUpUser scattered pages.
+const UsersHub = lazy(() => import('@/features/users/pages/UsersHub'));
 const Analytics = lazy(() => import('@/features/analytics/pages/Analytics'));
 const Timetable = lazy(() => import('@/features/timetable/pages/Timetable'));
 const Calendar = lazy(() => import('@/features/calendar/pages/Calendar'));
@@ -68,18 +68,13 @@ const LearningResources = lazy(() => import('@/features/learning-resources/pages
 const UnifiedTestManagement = lazy(() => import('@/features/tests/pages/UnifiedTestManagement'));
 const TaskManagement = lazy(() => import('@/features/tasks/pages/TaskManagement'));
 const TestTaking = lazy(() => import('@/features/tests/pages/TestTaking'));
-const DailyTrendsAnalytics = lazy(() => import('@/features/analytics/pages/DailyTrendsAnalytics'));
-const StudentPerformanceAnalytics = lazy(() => import('@/features/analytics/pages/StudentPerformanceAnalytics'));
-const ClassComparisonAnalytics = lazy(() => import('@/features/analytics/pages/ClassComparisonAnalytics'));
-const StatusDistributionAnalytics = lazy(() => import('@/features/analytics/pages/StatusDistributionAnalytics'));
-const SuperAdminCounter = lazy(() => import('@/features/school/components/SuperAdminCounter'));
 const StudentTimetable = lazy(() => import('@/features/timetable/pages/StudentTimetable'));
 const StudentSyllabus = lazy(() => import('@/features/syllabus/pages/StudentSyllabus'));
 const StudentResults = lazy(() => import('@/features/students/pages/StudentResults'));
 const StudentLearningResources = lazy(() => import('@/features/learning-resources/pages/StudentLearningResources'));
 const StudentCalendar = lazy(() => import('@/features/calendar/pages/StudentCalendar'));
 const StudentAttendance = lazy(() => import('@/features/students/pages/StudentAttendance'));
-const StudentAnalytics = lazy(() => import('@/features/students/pages/StudentAnalytics'));
+const StudentSelfAnalytics = lazy(() => import('@/features/analytics/pages/StudentSelfAnalytics'));
 
 // HRMS
 const HrHub = lazy(() => import('@/features/hr/pages/HrHub'));
@@ -102,6 +97,9 @@ const AdmissionsPipeline = lazy(() => import('@/features/admissions/pages/Admiss
 // Inventory
 const Inventory = lazy(() => import('@/features/inventory/pages/Inventory'));
 
+// Sage Chatbot
+const Chatbot = lazy(() => import('@/features/chatbot/pages/Chatbot'));
+
 // Finance (school GL)
 const FinanceHub          = lazy(() => import('@/features/finance/pages/FinanceHub'));
 const FinanceTransactions = lazy(() => import('@/features/finance/pages/Transactions'));
@@ -113,55 +111,58 @@ const FinanceInconsistencies = lazy(() => import('@/features/finance/pages/Incon
 
 const { Content } = Layout;
 
-// Global layout with sidebar
+// Sidebar widths — keep in sync with Sidebar.jsx.
+const RAIL_WIDTH = 64;
+const EXPANDED_WIDTH = 240;
+
+// Global layout with hover-expand sidebar.
+//
+// Default: a 64px rail is always visible (icons only). Hovering the rail
+// expands it to 240px as an overlay — the page content stays put.
+// Pinning (via the button in the sidebar header) keeps it expanded AND
+// reflows the content margin so nothing is hidden under it. Preference
+// is persisted in localStorage.
 function AppLayout({ children }) {
   const { isDarkMode } = useTheme();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
+  const [pinned, setPinned] = useState(() => {
+    const saved = localStorage.getItem('sidebarPinned');
     return saved ? JSON.parse(saved) : false;
   });
+  const [hovered, setHovered] = useState(false);
 
-  // Save sidebar state to localStorage
   useEffect(() => {
-    localStorage.setItem('sidebarCollapsed', JSON.stringify(sidebarCollapsed));
-  }, [sidebarCollapsed]);
-  
+    localStorage.setItem('sidebarPinned', JSON.stringify(pinned));
+  }, [pinned]);
+
+  const expanded = pinned || hovered;
+
   return (
-    <Layout style={{ 
+    <Layout style={{
       minHeight: '100vh',
-      background: isDarkMode 
+      background: isDarkMode
         ? '#000000'
-        : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)'
+        : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)',
     }}>
-      <Sidebar 
-        collapsed={sidebarCollapsed} 
-        onCollapse={setSidebarCollapsed}
+      <Sidebar
+        expanded={expanded}
+        pinned={pinned}
+        onPinChange={setPinned}
+        onHoverChange={setHovered}
+        railWidth={RAIL_WIDTH}
+        expandedWidth={EXPANDED_WIDTH}
       />
-      <Layout style={{ 
-        marginLeft: sidebarCollapsed ? 0 : 280,
+      <Layout style={{
+        // When pinned, content reflows to make room. When floating (hover),
+        // content stays put under a 64px gutter and the expanded sidebar
+        // overlays on top.
+        marginLeft: pinned ? EXPANDED_WIDTH : RAIL_WIDTH,
         background: 'transparent',
-        transition: 'margin-left 0.2s ease'
+        transition: 'margin-left 0.2s ease',
       }}>
-        {/* Floating Toggle Button when sidebar is collapsed */}
-        {sidebarCollapsed && (
-          <Button
-            type="primary"
-            icon={<MenuUnfoldOutlined />}
-            onClick={() => setSidebarCollapsed(false)}
-            style={{
-              position: 'fixed',
-              top: '20px',
-              left: '20px',
-              zIndex: 1000,
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-              borderRadius: '8px'
-            }}
-          />
-        )}
         <Content style={{
           padding: '24px',
           minHeight: '100vh',
-          background: 'transparent'
+          background: 'transparent',
         }}>
           {children}
         </Content>
@@ -215,22 +216,26 @@ function AppContent() {
               
               {/* School Management Routes */}
               <Route path="/add-schools" element={<PrivateRoute allowedRoles={routeAccess.addSchools}><AddSchools /></PrivateRoute>} />
-              <Route path="/add-super-admin" element={<PrivateRoute allowedRoles={routeAccess.addSuperAdmin}><AddSuperAdmin /></PrivateRoute>} />
               <Route path="/school-setup" element={<PrivateRoute allowedRoles={routeAccess.schoolSetup}><SetupSchool /></PrivateRoute>} />
-              <Route path="/add-admin" element={<PrivateRoute allowedRoles={routeAccess.addAdmin}><AddAdmin /></PrivateRoute>} />
-              <Route path="/add-student" element={<PrivateRoute allowedRoles={routeAccess.addStudent}><AddStudent /></PrivateRoute>} />
               <Route path="/add-specific-class" element={<PrivateRoute allowedRoles={routeAccess.addSpecificClass}><AddSpecificClass /></PrivateRoute>} />
               <Route path="/add-subjects" element={<PrivateRoute allowedRoles={routeAccess.addSubjects}><AddSubjects /></PrivateRoute>} />
-              <Route path="/super-admin-count" element={<SuperAdminCounter />} />
+
+              {/* User Management — single page that lists everyone using the app */}
+              <Route path="/users" element={<PrivateRoute allowedRoles={routeAccess.users}><UsersHub /></PrivateRoute>} />
+
+              {/* Backwards-compat redirects for scattered legacy routes */}
+              <Route path="/add-admin" element={<Navigate to="/users" replace />} />
+              <Route path="/add-super-admin" element={<Navigate to="/users" replace />} />
+              <Route path="/add-student" element={<Navigate to="/users" replace />} />
+              <Route path="/super-admin-count" element={<Navigate to="/users" replace />} />
+              <Route path="/signup-user" element={<Navigate to="/users" replace />} />
 
               {/* Feature Routes */}
               <Route path="/attendance" element={<PrivateRoute allowedRoles={routeAccess.attendance}><Attendance /></PrivateRoute>} />
               <Route path="/fees" element={<PrivateRoute allowedRoles={routeAccess.fees}><Fees /></PrivateRoute>} />
+              {/* Unified Analytics — handles /analytics, /analytics/student/:id, /analytics/class/:id,
+                  legacy tab redirects (/daily-trends, /weak-areas, /topic-heatmap, etc.) */}
               <Route path="/analytics/*" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
-              <Route path="/analytics/daily-trends" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
-              <Route path="/analytics/student-performance" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
-              <Route path="/analytics/class-comparison" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
-              <Route path="/analytics/status-distribution" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
               <Route path="/timetable" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Timetable /></PrivateRoute>} />
               <Route path="/calendar" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Calendar /></PrivateRoute>} />
               <Route path="/syllabus" element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
@@ -247,21 +252,7 @@ function AppContent() {
               <Route path="/student/resources" element={<PrivateRoute allowedRoles={['student']}><StudentLearningResources /></PrivateRoute>} />
               <Route path="/student/calendar" element={<PrivateRoute allowedRoles={['student']}><StudentCalendar /></PrivateRoute>} />
               <Route path="/student/attendance" element={<PrivateRoute allowedRoles={['student']}><StudentAttendance /></PrivateRoute>} />
-              <Route path="/student/analytics" element={<PrivateRoute allowedRoles={['student']}><StudentAnalytics /></PrivateRoute>} />
-
-              {/* === Placeholders matching mobile (Classbridge) routes 1:1 === */}
-
-              {/* Transport (TMS) — mirrors /transport/* on mobile */}
-              <Route path="/transport" element={<ComingSoon module="Transport (TMS)" title="Transport Hub" />} />
-              <Route path="/transport/buses" element={<ComingSoon module="Transport (TMS)" title="Buses" />} />
-              <Route path="/transport/drivers" element={<ComingSoon module="Transport (TMS)" title="Drivers" />} />
-              <Route path="/transport/assignments" element={<ComingSoon module="Transport (TMS)" title="Bus Assignments" />} />
-              <Route path="/transport/routes" element={<ComingSoon module="Transport (TMS)" title="Routes" />} />
-              <Route path="/transport/live" element={<ComingSoon module="Transport (TMS)" title="Live Tracking" />} />
-              <Route path="/transport/simulator" element={<ComingSoon module="Transport (TMS)" title="Route Simulator" />} />
-              <Route path="/transport/school-location" element={<ComingSoon module="Transport (TMS)" title="School Location" />} />
-              <Route path="/transport/my-bus" element={<ComingSoon module="Transport (TMS)" title="My Bus" />} />
-              <Route path="/driver" element={<ComingSoon module="Transport (TMS)" title="Driver Console" />} />
+              <Route path="/student/analytics" element={<PrivateRoute allowedRoles={['student']}><StudentSelfAnalytics /></PrivateRoute>} />
 
               {/* HRMS — mirrors /hr/* on mobile */}
               <Route path="/hr" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><HrHub /></PrivateRoute>} />
@@ -273,12 +264,9 @@ function AppContent() {
               <Route path="/hr/my" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><MyHr /></PrivateRoute>} />
               <Route path="/hr/salary-components" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><SalaryComponents /></PrivateRoute>} />
 
-              {/* Management hub — mirrors /manage/* on mobile */}
-              <Route path="/manage" element={<ComingSoon module="Management" title="Management Hub" />} />
+              {/* Management — mirrors /manage/* on mobile */}
               <Route path="/manage/admissions" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><AdmissionsPipeline /></PrivateRoute>} />
               <Route path="/manage/inventory" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><Inventory /></PrivateRoute>} />
-              <Route path="/manage/inactive-users" element={<ComingSoon module="School" title="Inactive Users" />} />
-              <Route path="/manage/my-class" element={<ComingSoon module="My Class" title="My Class" />} />
 
               {/* Finance (school GL) — mirrors /finance on mobile (super-admin only) */}
               <Route path="/finance"                  element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceHub /></PrivateRoute>} />
@@ -288,23 +276,17 @@ function AppContent() {
               <Route path="/finance/inconsistencies"  element={<PrivateRoute allowedRoles={['superadmin']}><FinanceInconsistencies /></PrivateRoute>} />
 
               {/* AI tools — mirrors mobile */}
-              <Route path="/chatbot" element={<ComingSoon module="Sage" title="Sage Chatbot" />} />
+              <Route path="/chatbot" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><Chatbot /></PrivateRoute>} />
               {/* AI Test Generator — redirects into the unified Test Management hub */}
               <Route path="/ai-test-generator" element={<Navigate to="/test-management?mode=ai" replace />} />
 
-              {/* Advanced analytics — mirrors /analytics/* on mobile */}
-              <Route path="/analytics/weak-areas" element={<ComingSoon module="Analytics" title="Weak Areas" />} />
-              <Route path="/analytics/topic-heatmap" element={<ComingSoon module="Analytics" title="Topic Heatmap" />} />
-              <Route path="/analytics/misconception-report" element={<ComingSoon module="Analytics" title="Misconception Report" />} />
+              {/* Advanced analytics (/analytics/weak-areas, /topic-heatmap, /misconception-report)
+                  are now handled by the unified Analytics router as legacy → ?tab= redirects */}
 
               {/* Academics — mirrors /academics/* on mobile (extras not yet built on web) */}
               <Route path="/academics/announcements" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><Announcements /></PrivateRoute>} />
               <Route path="/academics/communication-hub" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><CommunicationHub /></PrivateRoute>} />
               <Route path="/academics/report-comments" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><ReportComments /></PrivateRoute>} />
-              <Route path="/academics/gradebook" element={<ComingSoon module="Academics" title="Grade Book" />} />
-              <Route path="/academics/progress" element={<ComingSoon module="Academics" title="Student Progress" />} />
-              <Route path="/academics/syllabus-student" element={<ComingSoon module="Academics" title="My Syllabus" />} />
-              <Route path="/academics/class-comparison" element={<ComingSoon module="Analytics" title="Class Comparison" />} />
 
               {/* Test detail screens — mirrors /test/[testId]/* on mobile.
                   Web folds these into the unified Test Management hub. */}
@@ -312,13 +294,6 @@ function AppContent() {
               <Route path="/test/:testId/questions" element={<Navigate to="/test-management" replace />} />
               <Route path="/test/:testId/results" element={<Navigate to="/test-management" replace />} />
               <Route path="/test/:testId/marks" element={<Navigate to="/test-management" replace />} />
-
-              {/* Student-side */}
-              <Route path="/student/classmates" element={<ComingSoon module="My Class" title="Classmates" />} />
-
-              {/* Account */}
-              <Route path="/change-password" element={<ComingSoon module="Account" title="Change Password" />} />
-              <Route path="/settings" element={<ComingSoon module="Account" title="Settings & Profile" />} />
 
               {/* Error Routes */}
               <Route path="/unauthorized" element={<UnauthorizedPage />} />

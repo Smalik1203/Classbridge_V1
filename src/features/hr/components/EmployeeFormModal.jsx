@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import {
-  Modal, Form, Input, Select, DatePicker, Switch, Row, Col, App,
-} from 'antd';
-import dayjs from 'dayjs';
+import React from 'react';
+import { Form, Input, Select, DatePicker, Switch, Row, Col } from 'antd';
+import { FormModal, validators, toDayjs, fromDayjs } from '../../../shared/components/forms';
 import { hrService } from '../services/hrService';
 
 const GENDERS = [
@@ -26,94 +24,77 @@ const STATUSES = [
 ];
 
 export default function EmployeeFormModal({ open, onClose, schoolCode, employee, onSaved }) {
-  const [form] = Form.useForm();
-  const [saving, setSaving] = useState(false);
-  const { message } = App.useApp();
   const isEdit = !!employee?.id;
 
-  useEffect(() => {
-    if (open) {
-      if (employee) {
-        form.setFieldsValue({
-          ...employee,
-          date_of_birth: employee.date_of_birth ? dayjs(employee.date_of_birth) : null,
-          join_date: employee.join_date ? dayjs(employee.join_date) : null,
-          confirmation_date: employee.confirmation_date ? dayjs(employee.confirmation_date) : null,
-          relieving_date: employee.relieving_date ? dayjs(employee.relieving_date) : null,
-        });
-      } else {
-        form.resetFields();
-        form.setFieldsValue({ status: 'active', employment_type: 'permanent', is_tds_applicable: true });
-      }
-    }
-  }, [open, employee, form]);
+  const getInitialValues = (editing) => editing ? {
+    ...editing,
+    date_of_birth: toDayjs(editing.date_of_birth),
+    join_date: toDayjs(editing.join_date),
+    confirmation_date: toDayjs(editing.confirmation_date),
+    relieving_date: toDayjs(editing.relieving_date),
+  } : {
+    status: 'active',
+    employment_type: 'permanent',
+    is_tds_applicable: true,
+  };
 
-  const submit = async () => {
-    try {
-      const v = await form.validateFields();
-      setSaving(true);
-      const payload = {
-        ...v,
-        school_code: schoolCode,
-        date_of_birth: v.date_of_birth ? v.date_of_birth.format('YYYY-MM-DD') : null,
-        join_date: v.join_date ? v.join_date.format('YYYY-MM-DD') : null,
-        confirmation_date: v.confirmation_date ? v.confirmation_date.format('YYYY-MM-DD') : null,
-        relieving_date: v.relieving_date ? v.relieving_date.format('YYYY-MM-DD') : null,
-      };
-      const saved = isEdit
-        ? await hrService.updateEmployee(employee.id, payload)
-        : await hrService.createEmployee(payload);
-      message.success(isEdit ? 'Employee updated' : 'Employee created');
-      onSaved?.(saved);
-      onClose();
-    } catch (e) {
-      if (e?.errorFields) return; // validation error already shown by AntD
-      message.error(e.message || 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
+  const handleSubmit = async (v) => {
+    const payload = {
+      ...v,
+      school_code: schoolCode,
+      date_of_birth: fromDayjs(v.date_of_birth),
+      join_date: fromDayjs(v.join_date),
+      confirmation_date: fromDayjs(v.confirmation_date),
+      relieving_date: fromDayjs(v.relieving_date),
+    };
+    return isEdit
+      ? hrService.updateEmployee(employee.id, payload)
+      : hrService.createEmployee(payload);
   };
 
   return (
-    <Modal
+    <FormModal
       open={open}
-      onCancel={onClose}
-      onOk={submit}
-      okText={isEdit ? 'Save Changes' : 'Create Employee'}
+      onClose={onClose}
       title={isEdit ? `Edit · ${employee?.full_name}` : 'Add New Employee'}
-      confirmLoading={saving}
+      okText={isEdit ? 'Save Changes' : 'Create Employee'}
       width={760}
-      destroyOnClose
+      requiredMark
+      editing={employee}
+      getInitialValues={getInitialValues}
+      onSubmit={handleSubmit}
+      onSaved={onSaved}
+      successMessage={isEdit ? 'Employee updated' : 'Employee created'}
     >
-      <Form form={form} layout="vertical" requiredMark>
+      {() => (
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item name="employee_code" label="Employee Code" rules={[{ required: true }]}>
+            <Form.Item name="employee_code" label="Employee Code" rules={[validators.required('Employee code')]}>
               <Input placeholder="EMP001" />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item name="full_name" label="Full Name" rules={[{ required: true }]}>
+            <Form.Item name="full_name" label="Full Name" rules={[validators.required('Full name')]}>
               <Input />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item name="department" label="Department" rules={[{ required: true }]}>
+            <Form.Item name="department" label="Department" rules={[validators.required('Department')]}>
               <Input placeholder="e.g. Mathematics" />
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item name="designation" label="Designation" rules={[{ required: true }]}>
+            <Form.Item name="designation" label="Designation" rules={[validators.required('Designation')]}>
               <Input placeholder="e.g. Senior Teacher" />
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item name="employment_type" label="Employment Type" rules={[{ required: true }]}>
+            <Form.Item name="employment_type" label="Employment Type" rules={[validators.required('Employment type')]}>
               <Select options={EMPLOYMENT_TYPES} />
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item name="status" label="Status" rules={[{ required: true }]}>
+            <Form.Item name="status" label="Status" rules={[validators.required('Status')]}>
               <Select options={STATUSES} />
             </Form.Item>
           </Col>
@@ -123,7 +104,7 @@ export default function EmployeeFormModal({ open, onClose, schoolCode, employee,
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item name="join_date" label="Join Date" rules={[{ required: true }]}>
+            <Form.Item name="join_date" label="Join Date" rules={[validators.required('Join date')]}>
               <DatePicker style={{ width: '100%' }} />
             </Form.Item>
           </Col>
@@ -143,7 +124,7 @@ export default function EmployeeFormModal({ open, onClose, schoolCode, employee,
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item name="email" label="Email">
+            <Form.Item name="email" label="Email" rules={[validators.email()]}>
               <Input type="email" />
             </Form.Item>
           </Col>
@@ -183,7 +164,7 @@ export default function EmployeeFormModal({ open, onClose, schoolCode, employee,
             </Form.Item>
           </Col>
         </Row>
-      </Form>
-    </Modal>
+      )}
+    </FormModal>
   );
 }

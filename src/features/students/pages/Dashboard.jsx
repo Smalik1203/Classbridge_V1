@@ -28,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '@/AuthProvider';
 import { useTheme } from '@/contexts/ThemeContext';
+import { kpiTone } from '@/shared/components/kpiTone';
 import { supabase } from '@/config/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { getSchoolCode, getUserRole, getStudentCode, getSchoolName } from '@/shared/utils/metadata';
@@ -186,7 +187,7 @@ const Dashboard = () => {
           supabase.from('student').select('id', { count: 'exact', head: true }).in('class_instance_id', classIds).eq('school_code', schoolCode),
           supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today).eq('status', 'present'),
           supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('school_code', schoolCode).eq('date', today),
-          supabase.from('fee_student_plans').select('student_id, fee_student_plan_items(amount_paise)').eq('school_code', schoolCode),
+          supabase.from('fee_invoices').select('student_id, total_amount, paid_amount').eq('school_code', schoolCode),
           supabase.from('tests').select('id', { count: 'exact', head: true }).in('class_instance_id', classIds).gte('test_date', today)
         ]);
 
@@ -363,40 +364,48 @@ const Dashboard = () => {
     return allActions[role] || [];
   };
 
-  const StatCard = ({ title, value, icon, color, suffix, loading }) => (
-    <Card
-      style={{
-        borderRadius: 8,
-        border: `1px solid ${theme.token.colorBorder}`,
-        background: theme.token.colorBgContainer,
-        height: '100%'
-      }}
-      bodyStyle={{ padding: 12 }}
-    >
-      {loading ? (
-        <Skeleton active paragraph={{ rows: 1 }} />
-      ) : (
-        <div>
-          <Text style={{ fontSize: 12, color: '#8c8c8c', fontWeight: 500, display: 'block', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {title}
-          </Text>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <div style={{
-              fontSize: 28,
-              color: color,
-              lineHeight: 1,
-              flexShrink: 0
-            }}>
-              {icon}
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#262626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-              {value}{suffix || ''}
+  const StatCard = ({ title, value, icon, color, suffix, loading }) => {
+    // Mute the icon when the value is absent / zero so empty states read as
+    // "no data yet" instead of an alarm. The icon color is decorative; it
+    // shouldn't shout when there's nothing to shout about.
+    const numericValue = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^\d.-]/g, ''));
+    const hasData = !Number.isNaN(numericValue) && numericValue !== 0;
+    const iconColor = hasData ? color : theme.token.colorTextQuaternary;
+    return (
+      <Card
+        style={{
+          borderRadius: 8,
+          border: `1px solid ${theme.token.colorBorder}`,
+          background: theme.token.colorBgContainer,
+          height: '100%'
+        }}
+        bodyStyle={{ padding: 12 }}
+      >
+        {loading ? (
+          <Skeleton active paragraph={{ rows: 1 }} />
+        ) : (
+          <div>
+            <Text style={{ fontSize: 12, color: theme.token.colorTextSecondary, fontWeight: 500, display: 'block', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {title}
+            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div style={{
+                fontSize: 28,
+                color: iconColor,
+                lineHeight: 1,
+                flexShrink: 0
+              }}>
+                {icon}
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: theme.token.colorText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                {value}{suffix || ''}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </Card>
-  );
+        )}
+      </Card>
+    );
+  };
 
   const ActionCard = ({ label, path, icon, color, description }) => (
     <Card
@@ -533,7 +542,7 @@ const Dashboard = () => {
                   title="Pending Fees"
                   value={`₹${stats.pendingFees.toFixed(0)}`}
                   icon={<DollarOutlined />}
-                  color="#f5222d"
+                  color="#f59e0b"
                   loading={false}
                 />
               </Col>
@@ -631,7 +640,7 @@ const Dashboard = () => {
                   title="Pending Fees"
                   value={`₹${stats.pendingFees.toFixed(0)}`}
                   icon={<DollarOutlined />}
-                  color="#f5222d"
+                  color="#f59e0b"
                   loading={false}
                 />
               </Col>
@@ -653,8 +662,11 @@ const Dashboard = () => {
                 <Text strong style={{ fontSize: 14, color: '#262626' }}>
                   {role === 'student' ? "Today's Status" : "Today's Overview"}
                 </Text>
-                <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
-                  {getTodayIST()}
+                <div style={{ fontSize: 11, color: theme.token.colorTextSecondary, marginTop: 2 }}>
+                  {new Date().toLocaleDateString('en-IN', {
+                    timeZone: 'Asia/Kolkata',
+                    weekday: 'long', day: '2-digit', month: 'short', year: 'numeric',
+                  })}
                 </div>
               </div>
               <Space direction="vertical" style={{ width: '100%' }} size={12}>
@@ -670,14 +682,17 @@ const Dashboard = () => {
                 {role !== 'student' && (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ fontSize: 12, color: '#595959' }}>Attendance Rate</Text>
-                      <Text style={{ fontSize: 12, fontWeight: 600, color: attendancePercentage >= 75 ? '#52c41a' : '#faad14' }}>
+                      <Text style={{ fontSize: 12, color: theme.token.colorTextSecondary }}>Attendance Rate</Text>
+                      <Text style={{
+                        fontSize: 12, fontWeight: 600,
+                        color: kpiTone(attendancePercentage, (v) => v >= 75 ? 'positive' : 'attention'),
+                      }}>
                         {attendancePercentage}%
                       </Text>
                     </div>
                     <Progress
                       percent={attendancePercentage}
-                      strokeColor={attendancePercentage >= 75 ? '#52c41a' : '#faad14'}
+                      strokeColor={kpiTone(attendancePercentage, (v) => v >= 75 ? 'positive' : 'attention') || theme.token.colorBorderSecondary}
                       showInfo={false}
                       size="small"
                     />

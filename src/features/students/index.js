@@ -1,5 +1,7 @@
 // Students Feature - Public API
-export { default as AddStudent } from './components/AddStudent';
+//
+// Note: AddStudent moved to src/features/users/ as part of the User Management
+// consolidation — student account creation is now an "invite" inside /users.
 export { default as SubjectFilter } from './components/SubjectFilter';
 export { default as ClassDetailView } from './components/ClassDetailView';
 
