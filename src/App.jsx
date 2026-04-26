@@ -115,6 +115,8 @@ const { Content } = Layout;
 // Sidebar widths — keep in sync with Sidebar.jsx.
 const RAIL_WIDTH = 64;
 const EXPANDED_WIDTH = 240;
+const SIDEBAR_OFFSET = 12;
+const CONTENT_SIDEBAR_GAP = 16;
 
 function AppLayout({ children }) {
   const { isDarkMode } = useTheme();
@@ -127,12 +129,18 @@ function AppLayout({ children }) {
     localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
   }, [expanded]);
 
+  const pagePaddingX = 'clamp(12px, 2vw, 24px)';
+  const pageMaxWidth = 1400;
+  const pagePaddingTop = 64;
+  const contentLeftOffset =
+    SIDEBAR_OFFSET + (expanded ? EXPANDED_WIDTH : RAIL_WIDTH) + CONTENT_SIDEBAR_GAP;
+
   return (
     <Layout style={{
       minHeight: '100vh',
       background: isDarkMode
         ? '#000000'
-        : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)',
+        : '#f8fafc',
     }}>
       <Sidebar
         expanded={expanded}
@@ -147,7 +155,7 @@ function AppLayout({ children }) {
           style={{
             position: 'fixed',
             top: 22,
-            left: 12 + (expanded ? EXPANDED_WIDTH : RAIL_WIDTH) + 16,
+            left: contentLeftOffset,
             width: 28,
             height: 28,
             display: 'flex',
@@ -167,14 +175,17 @@ function AppLayout({ children }) {
         </button>
       </Tooltip>
       <Layout style={{
-        marginLeft: expanded ? EXPANDED_WIDTH : RAIL_WIDTH,
+        marginLeft: contentLeftOffset,
         background: 'transparent',
         transition: 'margin-left 0.2s ease',
       }}>
         <Content style={{
-          padding: '24px',
+          padding: `${pagePaddingTop}px ${pagePaddingX} 24px`,
           minHeight: '100vh',
           background: 'transparent',
+          maxWidth: pageMaxWidth,
+          margin: 0,
+          width: '100%',
         }}>
           {children}
         </Content>
