@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ConfigProvider, App as AntApp, Spin } from 'antd';
+import { Layout, ConfigProvider, App as AntApp, Spin, Tooltip } from 'antd';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
@@ -115,26 +116,16 @@ const { Content } = Layout;
 const RAIL_WIDTH = 64;
 const EXPANDED_WIDTH = 240;
 
-// Global layout with hover-expand sidebar.
-//
-// Default: a 64px rail is always visible (icons only). Hovering the rail
-// expands it to 240px as an overlay — the page content stays put.
-// Pinning (via the button in the sidebar header) keeps it expanded AND
-// reflows the content margin so nothing is hidden under it. Preference
-// is persisted in localStorage.
 function AppLayout({ children }) {
   const { isDarkMode } = useTheme();
-  const [pinned, setPinned] = useState(() => {
-    const saved = localStorage.getItem('sidebarPinned');
+  const [expanded, setExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebarExpanded');
     return saved ? JSON.parse(saved) : false;
   });
-  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('sidebarPinned', JSON.stringify(pinned));
-  }, [pinned]);
-
-  const expanded = pinned || hovered;
+    localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
+  }, [expanded]);
 
   return (
     <Layout style={{
@@ -145,17 +136,38 @@ function AppLayout({ children }) {
     }}>
       <Sidebar
         expanded={expanded}
-        pinned={pinned}
-        onPinChange={setPinned}
-        onHoverChange={setHovered}
         railWidth={RAIL_WIDTH}
         expandedWidth={EXPANDED_WIDTH}
       />
+      <Tooltip title={expanded ? 'Collapse sidebar' : 'Expand sidebar'} placement="right">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          style={{
+            position: 'fixed',
+            top: 22,
+            left: 12 + (expanded ? EXPANDED_WIDTH : RAIL_WIDTH) + 16,
+            width: 28,
+            height: 28,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            background: '#ffffff',
+            border: '1px solid rgba(15,23,42,0.10)',
+            boxShadow: '0 1px 3px rgba(15,23,42,0.08)',
+            color: '#475569',
+            cursor: 'pointer',
+            zIndex: 101,
+            transition: 'left 0.2s ease, background 0.15s ease, color 0.15s ease',
+          }}
+        >
+          {expanded ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+        </button>
+      </Tooltip>
       <Layout style={{
-        // When pinned, content reflows to make room. When floating (hover),
-        // content stays put under a 64px gutter and the expanded sidebar
-        // overlays on top.
-        marginLeft: pinned ? EXPANDED_WIDTH : RAIL_WIDTH,
+        marginLeft: expanded ? EXPANDED_WIDTH : RAIL_WIDTH,
         background: 'transparent',
         transition: 'margin-left 0.2s ease',
       }}>

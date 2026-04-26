@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/AuthProvider';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/config/supabaseClient';
-import { Menu, Avatar, Typography, Button, Switch, Tooltip, Tag } from 'antd';
+import { Menu, Avatar, Typography, Button, Tooltip, Tag } from 'antd';
+import { radius } from '@/shared/ui/theme';
 import {
   HomeOutlined,
   CalendarOutlined,
@@ -13,10 +14,6 @@ import {
   LogoutOutlined,
   BankOutlined,
   BarChartOutlined,
-  BulbOutlined,
-  BulbFilled,
-  PushpinOutlined,
-  PushpinFilled,
   BookOutlined,
   FileTextOutlined,
   UserOutlined,
@@ -39,34 +36,17 @@ import {
 
 const { Text } = Typography;
 
-/**
- * Hover-expand sidebar.
- *
- * Two states control width:
- *   - `expanded` is true while the cursor is over the sidebar OR the user has pinned it.
- *   - `pinned` (toggled via the pin button) makes `expanded` permanently true and tells
- *     the parent layout to reflow content margin so nothing sits under the sidebar.
- *
- * When not pinned, the sidebar overlays content during hover — content does NOT reflow.
- *
- * After the user clicks a menu item, we collapse back to the rail (unless pinned), so
- * the sidebar gets out of the way of the new page.
- */
 const AppSidebar = ({
   expanded,
-  pinned,
-  onPinChange,
-  onHoverChange,
   railWidth = 64,
   expandedWidth = 240,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isDarkMode, toggleTheme, theme: antdTheme } = useTheme();
+  const { theme: antdTheme } = useTheme();
 
   const userName = user?.user_metadata?.full_name || 'User';
-  // Check for cb_admin_code in user_metadata to determine if user is cb_admin
   const isCbAdmin = user?.user_metadata?.cb_admin_code || user?.app_metadata?.role === 'cb_admin';
   const userRole = user?.app_metadata?.role || (isCbAdmin ? 'cb_admin' : user?.user_metadata?.role) || 'user';
 
@@ -79,23 +59,7 @@ const AppSidebar = ({
   };
 
   const getMenuItems = () => {
-    // Mirrors the mobile app drawer (Classbridge_V1/../classbridge/src/components/layout/drawer.config.ts)
-    // — same section order (Main → Learning → Academic → Finance → Transport → HR → Admin),
-    // same labels, same items where the web has a route.
-    //
-    // Web extras that don't exist on mobile are slotted into their nearest mobile section
-    // (e.g. School Setup, Salary Components, AI Test Generator, Finance sub-pages).
-    //
-    // Mobile-only items currently SKIPPED on web because there's no route yet:
-    //   • My Bus, My Class                     (Main)
-    //   • Grade Book                           (Academic)
-    //   • Buses, Drivers, Assignments, Live,   (entire Transport section)
-    //     Routes, Trip Simulator
-    // When those web pages ship, add them back to the matching section below.
     const allItems = [
-      // ─────────────────────────────────────────────────────────────────────
-      // CB Admin — separate audience, kept flat (mobile drawer has no equivalent)
-      // ─────────────────────────────────────────────────────────────────────
       {
         key: '/cb-admin-dashboard',
         icon: <BankOutlined />,
@@ -115,9 +79,6 @@ const AppSidebar = ({
         roles: ['cb_admin'],
       },
 
-      // ─────────────────────────────────────────────────────────────────────
-      // MAIN  (mobile section 1)
-      // ─────────────────────────────────────────────────────────────────────
       {
         key: '/',
         icon: <HomeOutlined />,
@@ -167,9 +128,6 @@ const AppSidebar = ({
         roles: ['superadmin', 'admin', 'student'],
       },
 
-      // ─────────────────────────────────────────────────────────────────────
-      // LEARNING  (mobile section 2)
-      // ─────────────────────────────────────────────────────────────────────
       {
         key: '/learning-resources',
         icon: <FileTextOutlined />,
@@ -195,9 +153,6 @@ const AppSidebar = ({
         roles: ['student'],
       },
 
-      // ─────────────────────────────────────────────────────────────────────
-      // ACADEMIC  (mobile section 3)
-      // ─────────────────────────────────────────────────────────────────────
       {
         key: '/attendance',
         icon: <CalendarOutlined />,
@@ -222,7 +177,6 @@ const AppSidebar = ({
         label: 'Assessments',
         roles: ['student'],
       },
-      // Mobile "Grade Book" — no web route yet. Add when /gradebook ships.
       {
         key: '/student/results',
         icon: <TrophyOutlined />,
@@ -248,9 +202,6 @@ const AppSidebar = ({
         roles: ['superadmin', 'admin', 'student'],
       },
 
-      // ─────────────────────────────────────────────────────────────────────
-      // FINANCE  (mobile section 4)
-      // ─────────────────────────────────────────────────────────────────────
       {
         key: '/fees',
         icon: <DollarOutlined />,
@@ -294,15 +245,6 @@ const AppSidebar = ({
         roles: ['superadmin'],
       },
 
-      // ─────────────────────────────────────────────────────────────────────
-      // TRANSPORT  (mobile section 5)
-      // No web routes for any transport pages yet — entire section omitted.
-      // When transport ships on web, add Buses/Drivers/Assignments/Live/Routes/Simulator here.
-      // ─────────────────────────────────────────────────────────────────────
-
-      // ─────────────────────────────────────────────────────────────────────
-      // HR  (mobile section 6)
-      // ─────────────────────────────────────────────────────────────────────
       {
         key: '/hr',
         icon: <DashboardOutlined />,
@@ -346,9 +288,6 @@ const AppSidebar = ({
         roles: ['superadmin', 'admin', 'student'],
       },
 
-      // ─────────────────────────────────────────────────────────────────────
-      // ADMIN  (mobile section 7)
-      // ─────────────────────────────────────────────────────────────────────
       {
         key: '/school-setup',
         icon: <SettingOutlined />,
@@ -401,15 +340,8 @@ const AppSidebar = ({
 
     const visible = allItems.filter((item) => item.roles.includes(userRole));
 
-    // Mobile drawer uses lightweight section headers (Main / Learning / Academic / etc.).
-    // We tag each menu item with the section it belongs to using its index in `allItems`,
-    // then group consecutive items under their section header. AntD's `type: 'group'`
-    // renders a non-clickable section label — exactly the mobile drawer's pattern.
-    //
-    // Section boundaries are defined by the start `key` of each section. The CB Admin
-    // role bypasses section headers (it only sees its 3 dedicated items, no need to label).
     const SECTIONS = [
-      { name: null,           startKey: '/cb-admin-dashboard' }, // CB Admin: no header
+      { name: null,           startKey: '/cb-admin-dashboard' },
       { name: 'Main',         startKey: '/' },
       { name: 'Learning',     startKey: '/learning-resources' },
       { name: 'Academic',     startKey: '/attendance' },
@@ -433,7 +365,6 @@ const AppSidebar = ({
             children: currentGroupChildren,
           });
         } else {
-          // Untitled section (CB Admin) — push children directly
           out.push(...currentGroupChildren);
         }
       }
@@ -446,43 +377,19 @@ const AppSidebar = ({
         flushGroup();
         currentSectionIdx = matchedIdx;
       }
-      if (currentSectionIdx === -1) continue; // item before any section header
+      if (currentSectionIdx === -1) continue;
       currentGroupChildren.push({
         key: item.key,
         icon: item.icon,
         label: item.label,
-        onClick: () => {
-          navigate(item.key);
-          // Collapse the sidebar back to the rail after navigating, unless
-          // the user has pinned it. Parent owns hovered state.
-          onHoverChange?.(false);
-        },
+        onClick: () => navigate(item.key),
       });
     }
     flushGroup();
 
-    // Drop empty section groups (some sections may have zero items for a given role).
     return out.filter((g) => g.type !== 'group' || (g.children && g.children.length > 0));
   };
 
-  const userMenuItems = [
-    {
-      key: 'profile',
-      icon: <SettingOutlined />,
-      label: 'Profile'
-    },
-    {
-      type: 'divider'
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Sign Out',
-      onClick: handleLogout
-    }
-  ];
-
-  // Avatar/role badge are duplicated in expanded vs rail mode — extracted to keep the JSX readable.
   const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase();
   const roleLabel = userRole === 'superadmin' ? 'Super Admin' : userRole === 'admin' ? 'Admin' : userRole;
   const roleTagStyle = {
@@ -507,65 +414,50 @@ const AppSidebar = ({
 
   return (
     <div
-      onMouseEnter={() => onHoverChange?.(true)}
-      onMouseLeave={() => onHoverChange?.(false)}
       style={{
         position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        height: '100vh',
+        top: 12,
+        left: 12,
+        bottom: 12,
         width: expanded ? expandedWidth : railWidth,
         background: antdTheme.token.colorBgContainer,
-        borderRight: `1px solid ${antdTheme.token.colorBorder}`,
-        boxShadow: expanded && !pinned ? antdTheme.token.boxShadowSecondary : 'none',
-        overflow: 'hidden',
-        // Above content. Pinned doesn't strictly need this (content reflows), but
-        // we keep one z-index for both states so behavior stays consistent.
+        border: `1px solid ${antdTheme.token.colorBorder}`,
+        borderRadius: radius.xl,
+        overflowY: 'auto',
+        overflowX: 'hidden',
         zIndex: 100,
-        transition: 'width 0.18s ease, box-shadow 0.18s ease',
+        transition: 'width 0.18s ease',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
-      {/* Header (avatar + name + pin) */}
+      {/* Header: avatar + name (expanded) or just avatar (collapsed). */}
       <div style={{
-        padding: expanded ? antdTheme.token.paddingLG : '12px 8px',
+        padding: expanded ? '16px' : '12px 8px',
         borderBottom: `1px solid ${antdTheme.token.colorBorder}`,
-        height: expanded ? 80 : 60,
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: expanded ? 'space-between' : 'center',
+        justifyContent: 'center',
+        gap: 12,
         background: antdTheme.token.colorBgContainer,
       }}>
         {expanded ? (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <Avatar size={40} style={{ ...avatarFontStyle, fontSize: 15 }}>{initials}</Avatar>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                <Text strong style={{
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: antdTheme.token.colorText,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}>
-                  {userName}
-                </Text>
-                <Tag color="blue" style={roleTagStyle}>{roleLabel}</Tag>
-              </div>
+            <Avatar size={40} style={{ ...avatarFontStyle, fontSize: 15, flexShrink: 0 }}>{initials}</Avatar>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+              <Text strong style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: antdTheme.token.colorText,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
+                {userName}
+              </Text>
+              <Tag color="blue" style={roleTagStyle}>{roleLabel}</Tag>
             </div>
-            <Tooltip title={pinned ? 'Unpin sidebar' : 'Pin sidebar open'} placement="right">
-              <Button
-                type="text"
-                size="small"
-                icon={pinned ? <PushpinFilled /> : <PushpinOutlined />}
-                onClick={() => onPinChange?.(!pinned)}
-                style={{ color: pinned ? antdTheme.token.colorPrimary : antdTheme.token.colorTextSecondary }}
-              />
-            </Tooltip>
           </>
         ) : (
           <Tooltip
@@ -584,7 +476,7 @@ const AppSidebar = ({
 
       {/* Navigation menu — Menu's `inlineCollapsed` trims to icons-only in rail mode and
           shows tooltips on hover. */}
-      <div style={{
+      <div className="sidebar-scroll" style={{
         flex: '1 1 auto',
         minHeight: 0,
         background: antdTheme.token.colorBgContainer,
@@ -598,33 +490,8 @@ const AppSidebar = ({
           selectedKeys={[location.pathname]}
           items={getMenuItems()}
           style={{ border: 'none', background: antdTheme.token.colorBgContainer }}
-          theme={isDarkMode ? 'dark' : 'light'}
+          theme="light"
         />
-      </div>
-
-      {/* Theme toggle */}
-      <div style={{
-        padding: expanded ? antdTheme.token.padding : '8px',
-        borderTop: `1px solid ${antdTheme.token.colorBorder}`,
-        background: antdTheme.token.colorBgContainer,
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: expanded ? 'space-between' : 'center',
-      }}>
-        {expanded && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: antdTheme.token.marginXS }}>
-            {isDarkMode
-              ? <BulbFilled style={{ color: '#fbbf24', fontSize: 14 }} />
-              : <BulbOutlined style={{ color: antdTheme.token.colorTextSecondary, fontSize: 14 }} />}
-            <Text style={{ fontSize: antdTheme.token.fontSizeSM, color: antdTheme.token.colorTextSecondary, fontWeight: 500 }}>
-              {isDarkMode ? 'Dark' : 'Light'} Mode
-            </Text>
-          </div>
-        )}
-        <Tooltip title={`Switch to ${isDarkMode ? 'Light' : 'Dark'} mode`} placement="right">
-          <Switch checked={isDarkMode} onChange={toggleTheme} size="small" />
-        </Tooltip>
       </div>
 
       {/* Sign out */}
