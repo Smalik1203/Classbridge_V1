@@ -4,6 +4,7 @@ import { useAuth } from '@/AuthProvider';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/config/supabaseClient';
 import { Menu, Avatar, Typography, Button, Tooltip, Tag } from 'antd';
+import { Sparkles } from 'lucide-react';
 import { radius } from '@/shared/ui/theme';
 import {
   HomeOutlined,
@@ -87,9 +88,15 @@ const AppSidebar = ({
       },
       {
         key: '/chatbot',
-        icon: <RobotOutlined />,
+        icon: <Sparkles size={16} color="#3a8fcf" />,
         label: 'Ask Sage',
         roles: ['superadmin', 'admin', 'student'],
+      },
+      {
+        key: '/ai-test-generator',
+        icon: <ThunderboltOutlined />,
+        label: 'AI Test Generator',
+        roles: ['superadmin', 'admin'],
       },
       {
         key: '/academics/announcements',
@@ -330,12 +337,6 @@ const AppSidebar = ({
         label: 'Report Comments',
         roles: ['superadmin', 'admin'],
       },
-      {
-        key: '/ai-test-generator',
-        icon: <ThunderboltOutlined />,
-        label: 'AI Test Generator',
-        roles: ['superadmin', 'admin'],
-      },
     ];
 
     const visible = allItems.filter((item) => item.roles.includes(userRole));
@@ -390,25 +391,27 @@ const AppSidebar = ({
     return out.filter((g) => g.type !== 'group' || (g.children && g.children.length > 0));
   };
 
-  const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase();
+  const initials = (userName.trim()[0] || 'U').toUpperCase();
   const roleLabel = userRole === 'superadmin' ? 'Super Admin' : userRole === 'admin' ? 'Admin' : userRole;
   const roleTagStyle = {
     textTransform: 'capitalize',
     fontWeight: 500,
     borderRadius: 4,
-    padding: '2px 8px',
-    fontSize: 11,
+    padding: '0 4px',
+    fontSize: 10,
+    lineHeight: '14px',
     margin: 0,
+    alignSelf: 'flex-start',
     background: '#e0f2fe',
     color: '#0369a1',
     border: '1px solid #bae6fd',
   };
-  const avatarBg = 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)';
+  const avatarBg = '#3a8fcf';
   const avatarFontStyle = {
     background: avatarBg,
+    color: '#ffffff',
     fontWeight: 700,
     fontFamily: 'Geist Sans, sans-serif',
-    textShadow: '0 1px 2px rgba(0,0,0,0.2)',
     letterSpacing: '0.5px',
   };
 

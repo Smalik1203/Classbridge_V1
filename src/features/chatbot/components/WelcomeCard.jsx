@@ -1,5 +1,6 @@
 // Centered greeting + suggestion chips. No grid — chips wrap naturally.
 import React from 'react';
+import { Sparkles } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function WelcomeCard({ firstName, suggestions = [], onSelect }) {
@@ -24,17 +25,15 @@ export default function WelcomeCard({ firstName, suggestions = [], onSelect }) {
           height: 56,
           margin: '0 auto 18px',
           borderRadius: 16,
-          background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+          background: '#3a8fcf',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#fff',
-          fontSize: 24,
-          fontWeight: 700,
-          boxShadow: '0 12px 30px rgba(99,102,241,0.25)',
+          boxShadow: '0 12px 30px rgba(58, 143, 207, 0.30)',
         }}
       >
-        S
+        <Sparkles size={28} strokeWidth={2} />
       </div>
       <div style={{ fontSize: 28, fontWeight: 600, color: text, marginBottom: 8 }}>
         Hi {firstName || 'there'}, I'm Sage

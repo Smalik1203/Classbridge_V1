@@ -36,36 +36,13 @@ export default function AnalyticsShell() {
     }}>
       {/* HEADER */}
       <div style={{ marginBottom: 20 }}>
-        <Breadcrumb
-          separator="/"
-          style={{ marginBottom: 6, fontSize: 12 }}
-          items={[
-            { title: <Link to="/dashboard"><HomeOutlined /></Link> },
-            {
-              title: inHub
-                ? (<><BarChartOutlined /> Analytics</>)
-                : (<Link to="/analytics"><BarChartOutlined /> Analytics</Link>),
-            },
-            ...(inHub ? [] : [{ title: meta.title }]),
-          ]}
-        />
-
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <Space direction="vertical" size={4}>
-            <Space size={10} align="center">
-              {!inHub && (
-                <Link to="/analytics">
-                  <Button size="small" type="text" icon={<ArrowLeftOutlined />} style={{ color: '#64748b' }}>Hub</Button>
-                </Link>
-              )}
-              <span style={{
-                width: 8, height: 8, borderRadius: 999, background: meta.accent, display: 'inline-block',
-                boxShadow: `0 0 0 4px ${meta.accent}22`,
-              }} />
-              <Title level={2} style={{ margin: 0, fontWeight: 700, letterSpacing: -0.5 }}>
-                {meta.title}
-              </Title>
-            </Space>
+            {!inHub && (
+              <Link to="/analytics">
+                <Button size="small" type="text" icon={<ArrowLeftOutlined />} style={{ color: '#64748b' }}>Hub</Button>
+              </Link>
+            )}
             <Space size={8} wrap>
               <Text type="secondary" style={{ fontSize: 13 }}>{meta.subtitle}</Text>
               {selectedYear && <Tag color="default" style={{ borderRadius: 999, fontWeight: 500, margin: 0 }}>AY {formatYearLabel(selectedYear)}</Tag>}

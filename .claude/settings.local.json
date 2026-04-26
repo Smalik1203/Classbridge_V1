@@ -7,7 +7,16 @@
       "Bash(git fetch *)",
       "Bash(git checkout *)",
       "mcp__Claude_Preview__preview_start",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(git rev-list *)",
+      "Bash(grep -n \"^    </div>\\\\|^  \\);$\\\\|</Modal>\" src/features/timetable/pages/UnifiedTimetable.jsx)",
+      "Bash(perl -i -pe \"s/<div style=\\\\{\\\\{ padding: 24, background: '#f8fafc', minHeight: '100vh' \\\\}\\\\}>/<div>/g\" src/features/students/pages/StudentAttendance.jsx)",
+      "Bash(perl -i -pe \"s/<div style=\\\\{\\\\{ padding: 24 \\\\}\\\\}>/<div>/g\" src/features/tasks/pages/TaskManagement.jsx)",
+      "Bash(perl -i -pe \"s/<div style=\\\\{\\\\{ padding: 24 \\\\}\\\\}>/<div>/g\" src/features/analytics/pages/UnifiedAnalytics.jsx)",
+      "Bash(git reset *)",
+      "Bash(git ls-remote *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

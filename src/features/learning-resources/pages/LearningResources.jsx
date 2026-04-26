@@ -779,16 +779,7 @@ const LearningResources = () => {
       {/* Header Section */}
       <div style={{ marginBottom: antdTheme.token.marginLG }}>
         <Row justify="space-between" align="middle">
-          <Col>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-              {/* Breadcrumb */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
-                <span>Home</span>
-                <span>/</span>
-                <span>Learning Resources</span>
-              </div>
-            </div>
-          </Col>
+          <Col />
           {canEdit && (
             <Col>
               <Button 

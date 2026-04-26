@@ -537,18 +537,6 @@ const UnifiedAttendance = () => {
         `}
       </style>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-              {/* Breadcrumb */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
-                <span>Home</span>
-                <span>/</span>
-                <span>Attendance</span>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {alert && (
           <Alert

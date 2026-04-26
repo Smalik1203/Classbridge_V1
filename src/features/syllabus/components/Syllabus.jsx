@@ -1009,20 +1009,6 @@ export default function SyllabusPage() {
       }}>
         {ctx}
       
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            {/* Breadcrumb */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
-              <span>Home</span>
-              <span>/</span>
-              <span>Syllabus</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content Card */}
       <Card style={{ 
         marginBottom: 24,

@@ -67,16 +67,6 @@ export const AddSchools = () => {
         width: '100%'
       }}>
         <Card
-          title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {/* Breadcrumb */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#8c8c8c' }}>
-                <span>Home</span>
-                <span>/</span>
-                <span>Add School</span>
-              </div>
-            </div>
-          }
           style={{
             borderRadius: '12px',
             border: '1px solid #e2e8f0',

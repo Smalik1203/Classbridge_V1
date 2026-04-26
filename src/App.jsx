@@ -1,7 +1,16 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ConfigProvider, App as AntApp, Spin, Tooltip } from 'antd';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Layout, ConfigProvider, App as AntApp, Spin, Tooltip, Typography } from 'antd';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import {
+  HomeOutlined, RobotOutlined, NotificationOutlined, CalendarOutlined,
+  ClockCircleOutlined, MessageOutlined, FileTextOutlined, BookOutlined,
+  EditOutlined, BarChartOutlined, DollarOutlined, DashboardOutlined,
+  BankOutlined, WarningOutlined, TeamOutlined, UserOutlined,
+  SettingOutlined, AppstoreOutlined, ExperimentOutlined, InboxOutlined,
+  UsergroupAddOutlined, CommentOutlined, ThunderboltOutlined, TrophyOutlined,
+} from '@ant-design/icons';
+import { Sparkles } from 'lucide-react';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
@@ -111,12 +120,77 @@ const FinanceInconsistencies = lazy(() => import('@/features/finance/pages/Incon
 
 
 const { Content } = Layout;
+const { Title } = Typography;
 
 // Sidebar widths — keep in sync with Sidebar.jsx.
 const RAIL_WIDTH = 64;
 const EXPANDED_WIDTH = 240;
-const SIDEBAR_OFFSET = 12;
-const CONTENT_SIDEBAR_GAP = 16;
+const SIDEBAR_OFFSET = 12;        // gap from viewport to sidebar (all 4 sides)
+const CONTENT_SIDEBAR_GAP = 12;   // gap from sidebar right edge to content (matches SIDEBAR_OFFSET)
+
+// Page header meta — icon + label per route, mirrors the sidebar nav.
+// Dashboard ('/' and '/dashboard') is intentionally excluded.
+const PAGE_META = {
+  '/cb-admin-dashboard':         { icon: <BankOutlined />,           label: 'CB Admin Dashboard' },
+  '/add-schools':                { icon: <TeamOutlined />,           label: 'Manage Schools' },
+  '/users':                      { icon: <TeamOutlined />,           label: 'Users' },
+  '/chatbot':                    { icon: <Sparkles size={26} />,     label: 'Ask Sage' },
+  '/academics/announcements':    { icon: <NotificationOutlined />,   label: 'Announcements' },
+  '/calendar':                   { icon: <CalendarOutlined />,       label: 'Calendar' },
+  '/student/calendar':           { icon: <CalendarOutlined />,       label: 'Calendar' },
+  '/timetable':                  { icon: <ClockCircleOutlined />,    label: 'Timetable' },
+  '/student/timetable':          { icon: <ClockCircleOutlined />,    label: 'Timetable' },
+  '/learning-resources':         { icon: <FileTextOutlined />,       label: 'Resources' },
+  '/student/resources':          { icon: <FileTextOutlined />,       label: 'Resources' },
+  '/syllabus':                   { icon: <BookOutlined />,           label: 'Syllabus' },
+  '/student/syllabus':           { icon: <BookOutlined />,           label: 'Syllabus' },
+  '/attendance':                 { icon: <CalendarOutlined />,       label: 'Attendance' },
+  '/student/attendance':         { icon: <CalendarOutlined />,       label: 'Attendance' },
+  '/test-management':            { icon: <EditOutlined />,           label: 'Assessments' },
+  '/take-tests':                 { icon: <EditOutlined />,           label: 'Assessments' },
+  '/student/results':            { icon: <TrophyOutlined />,         label: 'My Results' },
+  '/analytics':                  { icon: <BarChartOutlined />,       label: 'Analytics' },
+  '/student/analytics':          { icon: <BarChartOutlined />,       label: 'My Analytics' },
+  '/task-management':            { icon: <BookOutlined />,           label: 'Tasks' },
+  '/fees':                       { icon: <DollarOutlined />,         label: 'Fees' },
+  '/finance':                    { icon: <DashboardOutlined />,      label: 'Finance Hub' },
+  '/finance/transactions':       { icon: <FileTextOutlined />,       label: 'Transactions' },
+  '/finance/accounts':           { icon: <BankOutlined />,           label: 'Accounts & Categories' },
+  '/finance/reports':            { icon: <BarChartOutlined />,       label: 'Reports' },
+  '/finance/inconsistencies':    { icon: <WarningOutlined />,        label: 'Inconsistencies' },
+  '/hr':                         { icon: <DashboardOutlined />,      label: 'HR Dashboard' },
+  '/hr/staff':                   { icon: <TeamOutlined />,           label: 'Staff' },
+  '/hr/payroll':                 { icon: <DollarOutlined />,         label: 'Payroll' },
+  '/hr/leaves':                  { icon: <CalendarOutlined />,       label: 'Leaves' },
+  '/hr/attendance':              { icon: <CalendarOutlined />,       label: 'Staff Attendance' },
+  '/hr/salary-components':       { icon: <DollarOutlined />,         label: 'Salary Components' },
+  '/hr/my':                      { icon: <UserOutlined />,           label: 'My HR' },
+  '/school-setup':               { icon: <SettingOutlined />,        label: 'School Setup' },
+  '/add-specific-class':         { icon: <AppstoreOutlined />,       label: 'Classes' },
+  '/add-subjects':               { icon: <ExperimentOutlined />,     label: 'Subjects' },
+  '/manage/admissions':          { icon: <UsergroupAddOutlined />,   label: 'Admissions' },
+  '/ai-test-generator':          { icon: <ThunderboltOutlined />,    label: 'AI Test Generator' },
+};
+
+function PageHeader() {
+  const { pathname } = useLocation();
+  if (pathname === '/' || pathname === '/dashboard') return null;
+  // Match exact path; falls back to longest path-prefix match for dynamic segments.
+  let meta = PAGE_META[pathname];
+  if (!meta) {
+    const candidate = Object.keys(PAGE_META)
+      .filter((p) => pathname.startsWith(p + '/'))
+      .sort((a, b) => b.length - a.length)[0];
+    if (candidate) meta = PAGE_META[candidate];
+  }
+  if (!meta) return null;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <span style={{ fontSize: 28, color: '#3a8fcf', display: 'inline-flex' }}>{meta.icon}</span>
+      <Title level={3} style={{ margin: 0 }}>{meta.label}</Title>
+    </div>
+  );
+}
 
 function AppLayout({ children }) {
   const { isDarkMode } = useTheme();
@@ -129,7 +203,7 @@ function AppLayout({ children }) {
     localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
   }, [expanded]);
 
-  const pagePaddingX = 'clamp(12px, 2vw, 24px)';
+  const pagePaddingX = 12;
   const pageMaxWidth = 1400;
   const pagePaddingTop = 64;
   const contentLeftOffset =
@@ -180,13 +254,17 @@ function AppLayout({ children }) {
         transition: 'margin-left 0.2s ease',
       }}>
         <Content style={{
-          padding: `${pagePaddingTop}px ${pagePaddingX} 24px`,
+          paddingTop: pagePaddingTop,
+          paddingBottom: 24,
+          paddingLeft: pagePaddingX,
+          paddingRight: pagePaddingX,
           minHeight: '100vh',
           background: 'transparent',
           maxWidth: pageMaxWidth,
           margin: 0,
           width: '100%',
         }}>
+          <PageHeader />
           {children}
         </Content>
       </Layout>

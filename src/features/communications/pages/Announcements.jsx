@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Card, Row, Col, Button, Tag, Space, Typography, Input, Select, Segmented,
+  Card, Row, Col, Button, Tag, Space, Typography, Input, Select,
   App, Empty, Skeleton, Dropdown, Tooltip, Popconfirm, Statistic, Badge, Avatar,
 } from 'antd';
 import {
   NotificationOutlined, PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined,
   PushpinOutlined, PushpinFilled, BellOutlined, MoreOutlined, SearchOutlined,
-  PictureOutlined, UserOutlined, TeamOutlined, FireOutlined,
+  PictureOutlined, UserOutlined, TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -18,14 +18,6 @@ import AnnouncementImage from '../components/AnnouncementImage';
 
 dayjs.extend(relativeTime);
 const { Title, Text, Paragraph } = Typography;
-
-const PRIORITY_FILTERS = [
-  { label: 'All', value: 'all' },
-  { label: '🚨 Urgent', value: 'urgent' },
-  { label: '⚠️ High', value: 'high' },
-  { label: '📢 Medium', value: 'medium' },
-  { label: 'ℹ️ Low', value: 'low' },
-];
 
 function audienceLabel(a, classMap) {
   if (a.target_type === 'all') return 'Everyone';
@@ -58,7 +50,6 @@ export default function Announcements() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [filter, setFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
   const [audienceFilter, setAudienceFilter] = useState('all');
 
@@ -124,7 +115,6 @@ export default function Announcements() {
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     return announcements.filter((a) => {
-      if (filter !== 'all' && a.priority !== filter) return false;
       if (audienceFilter === 'all_only' && a.target_type !== 'all') return false;
       if (audienceFilter === 'class_only' && a.target_type !== 'class') return false;
       if (q) {
@@ -133,14 +123,13 @@ export default function Announcements() {
       }
       return true;
     });
-  }, [announcements, filter, searchText, audienceFilter]);
+  }, [announcements, searchText, audienceFilter]);
 
   const stats = useMemo(() => {
     const total = announcements.length;
     const pinned = announcements.filter((a) => a.pinned).length;
-    const urgent = announcements.filter((a) => a.priority === 'urgent').length;
     const last7 = announcements.filter((a) => dayjs().diff(dayjs(a.created_at), 'day') < 7).length;
-    return { total, pinned, urgent, last7 };
+    return { total, pinned, last7 };
   }, [announcements]);
 
   const onCreate = () => { setEditingItem(null); setFormOpen(true); };
@@ -224,8 +213,6 @@ export default function Announcements() {
       <Row align="middle" justify="space-between" gutter={[12, 12]}>
         <Col>
           <Space align="center">
-            <NotificationOutlined style={{ fontSize: 28, color: '#6366F1' }} />
-            <Title level={3} style={{ margin: 0 }}>Announcements</Title>
             <Tag color="blue">{stats.total} total</Tag>
             {stats.pinned > 0 && <Tag icon={<PushpinFilled />} color="gold">{stats.pinned} pinned</Tag>}
           </Space>
@@ -245,15 +232,14 @@ export default function Announcements() {
       </Row>
 
       <Row gutter={[16, 16]}>
-        <Col xs={12} md={6}><Card><Statistic title="Total posts" value={stats.total} prefix={<NotificationOutlined />} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Pinned" value={stats.pinned} valueStyle={{ color: '#D97706' }} prefix={<PushpinFilled />} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Urgent" value={stats.urgent} valueStyle={{ color: '#DC2626' }} prefix={<FireOutlined />} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Last 7 days" value={stats.last7} prefix={<NotificationOutlined />} /></Card></Col>
+        <Col xs={24} md={8}><Card><Statistic title="Total posts" value={stats.total} prefix={<NotificationOutlined />} /></Card></Col>
+        <Col xs={12} md={8}><Card><Statistic title="Pinned" value={stats.pinned} valueStyle={{ color: '#D97706' }} prefix={<PushpinFilled />} /></Card></Col>
+        <Col xs={12} md={8}><Card><Statistic title="Last 7 days" value={stats.last7} prefix={<NotificationOutlined />} /></Card></Col>
       </Row>
 
       <Card size="small" bodyStyle={{ padding: 12 }}>
         <Row gutter={[12, 12]} align="middle">
-          <Col xs={24} md={10}>
+          <Col xs={24} md={16}>
             <Input
               prefix={<SearchOutlined />}
               placeholder="Search title or message"
@@ -262,15 +248,7 @@ export default function Announcements() {
               allowClear
             />
           </Col>
-          <Col xs={24} md={9}>
-            <Segmented
-              options={PRIORITY_FILTERS}
-              value={filter}
-              onChange={setFilter}
-              block
-            />
-          </Col>
-          <Col xs={24} md={5}>
+          <Col xs={24} md={8}>
             <Select
               value={audienceFilter}
               onChange={setAudienceFilter}

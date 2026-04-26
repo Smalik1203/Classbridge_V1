@@ -34,6 +34,7 @@ const { TextArea } = Input;
 export default function UnifiedTimetable() {
   const [, ctx] = message.useMessage();
   const { showError, showSuccess } = useErrorHandler();
+  const { isDarkMode, theme } = useTheme();
   
 
   // Auth context
@@ -583,153 +584,147 @@ export default function UnifiedTimetable() {
   }
 
   return (
-    <div style={{ 
-      background: '#F9FAFB', 
-      minHeight: '100vh' 
+    <div style={{
+      padding: '24px',
+      background: isDarkMode ? theme.token.colorBgLayout : '#fafafa',
+      minHeight: '100vh'
     }}>
       <App>
         {ctx}
-        
-        {/* Modern Sticky Toolbar */}
-        <motion.div 
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 100,
-            background: '#FFFFFF',
-            borderBottom: '1px solid rgba(0,0,0,0.08)',
-            padding: '16px 24px',
+
+        {/* Unified Timetable Interface */}
+        <Card>
+          {/* Unified Toolbar */}
+          <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '16px'
-          }}
-        >
-          {/* Left: Filters & Progress */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
-            <Select
-              placeholder="Select Class"
-              value={classId}
-              onChange={setClassId}
-              options={classOptions}
-              style={{ width: 200 }}
-              allowClear
-              size="default"
-            />
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Button 
-                icon={<LeftOutlined />}
-                onClick={() => handleDateNavigation('prev')}
-                size="small"
-                type="text"
-              />
-              <DatePicker
-                value={date}
-                onChange={(selectedDate) => {
-                  if (selectedDate) {
-                    setDate(selectedDate);
-                  }
-                }}
-                format="MMM DD"
-                size="default"
-                style={{ width: 120 }}
-              />
-              <Button 
-                icon={<RightOutlined />}
-                onClick={() => handleDateNavigation('next')}
-                size="small"
-                type="text"
-              />
-            </div>
-            
-            {scheduleData.length > 0 && (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                padding: '4px 12px',
-                background: '#F3F4F6',
-                borderRadius: '8px',
-                fontSize: '14px',
-                color: '#6B7280'
-              }}>
-                <span style={{ fontWeight: '600', color: '#111827' }}>
-                  {taughtCounts.taughtPeriods}/{taughtCounts.totalPeriods}
-                </span>
-                <span>periods taught</span>
+            padding: '16px 0',
+            borderBottom: '1px solid #f0f0f0',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            {/* Left Side - Filters */}
+            <Space wrap size="middle">
+              <div>
+                <Text strong style={{ marginRight: '8px' }}>Class:</Text>
+                <Select
+                  placeholder="Select Class"
+                  value={classId}
+                  onChange={setClassId}
+                  options={classOptions}
+                  style={{ minWidth: '180px' }}
+                  allowClear
+                  size="middle"
+                />
               </div>
-            )}
-          </div>
-          
-          {/* Right: Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Button 
-              type="text"
-              icon={compactMode ? <ExpandOutlined /> : <CompressOutlined />}
-              onClick={() => setCompactMode(!compactMode)}
-              size="default"
-              title={compactMode ? 'Expand view' : 'Compact view'}
-            />
-            
-            {/* Add Actions */}
-            {classId && !isHoliday && (
-              <>
-                <Button 
-                  type="default"
-                  icon={<PlusOutlined />}
-                  onClick={() => openAddModal('break')}
-                  size="default"
-                  style={{ 
-                    border: '1px solid #D1D5DB',
-                    color: '#6B7280'
-                  }}
-                >
-                  Add Break
-                </Button>
-                <Button 
-                  type="default"
-                  icon={<PlusOutlined />}
-                  onClick={() => openAddModal('period')}
-                  size="default"
-                  style={{ 
-                    border: '1px solid #3B82F6',
-                    color: '#3B82F6',
-                    background: '#EFF6FF'
-                  }}
-                >
-                  Add Period
-                </Button>
-              </>
-            )}
-            
-            <Button 
-              type="primary"
-              icon={<ThunderboltOutlined />}
-              onClick={() => setQuickGenerateModalVisible(true)}
-              disabled={!classId || isHoliday}
-              size="default"
-            >
-              Quick Generate
-            </Button>
-          </div>
-        </motion.div>
 
-        {/* Main Content */}
-        <div style={{ padding: '24px' }}>
-        {/* Holiday Alert */}
-        {isHoliday && (
-          <Alert
-            type="warning"
-            message={`${holidayInfo?.title || 'Holiday'}: ${holidayInfo?.title === 'Sunday' ? 'Sunday is a weekend day.' : 'This is a holiday.'}`}
-            showIcon
-            style={{ marginBottom: 16 }}
-            banner
-          />
-        )}
+              <div>
+                <Text strong style={{ marginRight: '8px' }}>Date:</Text>
+                <Space>
+                  <Button
+                    onClick={() => handleDateNavigation('prev')}
+                    size="small"
+                    icon={<LeftOutlined />}
+                  />
+                  <DatePicker
+                    value={date}
+                    onChange={(selectedDate) => {
+                      if (selectedDate) {
+                        setDate(selectedDate);
+                      }
+                    }}
+                    format="DD-MM-YYYY"
+                    style={{ minWidth: '140px' }}
+                    size="middle"
+                    showToday
+                    allowClear={false}
+                  />
+                  <Button
+                    onClick={() => handleDateNavigation('next')}
+                    size="small"
+                    icon={<RightOutlined />}
+                  />
+                  <Button
+                    onClick={() => setDate(dayjs())}
+                    size="small"
+                    type="primary"
+                  >
+                    Today
+                  </Button>
+                </Space>
+              </div>
+
+              {scheduleData.length > 0 && (
+                <Tag color="blue" style={{ padding: '4px 10px', fontSize: 13, borderRadius: 6 }}>
+                  {taughtCounts.taughtPeriods}/{taughtCounts.totalPeriods} periods taught
+                </Tag>
+              )}
+            </Space>
+
+            {/* Right Side - Actions */}
+            <Space>
+              <Tooltip title={compactMode ? 'Expand view' : 'Compact view'}>
+                <Button
+                  type="text"
+                  icon={compactMode ? <ExpandOutlined /> : <CompressOutlined />}
+                  onClick={() => setCompactMode(!compactMode)}
+                  size="middle"
+                />
+              </Tooltip>
+              {classId && !isHoliday && (
+                <>
+                  <Button
+                    icon={<PlusOutlined />}
+                    onClick={() => openAddModal('break')}
+                    size="middle"
+                  >
+                    Add Break
+                  </Button>
+                  <Button
+                    icon={<PlusOutlined />}
+                    onClick={() => openAddModal('period')}
+                    size="middle"
+                  >
+                    Add Period
+                  </Button>
+                </>
+              )}
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                onClick={() => setQuickGenerateModalVisible(true)}
+                disabled={!classId || isHoliday}
+                size="middle"
+              >
+                Quick Generate
+              </Button>
+            </Space>
+          </div>
+
+          {/* Date Title */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px'
+          }}>
+            <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+              {date.format('dddd, MMMM D, YYYY')}
+            </Title>
+          </div>
+
+          {/* Holiday Alert */}
+          {isHoliday && (
+            <Alert
+              type="warning"
+              message={`${holidayInfo?.title || 'Holiday'}: ${holidayInfo?.title === 'Sunday' ? 'Sunday is a weekend day.' : 'This is a holiday.'}`}
+              showIcon
+              style={{ marginBottom: 16 }}
+              banner
+            />
+          )}
 
           {/* Loading State */}
           {loading && (
@@ -1051,7 +1046,7 @@ export default function UnifiedTimetable() {
               </div>
             </motion.div>
           )}
-        </div>
+        </Card>
       </App>
 
       {/* Edit Modal */}

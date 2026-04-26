@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { Button, Tooltip, App, Spin } from 'antd';
 import { ClearOutlined } from '@ant-design/icons';
+import { Sparkles } from 'lucide-react';
 
 import { useAuth } from '@/AuthProvider';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -109,7 +110,10 @@ export default function Chatbot() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 48px)',
+        height: 'calc(100vh - 160px)',
+        width: '100%',
+        maxWidth: 1100,
+        margin: '0 auto',
         background: pageBg,
         borderRadius: 12,
         overflow: 'hidden',
@@ -132,17 +136,14 @@ export default function Chatbot() {
           <div
             style={{
               width: 28, height: 28, borderRadius: 8,
-              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+              background: '#3a8fcf',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 700, fontSize: 13,
+              color: '#fff',
             }}
           >
-            S
+            <Sparkles size={16} strokeWidth={2} />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: isDarkMode ? '#e2e8f0' : '#0f172a' }}>
-            Sage
-          </div>
-          <div style={{ fontSize: 12, color: isDarkMode ? '#94a3b8' : '#64748b' }}>
+          <div style={{ fontSize: 13, color: isDarkMode ? '#94a3b8' : '#64748b' }}>
             School AI assistant
           </div>
         </div>

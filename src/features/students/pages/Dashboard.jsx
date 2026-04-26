@@ -365,41 +365,63 @@ const Dashboard = () => {
   };
 
   const StatCard = ({ title, value, icon, color, suffix, loading }) => {
-    // Mute the icon when the value is absent / zero so empty states read as
-    // "no data yet" instead of an alarm. The icon color is decorative; it
-    // shouldn't shout when there's nothing to shout about.
     const numericValue = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^\d.-]/g, ''));
     const hasData = !Number.isNaN(numericValue) && numericValue !== 0;
-    const iconColor = hasData ? color : theme.token.colorTextQuaternary;
+    const iconColor = hasData ? color : '#94a3b8';
     return (
       <Card
         style={{
-          borderRadius: 8,
-          border: `1px solid ${theme.token.colorBorder}`,
-          background: theme.token.colorBgContainer,
-          height: '100%'
+          borderRadius: 16,
+          border: 'none',
+          background: '#ffffff',
+          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03)',
+          height: '100%',
         }}
-        bodyStyle={{ padding: 12 }}
+        bodyStyle={{ padding: 20 }}
       >
         {loading ? (
           <Skeleton active paragraph={{ rows: 1 }} />
         ) : (
-          <div>
-            <Text style={{ fontSize: 12, color: theme.token.colorTextSecondary, fontWeight: 500, display: 'block', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {title}
-            </Text>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <div style={{
-                fontSize: 28,
-                color: iconColor,
-                lineHeight: 1,
-                flexShrink: 0
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{
+                fontSize: 13,
+                color: '#64748b',
+                fontWeight: 500,
+                display: 'block',
+                marginBottom: 10,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}>
-                {icon}
-              </div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: theme.token.colorText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                {title}
+              </Text>
+              <div style={{
+                fontSize: 30,
+                fontWeight: 700,
+                color: '#0f172a',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
                 {value}{suffix || ''}
               </div>
+            </div>
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: `${iconColor}15`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 20,
+              color: iconColor,
+              flexShrink: 0,
+            }}>
+              {icon}
             </div>
           </div>
         )}
@@ -409,45 +431,62 @@ const Dashboard = () => {
 
   const ActionCard = ({ label, path, icon, color, description }) => (
     <Card
-      hoverable
       onClick={() => navigate(path)}
       style={{
-        borderRadius: 6,
-        border: '1px solid #e8e8e8',
+        borderRadius: 16,
+        border: 'none',
+        background: '#ffffff',
+        boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03)',
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        height: '100%'
+        transition: 'box-shadow 0.2s ease, transform 0.2s ease',
+        height: '100%',
       }}
-      bodyStyle={{ padding: 12 }}
+      bodyStyle={{ padding: 16 }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = color;
-        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.boxShadow = '0 6px 20px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04)';
+        e.currentTarget.style.transform = 'translateY(-2px)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = '#e8e8e8';
+        e.currentTarget.style.boxShadow = '0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03)';
         e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         <div style={{
-          width: 36,
-          height: 36,
-          borderRadius: 6,
+          width: 40,
+          height: 40,
+          borderRadius: 12,
           background: `${color}15`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 18,
           color: color,
-          flexShrink: 0
+          flexShrink: 0,
         }}>
           {icon}
         </div>
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-          <Text strong style={{ fontSize: 13, color: '#262626', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</Text>
-          <Text style={{ fontSize: 11, color: '#8c8c8c', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{description}</Text>
+          <Text strong style={{
+            fontSize: 14,
+            color: '#0f172a',
+            display: 'block',
+            fontWeight: 600,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            marginBottom: 2,
+          }}>{label}</Text>
+          <Text style={{
+            fontSize: 12,
+            color: '#64748b',
+            display: 'block',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>{description}</Text>
         </div>
-        <RightOutlined style={{ fontSize: 10, color: '#bfbfbf', flexShrink: 0 }} />
+        <RightOutlined style={{ fontSize: 11, color: '#cbd5e1', flexShrink: 0 }} />
       </div>
     </Card>
   );
@@ -471,52 +510,74 @@ const Dashboard = () => {
     : 0;
 
   return (
-    <div style={{ 
-      padding: 16, 
-      background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
-      minHeight: '100vh' 
+    <div style={{
+      background: isDarkMode ? theme.token.colorBgLayout : 'transparent',
+      minHeight: '100vh',
     }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 24 }}>
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
+            alignItems: 'flex-end',
             flexWrap: 'wrap',
-            gap: 12,
-            marginBottom: 8
+            gap: 16,
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{
                 margin: 0,
-                fontSize: 24,
-                fontWeight: 600,
-                color: '#262626',
-                marginBottom: 4,
-                lineHeight: 1.2,
-                wordBreak: 'break-word',
-                overflowWrap: 'break-word'
+                fontSize: 32,
+                fontWeight: 700,
+                color: '#0f172a',
+                marginBottom: 6,
+                lineHeight: 1.15,
+                letterSpacing: '-0.02em',
               }}>
                 Dashboard
               </h1>
-              <Text style={{ fontSize: 13, color: '#8c8c8c', display: 'block', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                {getGreeting()}, {userName} • {schoolInfo.name && `${schoolInfo.name} • `}{getISTDate()} • {getIST()}
+              <Text style={{
+                fontSize: 14,
+                color: '#64748b',
+                display: 'block',
+                fontWeight: 500,
+              }}>
+                {getGreeting()}, {userName}
               </Text>
-              {schoolInfo.academicYear && (
-                <Tag color="blue" style={{ fontSize: 11, marginTop: 4 }}>
-                  AY {schoolInfo.academicYear}
-                </Tag>
-              )}
+              <Text style={{
+                fontSize: 13,
+                color: '#94a3b8',
+                display: 'block',
+                marginTop: 2,
+              }}>
+                {getISTDate()}
+              </Text>
             </div>
-            <Space size={8} style={{ flexShrink: 0, flexWrap: 'wrap' }}>
-              <Tag color="blue" style={{ fontSize: 12, padding: '2px 10px', whiteSpace: 'nowrap' }}>
-                {getRoleDisplay(role)}
-              </Tag>
+            <Space size={10} style={{ flexShrink: 0, flexWrap: 'wrap' }}>
+              {schoolInfo.academicYear && (
+                <span style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#2563eb',
+                  background: 'rgba(59, 130, 246, 0.10)',
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  letterSpacing: '0.01em',
+                }}>
+                  AY {schoolInfo.academicYear}
+                </span>
+              )}
               <Button
                 icon={<ReloadOutlined />}
                 onClick={fetchDashboardData}
                 loading={loading}
-                size="small"
+                style={{
+                  borderRadius: 10,
+                  height: 36,
+                  border: 'none',
+                  background: '#ffffff',
+                  boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)',
+                  fontWeight: 500,
+                }}
               >
                 <span style={{ whiteSpace: 'nowrap' }}>Refresh</span>
               </Button>
@@ -648,53 +709,60 @@ const Dashboard = () => {
           )}
         </Row>
 
-        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={24} md={12}>
             <Card
               style={{
-                borderRadius: 8,
-                border: '1px solid #e8e8e8',
-                height: '100%'
+                borderRadius: 16,
+                border: 'none',
+                background: '#ffffff',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03)',
+                height: '100%',
               }}
-              bodyStyle={{ padding: 16 }}
+              bodyStyle={{ padding: 20 }}
             >
-              <div style={{ marginBottom: 12 }}>
-                <Text strong style={{ fontSize: 14, color: '#262626' }}>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 16, color: '#0f172a', fontWeight: 600, letterSpacing: '-0.01em' }}>
                   {role === 'student' ? "Today's Status" : "Today's Overview"}
                 </Text>
-                <div style={{ fontSize: 11, color: theme.token.colorTextSecondary, marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
                   {new Date().toLocaleDateString('en-IN', {
                     timeZone: 'Asia/Kolkata',
                     weekday: 'long', day: '2-digit', month: 'short', year: 'numeric',
                   })}
                 </div>
               </div>
-              <Space direction="vertical" style={{ width: '100%' }} size={12}>
+              <Space direction="vertical" style={{ width: '100%' }} size={16}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 13, color: '#595959' }}>
+                  <Text style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>
                     {role === 'student' ? 'Attendance' : 'Students Present'}
                   </Text>
-                  <Statistic
-                    value={role === 'student' ? (stats.todayAttendance > 0 ? '✓' : '—') : stats.todayAttendance}
-                    valueStyle={{ fontSize: 16, color: stats.todayAttendance > 0 ? '#52c41a' : '#8c8c8c' }}
-                  />
+                  <Text style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: stats.todayAttendance > 0 ? '#10b981' : '#94a3b8',
+                    letterSpacing: '-0.01em',
+                  }}>
+                    {role === 'student' ? (stats.todayAttendance > 0 ? '✓' : '—') : stats.todayAttendance}
+                  </Text>
                 </div>
                 {role !== 'student' && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ fontSize: 12, color: theme.token.colorTextSecondary }}>Attendance Rate</Text>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>Attendance Rate</Text>
                       <Text style={{
-                        fontSize: 12, fontWeight: 600,
-                        color: kpiTone(attendancePercentage, (v) => v >= 75 ? 'positive' : 'attention'),
+                        fontSize: 13, fontWeight: 700,
+                        color: attendancePercentage >= 75 ? '#10b981' : attendancePercentage >= 50 ? '#f59e0b' : '#ef4444',
                       }}>
                         {attendancePercentage}%
                       </Text>
                     </div>
                     <Progress
                       percent={attendancePercentage}
-                      strokeColor={kpiTone(attendancePercentage, (v) => v >= 75 ? 'positive' : 'attention') || theme.token.colorBorderSecondary}
+                      strokeColor={attendancePercentage >= 75 ? '#10b981' : attendancePercentage >= 50 ? '#f59e0b' : '#ef4444'}
+                      trailColor="#f1f5f9"
+                      strokeWidth={8}
                       showInfo={false}
-                      size="small"
                     />
                   </div>
                 )}
@@ -704,48 +772,62 @@ const Dashboard = () => {
           <Col xs={24} md={12}>
             <Card
               style={{
-                borderRadius: 8,
-                border: '1px solid #e8e8e8',
-                height: '100%'
+                borderRadius: 16,
+                border: 'none',
+                background: '#ffffff',
+                boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03)',
+                height: '100%',
               }}
-              bodyStyle={{ padding: 16 }}
+              bodyStyle={{ padding: 20 }}
             >
-              <div style={{ marginBottom: 12 }}>
-                <Text strong style={{ fontSize: 14, color: '#262626' }}>
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ fontSize: 16, color: '#0f172a', fontWeight: 600, letterSpacing: '-0.01em' }}>
                   Quick Stats
                 </Text>
-                <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
                   Live updates
                 </div>
               </div>
-              <Space direction="vertical" style={{ width: '100%' }} size={12}>
+              <Space direction="vertical" style={{ width: '100%' }} size={16}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Space size={8}>
-                    <ClockCircleOutlined style={{ color: '#1890ff', fontSize: 16 }} />
-                    <Text style={{ fontSize: 13, color: '#595959' }}>
+                  <Space size={10} align="center">
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 10,
+                      background: 'rgba(59, 130, 246, 0.10)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#2563eb', fontSize: 15,
+                    }}>
+                      <ClockCircleOutlined />
+                    </div>
+                    <Text style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>
                       {role === 'student' ? "Today's Classes" : 'Upcoming Tests'}
                     </Text>
                   </Space>
-                  <Statistic
-                    value={role === 'student' ? stats.todayClasses : stats.upcomingTests}
-                    valueStyle={{ fontSize: 16, color: '#262626' }}
-                  />
+                  <Text style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.01em' }}>
+                    {role === 'student' ? stats.todayClasses : stats.upcomingTests}
+                  </Text>
                 </div>
                 {role !== 'student' && stats.totalSubjects > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Space size={8}>
-                      <BookOutlined style={{ color: '#faad14', fontSize: 16 }} />
-                      <Text style={{ fontSize: 13, color: '#595959' }}>Subjects</Text>
+                    <Space size={10} align="center">
+                      <div style={{
+                        width: 32, height: 32, borderRadius: 10,
+                        background: 'rgba(245, 158, 11, 0.12)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#d97706', fontSize: 15,
+                      }}>
+                        <BookOutlined />
+                      </div>
+                      <Text style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>Subjects</Text>
                     </Space>
-                    <Statistic
-                      value={stats.totalSubjects}
-                      valueStyle={{ fontSize: 16, color: '#262626' }}
-                    />
+                    <Text style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.01em' }}>
+                      {stats.totalSubjects}
+                    </Text>
                   </div>
                 )}
                 {realtimeData.lastAttendanceUpdate && (
-                  <div style={{ fontSize: 10, color: '#52c41a', textAlign: 'right', marginTop: 4 }}>
-                    ● Live - Updated just now
+                  <div style={{ fontSize: 11, color: '#10b981', textAlign: 'right', marginTop: 4, fontWeight: 500 }}>
+                    ● Live · Updated just now
                   </div>
                 )}
               </Space>
@@ -753,16 +835,23 @@ const Dashboard = () => {
           </Col>
         </Row>
 
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#262626', marginBottom: 2 }}>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 700,
+              color: '#0f172a',
+              marginBottom: 4,
+              letterSpacing: '-0.01em',
+            }}>
               Quick Actions
             </h2>
-            <Text style={{ color: '#8c8c8c', fontSize: 12 }}>
+            <Text style={{ color: '#64748b', fontSize: 13 }}>
               Access your most-used features
             </Text>
           </div>
-          <Row gutter={[12, 12]}>
+          <Row gutter={[16, 16]}>
             {getQuickActions(role).map((action, index) => (
               <Col key={index} xs={24} sm={12} md={8} lg={8} xl={6}>
                 <ActionCard {...action} />
