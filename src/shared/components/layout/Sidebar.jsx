@@ -88,7 +88,7 @@ const AppSidebar = ({
       },
       {
         key: '/chatbot',
-        icon: <Sparkles size={16} color="#3a8fcf" />,
+        icon: <Sparkles size={16} />,
         label: 'Ask Sage',
         roles: ['superadmin', 'admin', 'student'],
       },
