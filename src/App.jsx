@@ -76,6 +76,7 @@ const Calendar = lazy(() => import('@/features/calendar/pages/Calendar'));
 const SyllabusPage = lazy(() => import('@/features/syllabus/pages/Syllabus'));
 const LearningResources = lazy(() => import('@/features/learning-resources/pages/LearningResources'));
 const UnifiedTestManagement = lazy(() => import('@/features/tests/pages/UnifiedTestManagement'));
+const Gradebook = lazy(() => import('@/features/tests/pages/Gradebook'));
 const TaskManagement = lazy(() => import('@/features/tasks/pages/TaskManagement'));
 const TestTaking = lazy(() => import('@/features/tests/pages/TestTaking'));
 const StudentTimetable = lazy(() => import('@/features/timetable/pages/StudentTimetable'));
@@ -147,6 +148,7 @@ const PAGE_META = {
   '/attendance':                 { icon: <CalendarOutlined />,       label: 'Attendance' },
   '/student/attendance':         { icon: <CalendarOutlined />,       label: 'Attendance' },
   '/test-management':            { icon: <EditOutlined />,           label: 'Assessments' },
+  '/gradebook':                  { icon: <TrophyOutlined />,         label: 'Gradebook' },
   '/take-tests':                 { icon: <EditOutlined />,           label: 'Assessments' },
   '/student/results':            { icon: <TrophyOutlined />,         label: 'My Results' },
   '/analytics':                  { icon: <BarChartOutlined />,       label: 'Analytics' },
@@ -175,6 +177,8 @@ const PAGE_META = {
 function PageHeader() {
   const { pathname } = useLocation();
   if (pathname === '/' || pathname === '/dashboard') return null;
+  // Analytics routes render their own header inside AnalyticsShell — skip here.
+  if (pathname.startsWith('/analytics')) return null;
   // Match exact path; falls back to longest path-prefix match for dynamic segments.
   let meta = PAGE_META[pathname];
   if (!meta) {
@@ -342,6 +346,7 @@ function AppContent() {
               <Route path="/syllabus" element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
               <Route path="/learning-resources" element={<PrivateRoute allowedRoles={routeAccess.learningResources}><LearningResources /></PrivateRoute>} />
               <Route path="/test-management" element={<PrivateRoute allowedRoles={routeAccess.testManagement}><UnifiedTestManagement /></PrivateRoute>} />
+              <Route path="/gradebook" element={<PrivateRoute allowedRoles={routeAccess.testManagement}><Gradebook /></PrivateRoute>} />
               <Route path="/task-management" element={<PrivateRoute allowedRoles={routeAccess.taskManagement}><TaskManagement /></PrivateRoute>} />
               <Route path="/take-tests" element={<PrivateRoute allowedRoles={['student']}><TestTaking /></PrivateRoute>} />
               <Route path="/assessments" element={<PrivateRoute allowedRoles={routeAccess.assessments}><Assessments /></PrivateRoute>} />

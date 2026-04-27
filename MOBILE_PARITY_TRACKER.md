@@ -597,7 +597,12 @@ Web route: `/analytics/attendance`. Two top-level tabs: Student Attendance | Sta
 **Schema change — `attendance.academic_year_id` added 2026-04-26:**
 The student `attendance` table now has a direct `academic_year_id UUID NOT NULL` column with FK to `academic_years.id`. Migration applied via Supabase MCP and mirrored at `~/Desktop/classbridge/supabase/migrations/20260426120000_attendance_academic_year_id.sql`. Backfill: 16,380 rows (SCH019 25-26: 11,109 / SCH019 26-27: 5,203 / SCH101 25-26: 68; zero NULLs). Indexes: `(school_code, academic_year_id, date)` and `(academic_year_id, student_id)`. Web `ayScope.SCOPE_MAP['attendance']` switched from `class` to `ay`; `attendanceAnalyticsService` queries simplified to one-step `.eq('school_code', x).eq('academic_year_id', ayId)`. **Mobile insert paths must populate `academic_year_id` on every new attendance row going forward** — the column is NOT NULL so inserts will fail otherwise.
 
-**Phase 2 — Fees Analytics:** scaffolded (`/analytics/fees`), implementation next.
+**Phase 2 — Fees Analytics (DONE migration; page next):**
+- Migration `20260426160000_fees_analytics_rpcs.sql` (mirrored at `~/Desktop/classbridge/supabase/migrations/`) ships 6 RPCs: `fees_headline_kpis`, `fees_daily_collection`, `fees_aging_snapshot`, `fees_per_class_summary`, `fees_top_defaulters`, `fees_distributions`. All `SECURITY INVOKER`, all run sub-5ms in prod (EXPLAIN verified).
+- Drops 5 broken legacy RPCs (`fees_school_summary`, `fees_student_summary`, `fee_payments_sum*`, `refresh_fees_analytics`) that referenced non-existent columns/tables.
+- Scoping: `fee_invoices.academic_year_id` is the billing AY and is authoritative. `ayScope.SCOPE_MAP` updated — fees tables are now `scope: 'ay'`.
+- Page: `src/features/analytics/pages/FeesAnalytics.jsx` — replaces ComingSoon stub.
+- Service: `src/features/analytics/services/feesAnalyticsService.js`.
 **Phase 3 — Tasks Analytics:** scaffolded.
 **Phase 4 — Syllabus Analytics:** scaffolded.
 **Phase 5 — Academic Performance:** scaffolded (consolidates the existing weak-areas / heatmap / misconceptions tabs into a single Academic page).
@@ -834,6 +839,52 @@ This consolidates the previously-scattered web pages (`AddAdmin`, `AddSuperAdmin
 
 Ready for manual test. Move to 🟩 once verified.
 
+### 11. Tasks Analytics — 🟨 Built (web-native analytics page, no direct mobile equivalent), awaiting user manual test
+Mobile: `src/hooks/useDashboard.ts` (task KPIs computed client-side), `src/hooks/useTasks.ts` (per-class task lists), `src/hooks/useStudentProgress.ts` (per-student task rollup). No dedicated tasks analytics screen on mobile.
+Web: `src/features/analytics/pages/TasksAnalytics.jsx` + `src/features/analytics/services/tasksAnalyticsService.js`
+
+| # | Screen | Mobile route | Web route | Status |
+|---|---|---|---|---|
+| 1 | Tasks Analytics | ⚪ (no mobile equivalent — mobile computes client-side in dashboard) | `/analytics/tasks` | 🟨 built — completion rate, on-time rate, overdue queue, trend, per-class, per-subject, non-submitters |
+
+**RPCs shipped (all SECURITY INVOKER, AY-direct scoping via `tasks.academic_year_id`):**
+- `tasks_headline_kpis(school_code, ay_id, class_instance_id)` — 34ms on production
+- `tasks_daily_submissions(school_code, start, end, ay_id, class_instance_id)` — 8ms
+- `tasks_per_class_summary(school_code, ay_id)` — 12ms
+- `tasks_per_subject_summary(school_code, ay_id, class_instance_id)` — 11ms
+- `tasks_distributions(school_code, ay_id, class_instance_id)` — 12ms (rewrote from 508ms correlated sub-scan)
+- `tasks_top_non_submitters(school_code, ay_id, class_instance_id, limit)` — 12ms
+
+**Migrations mirrored to mobile repo:**
+- `supabase/migrations/20260427100000_tasks_analytics_rpcs.sql`
+- `supabase/migrations/20260427100001_tasks_distributions_fix.sql`
+
+**Web features (no mobile equivalent):**
+1. Hero gradient KPI (completion rate, on-time rate, overdue queue, tasks assigned, submissions received)
+2. Last-7-day sparkbar in hero foot
+3. Submissions trend chart (Day/Week/Month granularity + custom date range + trend line toggle)
+4. Per-class completion horizontal bar chart (school scope) / class snapshot grid (class scope)
+5. On-time vs late vs missed distribution with progress bars
+6. Per-subject completion distribution
+7. Top non-submitters table (missed-count desc, on-time % secondary, paginated)
+8. Compare AYs panel via `<AyComparePanel>` (school-wide only)
+
+**SCOPE_MAP update:** `tasks` switched from `class`-bound to `ay`-direct (`academic_year_id` populated 100% of rows, indexed on `(school_code, academic_year_id)`).
+
+**Definitions:**
+- Completion = `status IN ('submitted', 'graded')`
+- On-time = `(submitted_at IST)::date <= due_date`
+- Missed = no submission AND `due_date < CURRENT_DATE`
+- Denominator = current class roster (not expected_submissions count, which can differ if roster changes mid-AY)
+- Active tasks only (`is_active = true`)
+
+**Known limits / parity notes:**
+- Mobile dashboard computes task completion client-side (silent 1000-row truncation risk at scale). Web RPCs fix this.
+- `marks_obtained` is NULL on 100% of `status='graded'` rows in production → no score analytics yet. Deferred to Academic Performance when grading data is real.
+- Teacher-as-creator panel deferred: only 3 distinct creators in production (all admins). Will add when teacher creation volume is real.
+
+Ready for manual test. Move to 🟩 once verified.
+
 ---
 
 ## Partial / divergent screens (already exist on web, need parity work later)
@@ -848,7 +899,7 @@ From earlier audit — these are NOT placeholders, they have real impls but diff
 | Assessments | Hardcoded sample data — broken |
 | Test management | Different RPC surface than mobile |
 | Take test (student) | Offline + submission RPC parity unverified |
-| Tasks | Feature-by-feature comparison needed |
+| Tasks | Analytics now built (see §11); full task CRUD parity comparison still needed |
 | Student/class progress | Split differently across pages |
 | School profile | Partial overlap with `/school-setup` |
 

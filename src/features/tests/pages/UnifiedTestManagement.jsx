@@ -479,49 +479,7 @@ const UnifiedTestManagement = () => {
                   </div>
       )
     },
-    {
-      key: 'offline',
-      label: (
-        <Space>
-          <FileExcelOutlined />
-          Offline Tests
-        </Space>
-      ),
-      children: (
-                <div>
-          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={4} style={{ margin: 0 }}>
-              Offline Tests ({getFilteredTests().length})
-          </Title>
-            <Space>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-                onClick={() => setCreateModalVisible(true)}
-              >
-                Create Offline Test
-            </Button>
-          </Space>
-        </div>
-
-          <Table
-            columns={columns}
-            dataSource={getFilteredTests()}
-            rowKey="id"
-            loading={loading}
-            expandable={false}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} of ${total} offline tests`
-            }}
-            scroll={{ x: 1000 }}
-          />
-                  </div>
-      )
-    },
+    // Offline tab removed — offline assessments now live under "Gradebook" in the sidebar.
     {
       key: 'analytics',
       label: (
@@ -547,7 +505,7 @@ const UnifiedTestManagement = () => {
               Test Management
             </Title>
             <Text type="secondary">
-              Manage both online and offline tests
+              Manage online tests. Offline assessments now live under Gradebook.
                   </Text>
                 </div>
           <Space>
@@ -665,7 +623,7 @@ const UnifiedTestManagement = () => {
           >
             <Select placeholder="Select test mode">
               <Select.Option value="online">Online Test</Select.Option>
-              <Select.Option value="offline">Offline Test</Select.Option>
+              {/* Offline Test option removed — managed in Gradebook */}
                       </Select>
               </Form.Item>
 
@@ -801,7 +759,7 @@ const UnifiedTestManagement = () => {
           >
             <Select placeholder="Select test mode">
               <Select.Option value="online">Online Test</Select.Option>
-              <Select.Option value="offline">Offline Test</Select.Option>
+              {/* Offline Test option removed — managed in Gradebook */}
                 </Select>
               </Form.Item>
 

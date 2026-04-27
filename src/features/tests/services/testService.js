@@ -96,6 +96,9 @@ export const getTests = async (schoolCode) => {
  */
 export const createTest = async (testData) => {
   try {
+    if (!testData?.school_code) {
+      throw new Error('createTest: school_code is required (call getSchoolCode(user) before invoking).');
+    }
     const { data, error } = await supabase
       .from('tests')
       .insert([testData])

@@ -250,6 +250,12 @@ export default function AITestGeneratorWizard({ onCancel, onSaved, defaultClassI
         cognitive_verbs: q.cognitive_verbs ?? null,
       }));
 
+      if (!schoolCode) {
+        showError('School code missing from your session. Please re-login.');
+        setSaving(false);
+        return;
+      }
+
       let testId = null;
       try {
         const { data, error } = await supabase.rpc('create_test_with_questions', {

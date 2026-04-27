@@ -39,6 +39,7 @@ import {
   PlayCircleOutlined
 } from '@ant-design/icons';
 import { useAuth } from '@/AuthProvider';
+import { getSchoolCode } from '@/shared/utils/metadata';
 import dayjs from 'dayjs';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useErrorHandler } from '@/shared/hooks/useErrorHandler';
@@ -84,8 +85,8 @@ const OnlineTestManagement = () => {
       setLoading(true);
       const [testsData, classInstancesData, subjectsData] = await Promise.all([
         getTests(),
-        getClassInstances(user?.school_code),
-        getSubjects(user?.school_code)
+        getClassInstances(getSchoolCode(user)),
+        getSubjects(getSchoolCode(user))
       ]);
       
       // Filter only online tests
@@ -103,11 +104,16 @@ const OnlineTestManagement = () => {
   const handleCreateTest = async (values) => {
     try {
       setLoading(true);
+      const schoolCode = getSchoolCode(user);
+      if (!schoolCode) {
+        showError('School code not found in user session');
+        return;
+      }
       const testData = {
         ...values,
         test_mode: 'online',
         created_by: user.id,
-        school_code: user.school_code,
+        school_code: schoolCode,
         test_date: values.test_date ? dayjs(values.test_date).format('YYYY-MM-DD') : null
       };
       
@@ -635,7 +641,7 @@ const OnlineTestManagement = () => {
         onClose={handleImportClose}
         classInstances={classInstances}
         subjects={subjects}
-        schoolCode={user?.school_code}
+        schoolCode={getSchoolCode(user)}
         userId={user?.id}
       />
 

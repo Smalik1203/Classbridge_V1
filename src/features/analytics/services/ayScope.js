@@ -40,17 +40,21 @@ export const SCOPE_MAP = {
   attendance_daily:     { scope: 'class', classInstanceColumn: 'class_instance_id' },
   period_attendance:    { scope: 'class', classInstanceColumn: 'class_instance_id' },
   tests:                { scope: 'class', classInstanceColumn: 'class_instance_id' },
-  tasks:                { scope: 'class', classInstanceColumn: 'class_instance_id' },
-  task_submissions:     { scope: 'class', classInstanceColumn: 'task_id', viaTask: true },
+  tasks:                { scope: 'ay', ayColumn: 'academic_year_id' },
+  task_submissions:     { scope: 'ay', ayColumn: 'task_id', viaTask: true },
   test_attempts:        { scope: 'class', classInstanceColumn: 'test_id', viaTest: true },
   test_questions:       { scope: 'class', classInstanceColumn: 'test_id', viaTest: true },
   test_responses:       { scope: 'class', classInstanceColumn: 'attempt_id', viaAttempt: true },
   question_attempt_details: { scope: 'class', classInstanceColumn: 'attempt_id', viaAttempt: true },
   announcements:        { scope: 'class', classInstanceColumn: 'class_instance_id', nullable: true },
   learning_resources:   { scope: 'class', classInstanceColumn: 'class_instance_id', nullable: true },
-  fee_invoices:         { scope: 'class', classInstanceColumn: 'class_instance_id' },
-  fee_invoice_items:    { scope: 'class', classInstanceColumn: 'invoice_id', viaInvoice: true },
-  fee_payments:         { scope: 'class', classInstanceColumn: 'invoice_id', viaInvoice: true },
+  // fee_invoices has its own academic_year_id column populated on 100% of
+  // rows — it represents the *billing AY*, which is the right scope for fee
+  // analytics (a 25-26 invoice paid in 26-27 still belongs to 25-26).
+  // Children are scoped via the parent invoice's AY.
+  fee_invoices:         { scope: 'ay', ayColumn: 'academic_year_id' },
+  fee_invoice_items:    { scope: 'ay', ayColumn: 'invoice_id', viaInvoice: true },
+  fee_payments:         { scope: 'ay', ayColumn: 'invoice_id', viaInvoice: true },
   // AY-direct events (HR / leaves / staff) --------------------------
   staff_attendance:     { scope: 'ay', ayColumn: 'academic_year_id' },
   leave_applications:   { scope: 'ay', ayColumn: 'academic_year_id' },

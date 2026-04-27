@@ -179,6 +179,12 @@ const AppSidebar = ({
         roles: ['superadmin', 'admin'],
       },
       {
+        key: '/gradebook',
+        icon: <TrophyOutlined />,
+        label: 'Gradebook',
+        roles: ['superadmin', 'admin'],
+      },
+      {
         key: '/take-tests',
         icon: <EditOutlined />,
         label: 'Assessments',
