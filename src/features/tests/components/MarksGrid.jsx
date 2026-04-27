@@ -117,11 +117,17 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
     };
   }), [groupTests, marks, dirty]);
 
+  const totalColCellStyle = {
+    borderLeft: '2px solid #d9d9d9',
+    background: '#fafafa',
+  };
   const totalCol = {
     title: 'Total',
     key: '_total',
-    width: 100,
+    width: 120,
     fixed: 'right',
+    onHeaderCell: () => ({ style: { ...totalColCellStyle, background: '#f0f0f0' } }),
+    onCell: () => ({ style: totalColCellStyle }),
     render: (_, student) => {
       let obt = 0, max = 0, hasAny = false;
       groupTests.forEach((gt) => {
@@ -130,12 +136,24 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
         max += Number(gt.tests?.max_marks ?? 100);
       });
       const pct = hasAny && max > 0 ? ((obt / max) * 100).toFixed(1) : null;
-      return hasAny ? (
-        <div>
-          <div style={{ fontWeight: 600 }}>{obt}/{max}</div>
-          <Tag color={pct >= 33 ? 'green' : 'red'} style={{ marginTop: 2 }}>{pct}%</Tag>
+      if (!hasAny) return <span style={{ color: '#bbb' }}>—</span>;
+      const pctNum = Number(pct);
+      const tone = pctNum >= 75 ? { bg: '#ecfdf5', fg: '#047857', bd: '#a7f3d0' }
+        : pctNum >= 50 ? { bg: '#eff6ff', fg: '#1d4ed8', bd: '#bfdbfe' }
+        : pctNum >= 33 ? { bg: '#fffbeb', fg: '#b45309', bd: '#fde68a' }
+        : { bg: '#fef2f2', fg: '#b91c1c', bd: '#fecaca' };
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#1f1f1f' }}>
+            {obt}<span style={{ color: '#888', fontWeight: 500 }}>/{max}</span>
+          </span>
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '2px 8px',
+            borderRadius: 999, background: tone.bg, color: tone.fg,
+            border: `1px solid ${tone.bd}`, fontVariantNumeric: 'tabular-nums',
+          }}>{pct}%</span>
         </div>
-      ) : <span style={{ color: '#bbb' }}>—</span>;
+      );
     },
   };
 

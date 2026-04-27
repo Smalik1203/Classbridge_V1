@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { Button, Empty, Spin, Space } from 'antd';
 import { PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Cell, ReferenceLine, LabelList,
+} from 'recharts';
 import { supabase } from '@/config/supabaseClient';
 
 // Resolve a stored logo path into a usable URL.
@@ -204,7 +208,8 @@ const styles = `
   /* Summary tiles — Percentage is the hero, others supporting.
      Each tile has its own accent so grade/result/percent are visually distinct. */
   .rc-summary {
-    margin-top: 22px;
+    margin-top: 18px;
+    margin-bottom: 4px;
     display: grid;
     grid-template-columns: 1.4fr 1fr 1fr 1fr;
     gap: 12px;
@@ -241,6 +246,38 @@ const styles = `
     background: #fef2f2; border-color: #fecaca;
   }
   .rc-stat--fail .value { color: #b91c1c; }
+  /* Analytics — subject-wise performance chart. Sits between the marks table
+     and the summary tiles. Sized to fit on the same A4 page as the rest of
+     the card without forcing a page break. */
+  .rc-analytics {
+    margin-top: 18px;
+    padding: 12px 14px 8px;
+    border: 1px solid #ececec;
+    border-radius: 10px;
+    background: #fff;
+    page-break-inside: avoid;
+  }
+  .rc-analytics-title {
+    font-size: 11px; font-weight: 700;
+    color: var(--rc-primary, #6B3FA0);
+    text-transform: uppercase; letter-spacing: 1.2px;
+    margin-bottom: 4px;
+  }
+  .rc-analytics-sub {
+    font-size: 10px; color: #888; margin-bottom: 6px;
+  }
+  .rc-analytics-legend {
+    display: flex; flex-wrap: wrap; gap: 10px 14px; margin-top: 4px;
+    font-size: 10px; color: #555;
+  }
+  .rc-analytics-legend .sw {
+    display: inline-block; width: 9px; height: 9px;
+    border-radius: 2px; margin-right: 5px; vertical-align: middle;
+  }
+  @media print {
+    .rc-analytics { margin-top: 14px; padding: 10px 12px 6px; }
+  }
+
   .rc-remarks { margin-top: 16px; font-size: 13px; }
   .rc-remarks .row { padding: 8px 0; border-bottom: 1px dashed #e5e5e5; }
   .rc-sign { display: flex; justify-content: space-between; margin-top: 48px; font-size: 12px; color: #555; }
@@ -407,6 +444,25 @@ export default function ReportCardPreview({ data, loading = false }) {
           </div>
         </div>
 
+        <div className="rc-summary">
+          <div className="rc-stat rc-stat--hero">
+            <div className="label">Percentage</div>
+            <div className="value">{totals?.percentage != null ? `${totals.percentage}%` : '—'}</div>
+          </div>
+          <div className="rc-stat">
+            <div className="label">Total</div>
+            <div className="value">{fmt(totals?.obtained)}/{fmt(totals?.max)}</div>
+          </div>
+          <div className="rc-stat">
+            <div className="label">Grade</div>
+            <div className="value">{overall_grade || '—'}</div>
+          </div>
+          <div className={`rc-stat ${totals?.percentage == null ? '' : (totals.percentage >= 33 ? 'rc-stat--pass' : 'rc-stat--fail')}`}>
+            <div className="label">Result</div>
+            <div className="value">{totals?.percentage != null ? (totals.percentage >= 33 ? 'PASS' : 'FAIL') : '—'}</div>
+          </div>
+        </div>
+
         <table className="rc-table">
           <thead>
             <tr>
@@ -443,24 +499,70 @@ export default function ReportCardPreview({ data, loading = false }) {
           </tfoot>
         </table>
 
-        <div className="rc-summary">
-          <div className="rc-stat rc-stat--hero">
-            <div className="label">Percentage</div>
-            <div className="value">{totals?.percentage != null ? `${totals.percentage}%` : '—'}</div>
+        {subjects.length > 0 && (
+          <div className="rc-analytics">
+            <div className="rc-analytics-title">Subject-wise Performance</div>
+            <div className="rc-analytics-sub">
+              Percentage scored in each subject. Dashed line marks the {totals?.percentage != null ? `class-overall ${totals.percentage}%` : 'pass mark'}.
+            </div>
+            <ResponsiveContainer width="100%" height={230}>
+              <BarChart
+                data={subjects.map((s) => ({
+                  name: s.subject_name,
+                  pct: s.percentage != null ? Number(s.percentage) : 0,
+                  obtained: s.marks_obtained,
+                  max: s.max_marks,
+                }))}
+                margin={{ top: 18, right: 8, bottom: 4, left: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                <XAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 10, fill: '#1f1f1f' }}
+                  interval={0}
+                  height={36}
+                  tickFormatter={(v) => (String(v).length > 10 ? `${String(v).slice(0, 10)}…` : v)}
+                />
+                <YAxis
+                  type="number"
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: '#888' }}
+                  tickFormatter={(v) => `${v}%`}
+                  width={36}
+                />
+                <Tooltip
+                  formatter={(v, _n, p) => [`${v}% (${p.payload.obtained}/${p.payload.max})`, 'Score']}
+                  cursor={{ fill: 'rgba(0,0,0,0.03)' }}
+                />
+                <ReferenceLine
+                  y={totals?.percentage != null ? Number(totals.percentage) : 33}
+                  stroke={primary}
+                  strokeDasharray="4 4"
+                />
+                <Bar dataKey="pct" radius={[6, 6, 0, 0]} maxBarSize={42}>
+                  {subjects.map((s, i) => {
+                    const p = s.percentage != null ? Number(s.percentage) : 0;
+                    const fill = p >= 75 ? '#10b981' : p >= 50 ? primary : p >= 33 ? '#f59e0b' : '#ef4444';
+                    return <Cell key={i} fill={fill} />;
+                  })}
+                  <LabelList
+                    dataKey="pct"
+                    position="top"
+                    formatter={(v) => `${v}%`}
+                    style={{ fontSize: 10, fill: '#1f1f1f', fontWeight: 600 }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="rc-analytics-legend">
+              <span><span className="sw" style={{ background: '#10b981' }} />Distinction (≥75%)</span>
+              <span><span className="sw" style={{ background: primary }} />Strong (50–74%)</span>
+              <span><span className="sw" style={{ background: '#f59e0b' }} />Pass (33–49%)</span>
+              <span><span className="sw" style={{ background: '#ef4444' }} />Below pass (&lt;33%)</span>
+            </div>
           </div>
-          <div className="rc-stat">
-            <div className="label">Total</div>
-            <div className="value">{fmt(totals?.obtained)}/{fmt(totals?.max)}</div>
-          </div>
-          <div className="rc-stat">
-            <div className="label">Grade</div>
-            <div className="value">{overall_grade || '—'}</div>
-          </div>
-          <div className={`rc-stat ${totals?.percentage == null ? '' : (totals.percentage >= 33 ? 'rc-stat--pass' : 'rc-stat--fail')}`}>
-            <div className="label">Result</div>
-            <div className="value">{totals?.percentage != null ? (totals.percentage >= 33 ? 'PASS' : 'FAIL') : '—'}</div>
-          </div>
-        </div>
+        )}
 
         <div className="rc-sign">
           <div><div className="line">Class Teacher</div></div>

@@ -148,7 +148,7 @@ const PAGE_META = {
   '/attendance':                 { icon: <CalendarOutlined />,       label: 'Attendance' },
   '/student/attendance':         { icon: <CalendarOutlined />,       label: 'Attendance' },
   '/test-management':            { icon: <EditOutlined />,           label: 'Assessments' },
-  '/gradebook':                  { icon: <TrophyOutlined />,         label: 'Gradebook' },
+  // '/gradebook' header intentionally omitted — Gradebook page renders its own title.
   '/take-tests':                 { icon: <EditOutlined />,           label: 'Assessments' },
   '/student/results':            { icon: <TrophyOutlined />,         label: 'My Results' },
   '/analytics':                  { icon: <BarChartOutlined />,       label: 'Analytics' },
