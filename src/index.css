@@ -261,6 +261,7 @@ input, textarea, select { font-family: inherit; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  grid-column: 2;
 }
 .cb-scroll {
   flex: 1;
