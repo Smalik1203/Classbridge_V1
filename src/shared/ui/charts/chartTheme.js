@@ -5,7 +5,7 @@ export const chartTheme = {
     success: '#10b981',
     warning: '#f59e0b',
     error: '#ef4444',
-    info: '#8B5CF6',
+    info: '#3B82F6',
     collected: '#10b981',
     outstanding: '#ef4444',
     noPlan: '#e2e8f0',

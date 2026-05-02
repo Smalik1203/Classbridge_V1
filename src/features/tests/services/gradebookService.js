@@ -7,14 +7,30 @@ export const listExamGroups = async ({ schoolCode, academicYearId = null, classI
   if (!schoolCode) return fail('school code required');
   let q = supabase
     .from('exam_groups')
-    .select('id, name, exam_type, weightage, start_date, end_date, status, class_instance_id, academic_year_id, school_code, created_at')
+    .select('*, exam_group_classes(class_instance_id)')
     .eq('school_code', schoolCode)
     .order('created_at', { ascending: false });
   if (academicYearId) q = q.eq('academic_year_id', academicYearId);
-  if (classInstanceId) q = q.eq('class_instance_id', classInstanceId);
   const { data, error } = await q;
   if (error) return fail(error.message);
-  return ok(data || []);
+  let rows = (data || []).map((g) => ({
+    ...g,
+    class_instance_ids: (g.exam_group_classes || []).map((x) => x.class_instance_id),
+  }));
+  if (classInstanceId) {
+    rows = rows.filter((g) => g.class_instance_ids.includes(classInstanceId));
+  }
+  return ok(rows);
+};
+
+export const getExamGroupClasses = async (examGroupId) => {
+  if (!examGroupId) return fail('examGroupId required');
+  const { data, error } = await supabase
+    .from('exam_group_classes')
+    .select('class_instance_id')
+    .eq('exam_group_id', examGroupId);
+  if (error) return fail(error.message);
+  return ok((data || []).map((r) => r.class_instance_id));
 };
 
 export const getExamGroup = async (id) => {
@@ -28,26 +44,45 @@ export const getExamGroup = async (id) => {
 };
 
 export const createExamGroup = async (payload) => {
-  const required = ['school_code', 'academic_year_id', 'class_instance_id', 'name'];
+  const required = ['school_code', 'academic_year_id', 'name'];
   for (const k of required) if (!payload?.[k]) return fail(`Missing field: ${k}`);
+  const classIds = Array.isArray(payload.class_instance_ids) && payload.class_instance_ids.length > 0
+    ? payload.class_instance_ids
+    : (payload.class_instance_id ? [payload.class_instance_id] : []);
+  if (classIds.length === 0) return fail('At least one class is required');
+
+  const row = {
+    school_code: payload.school_code,
+    academic_year_id: payload.academic_year_id,
+    class_instance_id: classIds[0], // legacy "primary" class
+    name: payload.name,
+    exam_type: payload.exam_type || 'custom',
+    weightage: payload.weightage ?? null,
+    start_date: payload.start_date || null,
+    end_date: payload.end_date || null,
+    status: payload.status || 'planned',
+    created_by: payload.created_by || null,
+  };
+  if (payload.grading_scale_id) row.grading_scale_id = payload.grading_scale_id;
+
   const { data, error } = await supabase
     .from('exam_groups')
-    .insert({
-      school_code: payload.school_code,
-      academic_year_id: payload.academic_year_id,
-      class_instance_id: payload.class_instance_id,
-      name: payload.name,
-      exam_type: payload.exam_type || 'custom',
-      weightage: payload.weightage ?? null,
-      start_date: payload.start_date || null,
-      end_date: payload.end_date || null,
-      status: payload.status || 'planned',
-      created_by: payload.created_by || null,
-    })
+    .insert(row)
     .select()
     .single();
   if (error) return fail(error.message);
-  return ok(data);
+
+  const junctionRows = classIds.map((cid) => ({
+    exam_group_id: data.id, class_instance_id: cid,
+  }));
+  const { error: jErr } = await supabase
+    .from('exam_group_classes')
+    .insert(junctionRows);
+  if (jErr) {
+    await supabase.from('exam_groups').delete().eq('id', data.id);
+    return fail(jErr.message);
+  }
+  return ok({ ...data, class_instance_ids: classIds });
 };
 
 export const updateExamGroup = async (id, patch) => {
@@ -67,19 +102,23 @@ export const deleteExamGroup = async (id) => {
   return ok(true);
 };
 
-export const getGroupTests = async (examGroupId) => {
+export const getGroupTests = async (examGroupId, classInstanceId = null) => {
   const { data, error } = await supabase
     .from('exam_group_tests')
     .select(`
       id,
       sequence,
       test_id,
-      tests:test_id ( id, title, max_marks, test_date, subject_id, test_mode, subjects:subject_id ( id, subject_name ) )
+      tests:test_id ( id, title, max_marks, test_date, subject_id, class_instance_id, test_mode, subjects:subject_id ( id, subject_name ) )
     `)
     .eq('exam_group_id', examGroupId)
     .order('sequence', { ascending: true });
   if (error) return fail(error.message);
-  return ok(data || []);
+  let rows = data || [];
+  if (classInstanceId) {
+    rows = rows.filter((r) => r.tests?.class_instance_id === classInstanceId);
+  }
+  return ok(rows);
 };
 
 export const attachTestsToGroup = async (examGroupId, testIds = []) => {
@@ -138,6 +177,17 @@ export const listGradingScales = async (schoolCode) => {
 
 export const upsertGradingScale = async (payload) => {
   if (!payload?.school_code || !payload?.name || !payload?.scale) return fail('school_code, name, scale required');
+
+  if (payload.is_default) {
+    const clearQ = supabase
+      .from('grading_scales')
+      .update({ is_default: false })
+      .eq('school_code', payload.school_code)
+      .eq('is_default', true);
+    if (payload.id) clearQ.neq('id', payload.id);
+    await clearQ;
+  }
+
   const row = {
     id: payload.id,
     school_code: payload.school_code,
@@ -150,6 +200,24 @@ export const upsertGradingScale = async (payload) => {
     .upsert(row)
     .select()
     .single();
+  if (error) return fail(error.message);
+  return ok(data);
+};
+
+export const deleteGradingScale = async (id) => {
+  if (!id) return fail('id required');
+  const { error } = await supabase.from('grading_scales').delete().eq('id', id);
+  if (error) return fail(error.message);
+  return ok(true);
+};
+
+export const getGradingScale = async (id) => {
+  if (!id) return ok(null);
+  const { data, error } = await supabase
+    .from('grading_scales')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
   if (error) return fail(error.message);
   return ok(data);
 };
@@ -194,17 +262,18 @@ export const buildReportCardData = async ({ examGroupId, studentId, schoolCode }
     }
   }
 
-  const testsRes = await getGroupTests(examGroupId);
-  if (!testsRes.success) return testsRes;
-  const groupTests = testsRes.data;
-  const testIds = groupTests.map((g) => g.test_id);
-
   const { data: student, error: stErr } = await supabase
     .from('student')
     .select('id, full_name, student_code, class_instance_id')
     .eq('id', studentId)
     .single();
   if (stErr) return fail(stErr.message);
+
+  // For multi-class exam groups, filter tests to this student's class.
+  const testsRes = await getGroupTests(examGroupId, student.class_instance_id);
+  if (!testsRes.success) return testsRes;
+  const groupTests = testsRes.data;
+  const testIds = groupTests.map((g) => g.test_id);
 
   let marks = [];
   if (testIds.length > 0) {
@@ -240,8 +309,16 @@ export const buildReportCardData = async ({ examGroupId, studentId, schoolCode }
   const totalObtained = subjects.reduce((s, x) => s + Number(x.marks_obtained || 0), 0);
   const percentage = totalMax > 0 ? Number(((totalObtained / totalMax) * 100).toFixed(2)) : null;
 
-  const scaleRes = await getDefaultGradingScale(schoolCode || group.school_code);
-  const scale = scaleRes.success && scaleRes.data ? scaleRes.data.scale : [];
+  let scaleRow = null;
+  if (group.grading_scale_id) {
+    const r = await getGradingScale(group.grading_scale_id);
+    if (r.success) scaleRow = r.data;
+  }
+  if (!scaleRow) {
+    const r = await getDefaultGradingScale(schoolCode || group.school_code);
+    if (r.success) scaleRow = r.data;
+  }
+  const scale = scaleRow?.scale || [];
   const overall = gradeFor(percentage, scale);
 
   const brandingRes = await getSchoolBranding(schoolCode || group.school_code);
@@ -271,27 +348,35 @@ export const listSchoolSubjects = async (schoolCode) => {
 
 export const createSubjectTestForGroup = async ({ examGroup, subjectId, title, maxMarks, testDate, createdBy }) => {
   if (!examGroup?.id || !subjectId) return fail('examGroup + subjectId required');
-  const { data: test, error } = await supabase
+
+  const classIds = Array.isArray(examGroup.class_instance_ids) && examGroup.class_instance_ids.length > 0
+    ? examGroup.class_instance_ids
+    : (examGroup.class_instance_id ? [examGroup.class_instance_id] : []);
+  if (classIds.length === 0) return fail('Exam group has no classes');
+
+  // One test row per class — marks belong to students within a class.
+  const testRows = classIds.map((cid) => ({
+    title: title || 'Subject Test',
+    class_instance_id: cid,
+    subject_id: subjectId,
+    school_code: examGroup.school_code,
+    test_type: 'manual',
+    test_mode: 'offline',
+    test_date: testDate || examGroup.start_date || null,
+    max_marks: maxMarks || 100,
+    status: 'active',
+    created_by: createdBy || null,
+  }));
+
+  const { data: tests, error } = await supabase
     .from('tests')
-    .insert({
-      title: title || 'Subject Test',
-      class_instance_id: examGroup.class_instance_id,
-      subject_id: subjectId,
-      school_code: examGroup.school_code,
-      test_type: 'manual',
-      test_mode: 'offline',
-      test_date: testDate || examGroup.start_date || null,
-      max_marks: maxMarks || 100,
-      status: 'active',
-      created_by: createdBy || null,
-    })
-    .select()
-    .single();
+    .insert(testRows)
+    .select();
   if (error) return fail(error.message);
 
-  const linkRes = await attachTestsToGroup(examGroup.id, [test.id]);
+  const linkRes = await attachTestsToGroup(examGroup.id, tests.map((t) => t.id));
   if (!linkRes.success) return linkRes;
-  return ok(test);
+  return ok(tests);
 };
 
 export const bulkSaveMarks = async (rows) => {

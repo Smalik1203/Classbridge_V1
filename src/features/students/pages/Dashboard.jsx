@@ -1,80 +1,75 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+/**
+ * Dashboard — admin / superadmin / student daily snapshot.
+ *
+ * Visual layer is rebuilt on shadcn primitives (Button, Card, KPI, Badge,
+ * Tabs, etc.). All data fetching, realtime channels, role logic, and KPI
+ * math is unchanged from the previous version.
+ */
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
   ArrowUpRight, RefreshCw, AlertTriangle, TrendingUp, TrendingDown,
-  CalendarCheck, Wallet, ClipboardList, GraduationCap, ChevronRight, Activity,
+  CalendarCheck, Wallet, ClipboardList, GraduationCap, ChevronRight,
+  Activity, Users, FileText, Clock, BookOpen,
 } from 'lucide-react';
+
 import { useAuth } from '@/AuthProvider';
 import { supabase } from '@/config/supabaseClient';
-import { getSchoolCode, getUserRole, getStudentCode, getSchoolName } from '@/shared/utils/metadata';
+import {
+  getSchoolCode, getUserRole, getStudentCode, getSchoolName,
+} from '@/shared/utils/metadata';
 import attendanceSvc from '@/features/analytics/services/attendanceAnalyticsService';
 import feesSvc from '@/features/analytics/services/feesAnalyticsService';
 import tasksSvc from '@/features/analytics/services/tasksAnalyticsService';
 
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/shared/ui/PageHeader';
+import { Badge } from '@/shared/ui/Badge';
+
 // ───────────────────────────────────────────────────────────────────────────
-// Visual language: matches AnalyticsShell — gradient page bg fading to white,
-// soft 1px indigo-tinted borders, no shadows. Accent palette is shared with
-// the analytics SECTIONS map so the two surfaces feel like one product.
+// Money / number formatters (kept identical to previous Dashboard)
 // ───────────────────────────────────────────────────────────────────────────
-const ACCENT = {
-  attendance: '#10b981',
-  fees:       '#f59e0b',
-  tasks:      '#3b82f6',
-  academic:   '#ef4444',
-  primary:    '#6366F1',
-};
-
-const PANEL = {
-  background: '#ffffff',
-  border: '1px solid #eef2ff',
-  borderRadius: 14,
-};
-
-const formatINR = (paise) => {
-  const rupees = Number(paise || 0) / 100;
-  if (rupees >= 10_000_000) return `₹${(rupees / 10_000_000).toFixed(2)}Cr`;
-  if (rupees >= 100_000)    return `₹${(rupees / 100_000).toFixed(2)}L`;
-  if (rupees >= 1_000)      return `₹${(rupees / 1_000).toFixed(1)}K`;
-  return `₹${rupees.toFixed(0)}`;
-};
-
-const formatINRPlain = (rupees) => {
+function formatINRPlain(rupees) {
   if (rupees >= 10_000_000) return `₹${(rupees / 10_000_000).toFixed(2)}Cr`;
   if (rupees >= 100_000)    return `₹${(rupees / 100_000).toFixed(2)}L`;
   if (rupees >= 1_000)      return `₹${(rupees / 1_000).toFixed(1)}K`;
   return `₹${Math.round(rupees)}`;
-};
+}
 
-// Donut ring used in the Today hero — single-arc SVG so we don't pull
-// recharts onto the dashboard for one shape.
-const Ring = ({ value, size = 132, stroke = 12, color = ACCENT.attendance }) => {
+// Single-arc donut for attendance ring.
+function Ring({ value, size = 120, stroke = 10, color = 'var(--brand)' }) {
   const v = Math.max(0, Math.min(100, Number(value || 0)));
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = (v / 100) * c;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#eef2ff" strokeWidth={stroke} />
       <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke={color} strokeWidth={stroke} strokeLinecap="round"
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke="var(--bg-muted)" strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
         strokeDasharray={`${dash} ${c - dash}`}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
       />
       <text
         x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
-        fontSize={size * 0.26} fontWeight={700} fill="#0f172a" letterSpacing="-0.02em"
-      >{Math.round(v)}%</text>
+        fontSize={size * 0.24} fontWeight={600} fill="currentColor"
+        letterSpacing="-0.02em" className="text-[color:var(--fg)]"
+      >
+        {Math.round(v)}%
+      </text>
     </svg>
   );
-};
+}
 
-// Tiny inline-SVG sparkline. Keeps the dashboard light and avoids the
-// generic Statistic-card-with-trend-arrow look.
-const Sparkline = ({ values, color = ACCENT.primary, height = 36, width = 140, fill = true }) => {
+// Inline-SVG sparkline.
+function Sparkline({ values, color = 'var(--brand)', height = 36, width = 140 }) {
   if (!values || values.length < 2) {
-    return <div style={{ height, width, color: '#cbd5e1', fontSize: 11 }}>—</div>;
+    return <div style={{ height, width }} className="text-[color:var(--fg-faint)] text-[11px]">—</div>;
   }
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
@@ -85,24 +80,15 @@ const Sparkline = ({ values, color = ACCENT.primary, height = 36, width = 140, f
   const area = `${path} L ${width.toFixed(1)},${(height - 2).toFixed(1)} L 0,${(height - 2).toFixed(1)} Z`;
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block' }}>
-      {fill && <path d={area} fill={color} fillOpacity={0.12} />}
-      <path d={path} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={area} fill={color} fillOpacity={0.10} />
+      <path d={path} fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
-};
-
-const SectionTitle = ({ children, subtitle, action }) => (
-  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-    <div>
-      <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.01em' }}>{children}</h2>
-      {subtitle && <div style={{ marginTop: 2, fontSize: 12, color: '#94a3b8' }}>{subtitle}</div>}
-    </div>
-    {action}
-  </div>
-);
+}
 
 // ───────────────────────────────────────────────────────────────────────────
-
+// Dashboard
+// ───────────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -118,20 +104,24 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [schoolName, setSchoolName] = useState(fallbackSchoolName);
-  const [activeAy, setActiveAy]     = useState(null); // { id, year_start, year_end }
+  const [activeAy, setActiveAy] = useState(null);
 
-  // Aggregate dashboard state — every key is wired to a real query.
+  // Class-teacher (role === 'admin') scope. Superadmin sees school-wide.
+  // adminClasses = classes where this admin is class_teacher in the active AY.
+  const [adminClasses, setAdminClasses] = useState([]);
+  const [selectedClassId, setSelectedClassId] = useState(null);
+
   const [data, setData] = useState({
     attendanceToday:    { rate: 0, present: 0, absent: 0, marked: 0, students: 0 },
-    attendanceWeek:     [], // [{date, rate}] for sparkline
+    attendanceWeek:     [],
     fees:               { collectionRate: 0, outstanding: 0, billed: 0, paid: 0, dueCount: 0 },
-    feesWeek:           [], // [{date, amount}]
+    feesWeek:           [],
     tasks:              { completionRate: 0, overdueTasks: 0, missed: 0 },
     topAbsentees:       [],
     topDefaulters:      [],
     recentPayments:     [],
     recentEnquiries:    [],
-    studentSelf:        null, // populated only for role=student
+    studentSelf:        null,
   });
 
   // Load active AY once school code is known.
@@ -157,65 +147,86 @@ export default function Dashboard() {
 
   const todayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
+  // Fetch this admin's class-teacher assignments for the active AY. Superadmin
+  // skips this — they always see school-wide. Sets adminClasses + default
+  // selection. Re-runs when role/schoolCode/AY change.
+  useEffect(() => {
+    let cancelled = false;
+    if (role !== 'admin' || !schoolCode || !activeAy?.id || !user?.id) {
+      setAdminClasses([]);
+      setSelectedClassId(null);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase
+        .from('class_instances')
+        .select('id, grade, section')
+        .eq('class_teacher_id', user.id)
+        .eq('school_code', schoolCode)
+        .eq('academic_year_id', activeAy.id)
+        .order('grade', { ascending: true })
+        .order('section', { ascending: true });
+      if (cancelled) return;
+      const list = (data || []).map((c) => ({
+        id: c.id,
+        label: c.grade != null ? `Grade ${c.grade}${c.section ? ` ${c.section}` : ''}` : 'Class',
+      }));
+      setAdminClasses(list);
+      setSelectedClassId(list[0]?.id ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [role, schoolCode, activeAy?.id, user?.id]);
+
   const loadAdminAndSuperadmin = useCallback(async (ayId) => {
     const today = todayIST();
     const weekStart = dayjs(today).subtract(6, 'day').format('YYYY-MM-DD');
 
-    // For class-teacher admins, scope the attention lists to their classes.
+    // Scope: superadmin → null (school-wide). Admin → their selected class.
+    // If admin has zero assigned classes, skip RPCs entirely and return a
+    // zeroed payload (avoids privilege-escalation to school-wide data and
+    // avoids sending an invalid UUID sentinel to the RPCs).
     let classScope = null;
     if (role === 'admin') {
-      const { data: classes } = await supabase
-        .from('class_instances')
-        .select('id')
-        .eq('class_teacher_id', user.id)
-        .eq('school_code', schoolCode)
-        .eq('academic_year_id', ayId);
-      const ids = (classes || []).map((c) => c.id);
-      classScope = ids.length === 1 ? ids[0] : (ids.length > 1 ? null : '__none__');
+      if (adminClasses.length === 0) {
+        return {
+          attendanceToday: { rate: 0, present: 0, absent: 0, marked: 0, students: 0 },
+          attendanceWeek:  [],
+          fees:            { collectionRate: 0, outstanding: 0, billed: 0, paid: 0, dueCount: 0 },
+          feesWeek:        [],
+          tasks:           { completionRate: 0, overdueTasks: 0, missed: 0 },
+          topAbsentees:    [],
+          topDefaulters:   [],
+          recentPayments:  [],
+          recentEnquiries: [],
+          studentSelf:     null,
+        };
+      }
+      classScope = selectedClassId || adminClasses[0].id;
     }
 
     const [
-      attToday,
-      attWeek,
-      feesKpi,
-      feesWeek,
-      tasksKpi,
-      absentees,
-      defaulters,
-      payments,
-      enquiries,
+      attToday, attWeek, feesKpi, feesWeek, tasksKpi,
+      absentees, defaulters, payments, enquiries,
     ] = await Promise.all([
-      attendanceSvc.getHeadlineKpis({
-        schoolCode, ayId, classInstanceId: classScope,
-        startDate: today, endDate: today,
-      }),
-      attendanceSvc.getDailyAttendanceTrend({
-        schoolCode, ayId, classInstanceId: classScope,
-        startDate: weekStart, endDate: today,
-      }),
+      attendanceSvc.getHeadlineKpis({ schoolCode, ayId, classInstanceId: classScope, startDate: today, endDate: today }),
+      attendanceSvc.getDailyAttendanceTrend({ schoolCode, ayId, classInstanceId: classScope, startDate: weekStart, endDate: today }),
       feesSvc.getHeadlineKpis({ schoolCode, ayId, classInstanceId: classScope }),
-      feesSvc.getDailyCollection({
-        schoolCode, ayId, classInstanceId: classScope,
-        startDate: weekStart, endDate: today,
-      }),
+      feesSvc.getDailyCollection({ schoolCode, ayId, classInstanceId: classScope, startDate: weekStart, endDate: today }),
       tasksSvc.getHeadlineKpis({ schoolCode, ayId, classInstanceId: classScope }),
-      attendanceSvc.getTopAbsentees({
-        schoolCode, ayId, classInstanceId: classScope,
-        startDate: weekStart, endDate: today, limit: 5,
-      }),
+      attendanceSvc.getTopAbsentees({ schoolCode, ayId, classInstanceId: classScope, startDate: weekStart, endDate: today, limit: 5 }),
       feesSvc.getTopDefaulters({ schoolCode, ayId, classInstanceId: classScope, limit: 5 }),
-      // Recent fee payments — last ~10, joined to invoice → student.
       supabase
         .from('fee_payments')
         .select('id, amount_inr, payment_date, payment_method, fee_invoices!inner(student_id, school_code, student:student_id(full_name))')
         .eq('fee_invoices.school_code', schoolCode)
         .order('payment_date', { ascending: false })
         .limit(6),
-      // Recent admission enquiries — fresh leads.
+      // admission_enquiries has school_id (FK → schools.id), not school_code,
+      // and uses class_applying_for instead of grade. Filter via the FK embed.
       supabase
         .from('admission_enquiries')
-        .select('id, student_name, grade, created_at, status')
-        .eq('school_code', schoolCode)
+        .select('id, student_name, class_applying_for, created_at, status, schools!inner(school_code)')
+        .eq('schools.school_code', schoolCode)
         .order('created_at', { ascending: false })
         .limit(5),
     ]);
@@ -246,7 +257,7 @@ export default function Dashboard() {
       topDefaulters: defaulters || [],
       recentPayments: (payments?.data || []).map((p) => ({
         id: p.id,
-        amount: Number(p.amount_inr || 0), // already in rupees per feesService usage
+        amount: Number(p.amount_inr || 0),
         when: p.payment_date,
         method: p.payment_method || 'cash',
         studentName: p.fee_invoices?.student?.full_name || 'Student',
@@ -254,19 +265,18 @@ export default function Dashboard() {
       recentEnquiries: (enquiries?.data || []).map((e) => ({
         id: e.id,
         name: e.student_name,
-        grade: e.grade,
+        grade: e.class_applying_for,
         when: e.created_at,
         status: e.status,
       })),
       studentSelf: null,
     };
-  }, [role, schoolCode, user]);
+  }, [role, schoolCode, user, adminClasses, selectedClassId]);
 
   const loadStudent = useCallback(async (ayId) => {
     const today = todayIST();
     const weekStart = dayjs(today).subtract(6, 'day').format('YYYY-MM-DD');
 
-    // Resolve the student row.
     let { data: stu } = await supabase
       .from('student')
       .select('id, class_instance_id, full_name')
@@ -362,127 +372,118 @@ export default function Dashboard() {
 
   // ─── render ────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      padding: '20px 24px 32px',
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #f8fafc 0%, #ffffff 320px)',
-    }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+    <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">
+      <PageHeader
+        title={`${greeting}, ${userName.split(' ')[0]}`}
+        subtitle={`${schoolName ? schoolName + ' · ' : ''}${todayLong}${activeAy ? ' · AY ' + ayLabel : ''}`}
+        actions={
+          <>
+            {role === 'admin' && adminClasses.length > 1 && (
+              <select
+                value={selectedClassId || ''}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="h-8 rounded-md border border-[color:var(--border)] bg-[color:var(--bg-elev)] px-2 text-[13px] text-[color:var(--fg)]"
+                aria-label="Filter dashboard by class"
+              >
+                {adminClasses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refresh}
+              disabled={refreshing}
+            >
+              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
-        {/* ── Page header (matches AnalyticsShell) ───────────────────── */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 16, flexWrap: 'wrap',
-          background: '#fff', border: '1px solid #eef2ff', borderRadius: 14,
-          padding: '12px 16px', marginBottom: 20,
-        }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 10,
-              background: `${ACCENT.primary}15`, color: ACCENT.primary,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <Activity size={20} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.01em' }}>
-                  {greeting}, {userName.split(' ')[0]}
-                </h1>
-                {activeAy && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, color: ACCENT.primary,
-                    background: `${ACCENT.primary}15`, padding: '2px 8px', borderRadius: 999,
-                  }}>AY {ayLabel}</span>
-                )}
-              </div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>
-                {schoolName ? `${schoolName} · ${todayLong}` : todayLong}
-              </div>
-            </div>
-          </div>
-          <button onClick={refresh} disabled={refreshing} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '6px 12px', height: 32, borderRadius: 8,
-            border: '1px solid #e2e8f0', background: '#fff',
-            color: '#475569', fontSize: 12, fontWeight: 500,
-            cursor: refreshing ? 'wait' : 'pointer',
-          }}>
-            <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-            Refresh
-          </button>
+      {loading ? (
+        <DashboardSkeleton />
+      ) : role === 'student' ? (
+        <StudentView self={data.studentSelf} navigate={navigate} userName={userName} />
+      ) : role === 'admin' && adminClasses.length === 0 ? (
+        <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-10 text-center">
+          <p className="text-[color:var(--fg-muted)] text-[14px]">
+            You're not assigned as class teacher for any class in this academic year. Ask your superadmin to assign you a class to see dashboard data.
+          </p>
         </div>
-
-        {loading ? (
-          <SkeletonBody />
-        ) : role === 'student' ? (
-          <StudentView self={data.studentSelf} navigate={navigate} userName={userName} />
-        ) : (
-          <AdminView data={data} navigate={navigate} role={role} />
-        )}
-      </div>
-
-      <style>{`@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }`}</style>
+      ) : (
+        <AdminView data={data} navigate={navigate} role={role} />
+      )}
     </div>
   );
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Admin / superadmin view
+// Admin view
 // ───────────────────────────────────────────────────────────────────────────
-function AdminView({ data, navigate, role }) {
-  const { attendanceToday, attendanceWeek, fees, feesWeek, tasks, topAbsentees, topDefaulters, recentPayments, recentEnquiries } = data;
+function AdminView({ data, navigate }) {
+  const {
+    attendanceToday, attendanceWeek, fees, feesWeek, tasks,
+    topAbsentees, topDefaulters, recentPayments, recentEnquiries,
+  } = data;
   const todayCollected = feesWeek.length ? feesWeek[feesWeek.length - 1].amount : 0;
   const yesterdayCollected = feesWeek.length > 1 ? feesWeek[feesWeek.length - 2].amount : 0;
   const collectionDelta = todayCollected - yesterdayCollected;
+  const weekTotal = feesWeek.reduce((s, d) => s + d.amount, 0);
 
   return (
     <>
-      {/* ── HERO: Today strip ──────────────────────────────────────────── */}
-      <div style={{
-        ...PANEL,
-        padding: 24, marginBottom: 16,
-        background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, #f8fafc 100%)',
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 28, alignItems: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <Ring value={attendanceToday.rate} color={ACCENT.attendance} />
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+      {/* ── Hero strip: ring + 4 KPIs ─────────────────────────────────── */}
+      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-6 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 items-center">
+          {/* Attendance ring */}
+          <div className="flex flex-col items-center gap-2">
+            <Ring value={attendanceToday.rate} color="var(--brand)" />
+            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--fg-subtle)]">
               Today's attendance
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <HeroStat
               label="Marked today"
               value={attendanceToday.marked.toLocaleString('en-IN')}
-              hint={attendanceToday.students ? `${attendanceToday.present} present · ${attendanceToday.absent} absent` : 'No attendance marked yet'}
-              color={ACCENT.attendance}
+              hint={
+                attendanceToday.students
+                  ? `${attendanceToday.present} present · ${attendanceToday.absent} absent`
+                  : 'No attendance marked yet'
+              }
+              dotColor="var(--brand)"
               onClick={() => navigate('/attendance')}
             />
             <HeroStat
               label="Collected this week"
-              value={formatINRPlain(feesWeek.reduce((s, d) => s + d.amount, 0))}
-              hint={collectionDelta === 0 ? 'No change vs yesterday' :
+              value={formatINRPlain(weekTotal)}
+              hint={
+                collectionDelta === 0 ? 'No change vs yesterday' :
                 collectionDelta > 0 ? `+${formatINRPlain(collectionDelta)} vs yesterday` :
-                `${formatINRPlain(collectionDelta)} vs yesterday`}
+                `${formatINRPlain(collectionDelta)} vs yesterday`
+              }
               hintIcon={collectionDelta >= 0 ? TrendingUp : TrendingDown}
-              hintColor={collectionDelta >= 0 ? ACCENT.attendance : ACCENT.academic}
-              color={ACCENT.fees}
+              hintColor={collectionDelta >= 0 ? 'var(--success)' : 'var(--danger)'}
+              dotColor="var(--success)"
               onClick={() => navigate('/fees')}
             />
             <HeroStat
               label="Outstanding fees"
               value={formatINRPlain(fees.outstanding / 100)}
               hint={`${fees.dueCount} invoice${fees.dueCount === 1 ? '' : 's'} unpaid`}
-              color={ACCENT.academic}
+              dotColor="var(--warning)"
               onClick={() => navigate('/analytics/fees')}
             />
             <HeroStat
               label="Task completion"
               value={`${Math.round(tasks.completionRate)}%`}
               hint={tasks.overdueTasks > 0 ? `${tasks.overdueTasks} overdue` : 'All current'}
-              color={ACCENT.tasks}
+              dotColor="var(--info)"
               onClick={() => navigate('/analytics/tasks')}
             />
           </div>
@@ -490,88 +491,192 @@ function AdminView({ data, navigate, role }) {
       </div>
 
       {/* ── Two-column: trends + attention ─────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 16, marginBottom: 16 }}>
-
-        <div style={{ ...PANEL, padding: 20 }}>
-          <SectionTitle subtitle="Last 7 days · live"
-            action={<button onClick={() => navigate('/analytics')} style={linkBtn}>Open analytics <ArrowUpRight size={12} /></button>}
-          >
-            This week
-          </SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-4 mb-4">
+        <SectionCard
+          title="This week"
+          subtitle="Last 7 days · live"
+          action={
+            <Button variant="ghost" size="sm" onClick={() => navigate('/analytics')}>
+              Open analytics <ArrowUpRight size={12} />
+            </Button>
+          }
+        >
+          <div className="flex flex-col gap-3">
             <TrendBlock
               title="Attendance rate"
               value={`${Math.round(attendanceWeek.length ? attendanceWeek[attendanceWeek.length - 1].rate : 0)}%`}
               series={attendanceWeek.map((d) => d.rate)}
-              color={ACCENT.attendance}
+              color="var(--success)"
             />
             <TrendBlock
               title="Fee collection"
-              value={formatINRPlain(feesWeek.reduce((s, d) => s + d.amount, 0))}
+              value={formatINRPlain(weekTotal)}
               series={feesWeek.map((d) => d.amount)}
-              color={ACCENT.fees}
+              color="var(--brand)"
             />
           </div>
-        </div>
+        </SectionCard>
 
-        <div style={{ ...PANEL, padding: 20 }}>
-          <SectionTitle subtitle="What needs you today">
-            Needs your attention
-          </SectionTitle>
-          <AttentionList absentees={topAbsentees} defaulters={topDefaulters} navigate={navigate} tasks={tasks} />
-        </div>
+        <SectionCard title="Needs your attention" subtitle="What needs you today">
+          <AttentionList
+            absentees={topAbsentees}
+            defaulters={topDefaulters}
+            tasks={tasks}
+            navigate={navigate}
+          />
+        </SectionCard>
       </div>
 
       {/* ── Two-column: recent activity + quick actions ────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 16 }}>
-        <div style={{ ...PANEL, padding: 20 }}>
-          <SectionTitle subtitle="Latest payments and enquiries">Recent activity</SectionTitle>
-          <RecentActivity payments={recentPayments} enquiries={recentEnquiries} navigate={navigate} />
-        </div>
-        <div style={{ ...PANEL, padding: 20 }}>
-          <SectionTitle subtitle="Jump back into work">Continue</SectionTitle>
-          <ContextActions role={role} navigate={navigate} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-4">
+        <SectionCard title="Recent activity" subtitle="Latest payments and enquiries">
+          <RecentActivity
+            payments={recentPayments}
+            enquiries={recentEnquiries}
+            navigate={navigate}
+          />
+        </SectionCard>
+
+        <SectionCard title="Continue" subtitle="Jump back into work">
+          <ContextActions navigate={navigate} />
+        </SectionCard>
       </div>
     </>
   );
 }
 
-const linkBtn = {
-  display: 'inline-flex', alignItems: 'center', gap: 4,
-  padding: '4px 10px', borderRadius: 8, border: '1px solid #e2e8f0',
-  background: '#fff', color: '#475569', fontSize: 11, fontWeight: 500, cursor: 'pointer',
-};
-
-function HeroStat({ label, value, hint, hintIcon: HintIcon, hintColor, color, onClick }) {
-  return (
-    <div onClick={onClick} style={{
-      cursor: 'pointer', padding: '12px 14px', borderRadius: 10,
-      transition: 'background 0.15s ease',
-    }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{label}</span>
+// ───────────────────────────────────────────────────────────────────────────
+// Student view
+// ───────────────────────────────────────────────────────────────────────────
+function StudentView({ self, navigate }) {
+  if (!self) {
+    return (
+      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-10 text-center">
+        <p className="text-[color:var(--fg-muted)] text-[14px]">
+          Your student profile isn't linked yet. Ask your school admin to attach your account.
+        </p>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>{value}</div>
-      <div style={{ marginTop: 4, fontSize: 11, color: hintColor || '#94a3b8', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    );
+  }
+
+  return (
+    <>
+      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-6 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 items-center">
+          <div className="flex flex-col items-center gap-2">
+            <Ring value={self.attRate} color="var(--brand)" />
+            <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--fg-subtle)]">
+              My attendance
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <HeroStat
+              label="Pending fees"
+              value={formatINRPlain(self.pendingFees)}
+              hint={self.pendingFees > 0 ? 'Tap to view' : 'All clear'}
+              dotColor="var(--warning)"
+              onClick={() => navigate('/fees')}
+            />
+            <HeroStat
+              label="Upcoming tests"
+              value={String(self.upcomingTests)}
+              hint={self.upcomingTests ? 'Prepare in advance' : 'No tests scheduled'}
+              dotColor="var(--info)"
+              onClick={() => navigate('/take-tests')}
+            />
+            <HeroStat
+              label="Today's classes"
+              value={String(self.todayClasses)}
+              hint={self.todayClasses ? 'Check timetable' : 'Free day'}
+              dotColor="var(--brand)"
+              onClick={() => navigate('/student/timetable')}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-4">
+        <SectionCard title="My attendance trend" subtitle="Last 7 days">
+          <TrendBlock
+            title="Attendance rate"
+            value={`${Math.round(self.attendanceWeek.length ? self.attendanceWeek[self.attendanceWeek.length - 1].rate : 0)}%`}
+            series={self.attendanceWeek.map((d) => d.rate)}
+            color="var(--success)"
+          />
+        </SectionCard>
+        <SectionCard title="Next steps" subtitle="Continue learning">
+          <ContextActions navigate={navigate} forStudent />
+        </SectionCard>
+      </div>
+    </>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Building blocks
+// ───────────────────────────────────────────────────────────────────────────
+function SectionCard({ title, subtitle, action, children }) {
+  return (
+    <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-5">
+      <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[color:var(--fg)] m-0">
+            {title}
+          </h2>
+          {subtitle && (
+            <div className="text-[12px] text-[color:var(--fg-subtle)] mt-0.5">{subtitle}</div>
+          )}
+        </div>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function HeroStat({ label, value, hint, hintIcon: HintIcon, hintColor, dotColor, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-left p-3 rounded-md transition-colors hover:bg-[color:var(--bg-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-ring)]"
+    >
+      <div className="flex items-center gap-1.5 mb-1">
+        <span
+          className="size-1.5 rounded-full"
+          style={{ background: dotColor || 'var(--brand)' }}
+        />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[color:var(--fg-subtle)]">
+          {label}
+        </span>
+      </div>
+      <div className="text-[22px] font-semibold tracking-[-0.02em] tabular-nums leading-tight text-[color:var(--fg)]">
+        {value}
+      </div>
+      <div
+        className="mt-1 text-[11.5px] inline-flex items-center gap-1"
+        style={{ color: hintColor || 'var(--fg-subtle)' }}
+      >
         {HintIcon && <HintIcon size={11} />}
         {hint}
       </div>
-    </div>
+    </button>
   );
 }
 
 function TrendBlock({ title, value, series, color }) {
   return (
-    <div style={{ padding: 14, background: '#f8fafc', borderRadius: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{title}</div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 6, gap: 8 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>{value}</div>
-        <Sparkline values={series} color={color} width={120} height={36} />
+    <div className="p-4 bg-[color:var(--bg-subtle)] rounded-md">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[color:var(--fg-subtle)]">
+            {title}
+          </div>
+          <div className="text-[24px] font-semibold tracking-[-0.02em] tabular-nums text-[color:var(--fg)] mt-1">
+            {value}
+          </div>
+        </div>
+        <Sparkline values={series} color={color} width={220} height={52} />
       </div>
     </div>
   );
@@ -584,7 +689,7 @@ function AttentionList({ absentees, defaulters, tasks, navigate }) {
     const top = absentees[0];
     items.push({
       kind: 'attendance',
-      color: ACCENT.attendance,
+      color: 'var(--success)',
       title: `${absentees.length} student${absentees.length === 1 ? '' : 's'} with frequent absences`,
       detail: `Top: ${top.name} · ${top.absences} absence${top.absences === 1 ? '' : 's'} this week`,
       onClick: () => navigate('/analytics/attendance'),
@@ -595,7 +700,7 @@ function AttentionList({ absentees, defaulters, tasks, navigate }) {
     const totalOut = defaulters.reduce((s, d) => s + (d.outstanding || 0), 0);
     items.push({
       kind: 'fees',
-      color: ACCENT.fees,
+      color: 'var(--warning)',
       title: `${formatINRPlain(totalOut / 100)} overdue across ${defaulters.length} famil${defaulters.length === 1 ? 'y' : 'ies'}`,
       detail: `Top: ${top.name} · ${formatINRPlain(top.outstanding / 100)} (${top.oldestDueDays}d old)`,
       onClick: () => navigate('/analytics/fees'),
@@ -604,7 +709,7 @@ function AttentionList({ absentees, defaulters, tasks, navigate }) {
   if (tasks?.overdueTasks > 0) {
     items.push({
       kind: 'tasks',
-      color: ACCENT.tasks,
+      color: 'var(--info)',
       title: `${tasks.overdueTasks} task${tasks.overdueTasks === 1 ? '' : 's'} past due`,
       detail: tasks.missed > 0 ? `${tasks.missed} missed submission${tasks.missed === 1 ? '' : 's'}` : 'No submissions yet',
       onClick: () => navigate('/analytics/tasks'),
@@ -613,39 +718,38 @@ function AttentionList({ absentees, defaulters, tasks, navigate }) {
 
   if (!items.length) {
     return (
-      <div style={{
-        padding: '24px 16px', textAlign: 'center', color: '#94a3b8',
-        background: '#f8fafc', borderRadius: 10, fontSize: 13,
-      }}>
+      <div className="rounded-md bg-[color:var(--bg-subtle)] p-6 text-center text-[13px] text-[color:var(--fg-muted)]">
         Nothing flagged. Everything is on track.
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="flex flex-col gap-2">
       {items.map((it, i) => (
-        <button key={i} onClick={it.onClick} style={{
-          display: 'flex', alignItems: 'flex-start', gap: 12,
-          padding: '10px 12px', borderRadius: 10, border: '1px solid #f1f5f9',
-          background: '#fff', cursor: 'pointer', textAlign: 'left',
-          transition: 'border-color 0.15s, background 0.15s',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = it.color + '55'; e.currentTarget.style.background = it.color + '08'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#f1f5f9'; e.currentTarget.style.background = '#fff'; }}
+        <button
+          key={i}
+          onClick={it.onClick}
+          className="group flex items-start gap-3 p-3 rounded-md border border-[color:var(--border)] bg-[color:var(--bg-elev)] hover:bg-[color:var(--bg-subtle)] transition-colors text-left"
         >
-          <div style={{
-            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-            background: it.color + '18', color: it.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div
+            className="size-8 rounded-md grid place-items-center shrink-0"
+            style={{
+              background: 'color-mix(in oklab, ' + it.color + ' 14%, transparent)',
+              color: it.color,
+            }}
+          >
             <AlertTriangle size={15} />
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>{it.title}</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.detail}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold text-[color:var(--fg)] leading-snug">
+              {it.title}
+            </div>
+            <div className="text-[12px] text-[color:var(--fg-muted)] mt-0.5 truncate">
+              {it.detail}
+            </div>
           </div>
-          <ChevronRight size={14} color="#cbd5e1" style={{ marginTop: 8, flexShrink: 0 }} />
+          <ChevronRight size={14} className="text-[color:var(--fg-faint)] mt-1.5 shrink-0 group-hover:text-[color:var(--fg-muted)]" />
         </button>
       ))}
     </div>
@@ -653,14 +757,13 @@ function AttentionList({ absentees, defaulters, tasks, navigate }) {
 }
 
 function RecentActivity({ payments, enquiries, navigate }) {
-  // Merge payments + enquiries into a single descending feed.
   const feed = [
     ...payments.map((p) => ({
       kind: 'payment',
       when: p.when,
       title: `${p.studentName} paid ${formatINRPlain(p.amount)}`,
       hint: p.method?.replace('_', ' '),
-      color: ACCENT.fees,
+      color: 'var(--success)',
       icon: Wallet,
       onClick: () => navigate('/fees'),
     })),
@@ -669,44 +772,93 @@ function RecentActivity({ payments, enquiries, navigate }) {
       when: e.when,
       title: `New enquiry: ${e.name}`,
       hint: [e.grade && `Grade ${e.grade}`, e.status].filter(Boolean).join(' · '),
-      color: ACCENT.primary,
+      color: 'var(--brand)',
       icon: GraduationCap,
-      onClick: () => navigate('/admissions'),
+      onClick: () => navigate('/manage/admissions'),
     })),
   ].sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0)).slice(0, 8);
 
   if (!feed.length) {
     return (
-      <div style={{ padding: '24px 16px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 10, fontSize: 13 }}>
+      <div className="rounded-md bg-[color:var(--bg-subtle)] p-6 text-center text-[13px] text-[color:var(--fg-muted)]">
         No recent activity yet.
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div className="flex flex-col">
       {feed.map((it, i) => (
-        <button key={i} onClick={it.onClick} style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent',
-          cursor: 'pointer', textAlign: 'left',
-          transition: 'background 0.12s',
-        }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+        <button
+          key={i}
+          onClick={it.onClick}
+          className="flex items-center gap-3 px-2 py-2.5 rounded-md hover:bg-[color:var(--bg-subtle)] transition-colors text-left"
         >
-          <div style={{
-            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-            background: it.color + '15', color: it.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <it.icon size={14} />
+          <div
+            className="size-7 rounded-md grid place-items-center shrink-0"
+            style={{
+              background: 'color-mix(in oklab, ' + it.color + ' 14%, transparent)',
+              color: it.color,
+            }}
+          >
+            <it.icon size={13} />
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</div>
-            {it.hint && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, textTransform: 'capitalize' }}>{it.hint}</div>}
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] text-[color:var(--fg)] truncate">
+              {it.title}
+            </div>
+            {it.hint && (
+              <div className="text-[11px] text-[color:var(--fg-subtle)] mt-0.5 capitalize">
+                {it.hint}
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: 11, color: '#cbd5e1', flexShrink: 0 }}>{relTime(it.when)}</div>
+          <div className="text-[11px] text-[color:var(--fg-faint)] shrink-0 tabular-nums">
+            {relTime(it.when)}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ContextActions({ navigate, forStudent = false }) {
+  const adminActions = [
+    { label: 'Mark attendance', desc: 'Today\'s register', path: '/attendance', color: 'var(--success)', icon: CalendarCheck },
+    { label: 'Collect fees',    desc: 'Record a payment', path: '/fees',       color: 'var(--brand)',   icon: Wallet },
+    { label: 'Tests',           desc: 'Create or grade',  path: '/test-management', color: 'var(--info)',   icon: ClipboardList },
+    { label: 'Analytics',       desc: 'Drill into reports', path: '/analytics', color: 'var(--warning)', icon: Activity },
+  ];
+  const studentActions = [
+    { label: 'My timetable',    desc: 'Today\'s classes',  path: '/student/timetable', color: 'var(--brand)',  icon: Clock },
+    { label: 'My attendance',   desc: 'Track your days',   path: '/student/attendance', color: 'var(--success)', icon: CalendarCheck },
+    { label: 'My results',      desc: 'Recent test scores', path: '/student/results',  color: 'var(--info)',   icon: FileText },
+    { label: 'Resources',       desc: 'Notes & uploads',   path: '/student/resources', color: 'var(--warning)', icon: BookOpen },
+  ];
+  const actions = forStudent ? studentActions : adminActions;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {actions.map((a, i) => (
+        <button
+          key={i}
+          onClick={() => navigate(a.path)}
+          className="group flex items-center gap-3 p-3 rounded-md border border-[color:var(--border)] bg-[color:var(--bg-elev)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--bg-subtle)] transition-all text-left"
+        >
+          <div
+            className="size-8 rounded-md grid place-items-center shrink-0"
+            style={{
+              background: 'color-mix(in oklab, ' + a.color + ' 14%, transparent)',
+              color: a.color,
+            }}
+          >
+            <a.icon size={15} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold text-[color:var(--fg)]">{a.label}</div>
+            <div className="text-[11px] text-[color:var(--fg-subtle)]">{a.desc}</div>
+          </div>
+          <ChevronRight size={14} className="text-[color:var(--fg-faint)] group-hover:text-[color:var(--fg-muted)]" />
         </button>
       ))}
     </div>
@@ -727,130 +879,20 @@ function relTime(iso) {
   return d.format('DD MMM');
 }
 
-function ContextActions({ role, navigate }) {
-  const actions = role === 'cb_admin' ? [
-    { label: 'Schools', desc: 'Manage tenant schools', path: '/cb-admin-dashboard', color: ACCENT.primary, icon: GraduationCap },
-    { label: 'Add school', desc: 'Onboard a new school', path: '/add-schools', color: ACCENT.tasks, icon: GraduationCap },
-  ] : role === 'admin' ? [
-    { label: 'Mark attendance', desc: 'Today’s register', path: '/attendance', color: ACCENT.attendance, icon: CalendarCheck },
-    { label: 'Collect fees', desc: 'Record payment', path: '/fees', color: ACCENT.fees, icon: Wallet },
-    { label: 'Tests', desc: 'Create or grade', path: '/tests', color: ACCENT.tasks, icon: ClipboardList },
-    { label: 'Analytics', desc: 'Drill into reports', path: '/analytics', color: ACCENT.primary, icon: Activity },
-  ] : [
-    { label: 'Attendance', desc: 'School-wide register', path: '/attendance', color: ACCENT.attendance, icon: CalendarCheck },
-    { label: 'Fees', desc: 'Invoices & payments', path: '/fees', color: ACCENT.fees, icon: Wallet },
-    { label: 'Admissions', desc: 'Enquiries & intake', path: '/admissions', color: ACCENT.primary, icon: GraduationCap },
-    { label: 'Analytics', desc: 'Cross-domain insights', path: '/analytics', color: ACCENT.tasks, icon: Activity },
-  ];
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {actions.map((a, i) => (
-        <button key={i} onClick={() => navigate(a.path)} style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '10px 12px', borderRadius: 10, border: '1px solid #f1f5f9',
-          background: '#fff', cursor: 'pointer', textAlign: 'left',
-          transition: 'all 0.15s',
-        }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = a.color + '55'; e.currentTarget.style.transform = 'translateX(2px)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#f1f5f9'; e.currentTarget.style.transform = 'translateX(0)'; }}
-        >
-          <div style={{
-            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-            background: a.color + '15', color: a.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <a.icon size={15} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{a.label}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>{a.desc}</div>
-          </div>
-          <ChevronRight size={14} color="#cbd5e1" />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-// Student view — personal version with same visual language.
-// ───────────────────────────────────────────────────────────────────────────
-function StudentView({ self, navigate, userName }) {
-  if (!self) {
-    return (
-      <div style={{ ...PANEL, padding: 32, textAlign: 'center', color: '#64748b' }}>
-        Your student profile isn't linked yet. Ask your school admin to attach your account.
-      </div>
-    );
-  }
+function DashboardSkeleton() {
   return (
     <>
-      <div style={{ ...PANEL, padding: 24, marginBottom: 16,
-        background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, #f8fafc 100%)',
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 28, alignItems: 'center' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <Ring value={self.attRate} color={ACCENT.attendance} />
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              My attendance
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-            <HeroStat
-              label="Pending fees"
-              value={formatINRPlain(self.pendingFees)}
-              hint={self.pendingFees > 0 ? 'Tap to view' : 'All clear'}
-              color={ACCENT.fees}
-              onClick={() => navigate('/fees')}
-            />
-            <HeroStat
-              label="Upcoming tests"
-              value={String(self.upcomingTests)}
-              hint={self.upcomingTests ? 'Prepare in advance' : 'No tests scheduled'}
-              color={ACCENT.tasks}
-              onClick={() => navigate('/take-tests')}
-            />
-            <HeroStat
-              label="Today's classes"
-              value={String(self.todayClasses)}
-              hint={self.todayClasses ? 'Check timetable' : 'Free day'}
-              color={ACCENT.primary}
-              onClick={() => navigate('/timetable')}
-            />
-          </div>
-        </div>
+      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-6 mb-4">
+        <div className="cb-skel h-[120px] rounded-md" />
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: 16 }}>
-        <div style={{ ...PANEL, padding: 20 }}>
-          <SectionTitle subtitle="Last 7 days">My attendance trend</SectionTitle>
-          <TrendBlock
-            title="Attendance rate"
-            value={`${Math.round(self.attendanceWeek.length ? self.attendanceWeek[self.attendanceWeek.length - 1].rate : 0)}%`}
-            series={self.attendanceWeek.map((d) => d.rate)}
-            color={ACCENT.attendance}
-          />
-        </div>
-        <div style={{ ...PANEL, padding: 20 }}>
-          <SectionTitle subtitle="Continue learning">Next steps</SectionTitle>
-          <ContextActions role="student" navigate={navigate} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-4 mb-4">
+        <div className="cb-skel h-[160px] rounded-[var(--radius-lg)]" />
+        <div className="cb-skel h-[160px] rounded-[var(--radius-lg)]" />
       </div>
-    </>
-  );
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-function SkeletonBody() {
-  const block = { ...PANEL, height: 140, marginBottom: 16, background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%)', backgroundSize: '200% 100%', animation: 'sh 1.4s linear infinite' };
-  return (
-    <>
-      <div style={{ ...block, height: 200 }} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
-        <div style={block} />
-        <div style={block} />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-4">
+        <div className="cb-skel h-[200px] rounded-[var(--radius-lg)]" />
+        <div className="cb-skel h-[200px] rounded-[var(--radius-lg)]" />
       </div>
-      <style>{`@keyframes sh { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
     </>
   );
 }

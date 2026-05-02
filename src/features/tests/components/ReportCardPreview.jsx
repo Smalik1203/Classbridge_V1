@@ -283,6 +283,25 @@ const styles = `
   .rc-sign { display: flex; justify-content: space-between; margin-top: 48px; font-size: 12px; color: #555; }
   .rc-sign div { text-align: center; }
   .rc-sign .line { border-top: 1px solid #999; padding-top: 4px; min-width: 160px; display: inline-block; }
+
+  /* Responsive — keep print layout intact, but fit on small screens */
+  @media screen and (max-width: 760px) {
+    .rc-page { padding: 20px 18px 24px; }
+    .rc-header {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 18px 20px;
+      margin: -20px -18px 0;
+      text-align: center;
+    }
+    .rc-logo-wrap { margin: 0 auto; width: 80px; height: 80px; }
+    .rc-logo { width: 72px; height: 72px; }
+    .rc-cardtype { transform: none; min-width: 0; align-self: center; }
+    .rc-summary { grid-template-columns: 1fr 1fr; }
+    .rc-stat--hero .value { font-size: 22px; }
+    .rc-table { font-size: 12px; }
+    .rc-sign { flex-direction: column; gap: 28px; align-items: center; }
+  }
 `;
 
 const fmt = (n) => (n == null || Number.isNaN(Number(n)) ? '—' : Number(n));

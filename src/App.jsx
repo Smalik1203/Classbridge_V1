@@ -1,16 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Layout, ConfigProvider, App as AntApp, Spin, Tooltip, Typography } from 'antd';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import {
-  HomeOutlined, RobotOutlined, NotificationOutlined, CalendarOutlined,
-  ClockCircleOutlined, MessageOutlined, FileTextOutlined, BookOutlined,
-  EditOutlined, BarChartOutlined, DollarOutlined, DashboardOutlined,
-  BankOutlined, WarningOutlined, TeamOutlined, UserOutlined,
-  SettingOutlined, AppstoreOutlined, ExperimentOutlined, InboxOutlined,
-  UsergroupAddOutlined, CommentOutlined, ThunderboltOutlined, TrophyOutlined,
-} from '@ant-design/icons';
-import { Sparkles } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Search, Moon, Sun, Bell, ChevronRight } from 'lucide-react';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
@@ -20,184 +10,192 @@ import updateLocale from 'dayjs/plugin/updateLocale';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { useAuth } from './AuthProvider';
 
-// Configure dayjs globally to start week on Monday
+// Keep Ant Design ConfigProvider/App for any remaining antd components
+import { ConfigProvider, App as AntApp, Spin } from 'antd';
+import { lightTheme } from '@/shared/ui/theme';
+
+// Eager imports
+import { LoginPage, ForgotPasswordPage, ResetPasswordPage } from '@/features/auth';
+import { PrivateRoute } from '@/features/auth';
+import Sidebar from '@/shared/components/layout/Sidebar';
+import { UnauthorizedPage } from '@/features/auth';
+import { routeAccess } from './routeAccess';
+import { AcademicYearProvider } from '@/features/analytics/context/AcademicYearContext';
+
 dayjs.extend(weekday);
 dayjs.extend(localeData);
 dayjs.extend(updateLocale);
 dayjs.locale('en');
-dayjs.updateLocale('en', {
-  weekStart: 1,
-});
+dayjs.updateLocale('en', { weekStart: 1 });
 
-// Configure Ant Design locale to start week on Monday
 const customLocale = {
   ...enUS,
-  DatePicker: {
-    ...enUS.DatePicker,
-    lang: {
-      ...enUS.DatePicker.lang,
-      locale: 'en_US',
-      weekStart: 1,
-    },
-  },
-  Calendar: {
-    ...enUS.Calendar,
-    lang: {
-      ...enUS.Calendar.lang,
-      locale: 'en_US',
-      weekStart: 1,
-    },
-  },
-};
-// Eager imports (small, always needed)
-import { LoginPage, ForgotPasswordPage, ResetPasswordPage } from '@/features/auth';
-import { PrivateRoute } from '@/features/auth';
-import { Sidebar } from '@/shared/components';
-import { UnauthorizedPage } from '@/features/auth';
-import { routeAccess } from './routeAccess';
-
-// Lazy imports (large components, loaded on demand)
-const Dashboard = lazy(() => import('@/features/students/pages/Dashboard'));
-const CBAdminDashboard = lazy(() => import('@/features/school/pages/CBAdminDashboard'));
-const AddSchools = lazy(() => import('@/features/school/pages/AddSchools'));
-const Assessments = lazy(() => import('@/features/tests/pages/Assessments'));
-const Attendance = lazy(() => import('@/features/attendance/pages/Attendance'));
-const Fees = lazy(() => import('@/features/fees/pages/Fees'));
-const SetupSchool = lazy(() => import('@/features/school/pages/SetupSchool'));
-const AddSpecificClass = lazy(() => import('@/features/school/components/AddSpecificClass'));
-const AddSubjects = lazy(() => import('@/features/school/components/AddSubjects'));
-
-// Single user-management page — replaces AddAdmin / AddSuperAdmin / AddStudent
-// / SuperAdminCounter / SignUpUser scattered pages.
-const UsersHub = lazy(() => import('@/features/users/pages/UsersHub'));
-const Analytics = lazy(() => import('@/features/analytics/pages/Analytics'));
-const Timetable = lazy(() => import('@/features/timetable/pages/Timetable'));
-const Calendar = lazy(() => import('@/features/calendar/pages/Calendar'));
-const SyllabusPage = lazy(() => import('@/features/syllabus/pages/Syllabus'));
-const LearningResources = lazy(() => import('@/features/learning-resources/pages/LearningResources'));
-const UnifiedTestManagement = lazy(() => import('@/features/tests/pages/UnifiedTestManagement'));
-const Gradebook = lazy(() => import('@/features/tests/pages/Gradebook'));
-const TaskManagement = lazy(() => import('@/features/tasks/pages/TaskManagement'));
-const TestTaking = lazy(() => import('@/features/tests/pages/TestTaking'));
-const StudentTimetable = lazy(() => import('@/features/timetable/pages/StudentTimetable'));
-const StudentSyllabus = lazy(() => import('@/features/syllabus/pages/StudentSyllabus'));
-const StudentResults = lazy(() => import('@/features/students/pages/StudentResults'));
-const StudentLearningResources = lazy(() => import('@/features/learning-resources/pages/StudentLearningResources'));
-const StudentCalendar = lazy(() => import('@/features/calendar/pages/StudentCalendar'));
-const StudentAttendance = lazy(() => import('@/features/students/pages/StudentAttendance'));
-const StudentSelfAnalytics = lazy(() => import('@/features/analytics/pages/StudentSelfAnalytics'));
-
-// HRMS
-const HrHub = lazy(() => import('@/features/hr/pages/HrHub'));
-
-// Communications
-const Announcements = lazy(() => import('@/features/communications/pages/Announcements'));
-const CommunicationHub = lazy(() => import('@/features/communications/pages/CommunicationHub'));
-const ReportComments = lazy(() => import('@/features/communications/pages/ReportComments'));
-const StaffDirectory = lazy(() => import('@/features/hr/pages/StaffDirectory'));
-const StaffDetail = lazy(() => import('@/features/hr/pages/StaffDetail'));
-const Payroll = lazy(() => import('@/features/hr/pages/Payroll'));
-const LeavesApprovals = lazy(() => import('@/features/hr/pages/LeavesApprovals'));
-const StaffAttendance = lazy(() => import('@/features/hr/pages/StaffAttendance'));
-const MyHr = lazy(() => import('@/features/hr/pages/MyHr'));
-const SalaryComponents = lazy(() => import('@/features/hr/pages/SalaryComponents'));
-
-// Admissions
-const AdmissionsPipeline = lazy(() => import('@/features/admissions/pages/AdmissionsPipeline'));
-
-// Inventory
-const Inventory = lazy(() => import('@/features/inventory/pages/Inventory'));
-
-// Sage Chatbot
-const Chatbot = lazy(() => import('@/features/chatbot/pages/Chatbot'));
-
-// Finance (school GL)
-const FinanceHub          = lazy(() => import('@/features/finance/pages/FinanceHub'));
-const FinanceTransactions = lazy(() => import('@/features/finance/pages/Transactions'));
-const FinanceAccounts     = lazy(() => import('@/features/finance/pages/AccountsCategories'));
-const FinanceReports      = lazy(() => import('@/features/finance/pages/Reports'));
-const FinanceInconsistencies = lazy(() => import('@/features/finance/pages/Inconsistencies'));
-
-
-
-const { Content } = Layout;
-const { Title } = Typography;
-
-// Sidebar widths — keep in sync with Sidebar.jsx.
-const RAIL_WIDTH = 64;
-const EXPANDED_WIDTH = 240;
-const SIDEBAR_OFFSET = 12;        // gap from viewport to sidebar (all 4 sides)
-const CONTENT_SIDEBAR_GAP = 12;   // gap from sidebar right edge to content (matches SIDEBAR_OFFSET)
-
-// Page header meta — icon + label per route, mirrors the sidebar nav.
-// Dashboard ('/' and '/dashboard') is intentionally excluded.
-const PAGE_META = {
-  '/cb-admin-dashboard':         { icon: <BankOutlined />,           label: 'CB Admin Dashboard' },
-  '/add-schools':                { icon: <TeamOutlined />,           label: 'Manage Schools' },
-  '/users':                      { icon: <TeamOutlined />,           label: 'Users' },
-  '/chatbot':                    { icon: <Sparkles size={26} />,     label: 'Ask Sage' },
-  '/academics/announcements':    { icon: <NotificationOutlined />,   label: 'Announcements' },
-  '/calendar':                   { icon: <CalendarOutlined />,       label: 'Calendar' },
-  '/student/calendar':           { icon: <CalendarOutlined />,       label: 'Calendar' },
-  '/timetable':                  { icon: <ClockCircleOutlined />,    label: 'Timetable' },
-  '/student/timetable':          { icon: <ClockCircleOutlined />,    label: 'Timetable' },
-  '/learning-resources':         { icon: <FileTextOutlined />,       label: 'Resources' },
-  '/student/resources':          { icon: <FileTextOutlined />,       label: 'Resources' },
-  '/syllabus':                   { icon: <BookOutlined />,           label: 'Syllabus' },
-  '/student/syllabus':           { icon: <BookOutlined />,           label: 'Syllabus' },
-  '/attendance':                 { icon: <CalendarOutlined />,       label: 'Attendance' },
-  '/student/attendance':         { icon: <CalendarOutlined />,       label: 'Attendance' },
-  '/test-management':            { icon: <EditOutlined />,           label: 'Assessments' },
-  // '/gradebook' header intentionally omitted — Gradebook page renders its own title.
-  '/take-tests':                 { icon: <EditOutlined />,           label: 'Assessments' },
-  '/student/results':            { icon: <TrophyOutlined />,         label: 'My Results' },
-  '/analytics':                  { icon: <BarChartOutlined />,       label: 'Analytics' },
-  '/student/analytics':          { icon: <BarChartOutlined />,       label: 'My Analytics' },
-  '/task-management':            { icon: <BookOutlined />,           label: 'Tasks' },
-  '/fees':                       { icon: <DollarOutlined />,         label: 'Fees' },
-  '/finance':                    { icon: <DashboardOutlined />,      label: 'Finance Hub' },
-  '/finance/transactions':       { icon: <FileTextOutlined />,       label: 'Transactions' },
-  '/finance/accounts':           { icon: <BankOutlined />,           label: 'Accounts & Categories' },
-  '/finance/reports':            { icon: <BarChartOutlined />,       label: 'Reports' },
-  '/finance/inconsistencies':    { icon: <WarningOutlined />,        label: 'Inconsistencies' },
-  '/hr':                         { icon: <DashboardOutlined />,      label: 'HR Dashboard' },
-  '/hr/staff':                   { icon: <TeamOutlined />,           label: 'Staff' },
-  '/hr/payroll':                 { icon: <DollarOutlined />,         label: 'Payroll' },
-  '/hr/leaves':                  { icon: <CalendarOutlined />,       label: 'Leaves' },
-  '/hr/attendance':              { icon: <CalendarOutlined />,       label: 'Staff Attendance' },
-  '/hr/salary-components':       { icon: <DollarOutlined />,         label: 'Salary Components' },
-  '/hr/my':                      { icon: <UserOutlined />,           label: 'My HR' },
-  '/school-setup':               { icon: <SettingOutlined />,        label: 'School Setup' },
-  '/add-specific-class':         { icon: <AppstoreOutlined />,       label: 'Classes' },
-  '/add-subjects':               { icon: <ExperimentOutlined />,     label: 'Subjects' },
-  '/manage/admissions':          { icon: <UsergroupAddOutlined />,   label: 'Admissions' },
-  '/ai-test-generator':          { icon: <ThunderboltOutlined />,    label: 'AI Test Generator' },
+  DatePicker: { ...enUS.DatePicker, lang: { ...enUS.DatePicker?.lang, locale: 'en_US', weekStart: 1 } },
+  Calendar:   { ...enUS.Calendar,   lang: { ...enUS.Calendar?.lang,   locale: 'en_US', weekStart: 1 } },
 };
 
-function PageHeader() {
+// Lazy imports
+const Dashboard               = lazy(() => import('@/features/students/pages/Dashboard'));
+const CBAdminDashboard        = lazy(() => import('@/features/school/pages/CBAdminDashboard'));
+const AddSchools              = lazy(() => import('@/features/school/pages/AddSchools'));
+const Assessments             = lazy(() => import('@/features/tests/pages/Assessments'));
+const Attendance              = lazy(() => import('@/features/attendance/pages/Attendance'));
+const Fees                    = lazy(() => import('@/features/fees/pages/Fees'));
+const SetupSchool             = lazy(() => import('@/features/school/pages/SetupSchool'));
+const AddSpecificClass        = lazy(() => import('@/features/school/components/AddSpecificClass'));
+const AddSubjects             = lazy(() => import('@/features/school/components/AddSubjects'));
+const UsersHub                = lazy(() => import('@/features/users/pages/UsersHub'));
+const Analytics               = lazy(() => import('@/features/analytics/pages/Analytics'));
+const Timetable               = lazy(() => import('@/features/timetable/pages/Timetable'));
+const Calendar                = lazy(() => import('@/features/calendar/pages/Calendar'));
+const SyllabusPage            = lazy(() => import('@/features/syllabus/pages/Syllabus'));
+const LearningResources       = lazy(() => import('@/features/learning-resources/pages/LearningResources'));
+const UnifiedTestManagement   = lazy(() => import('@/features/tests/pages/UnifiedTestManagement'));
+const Gradebook               = lazy(() => import('@/features/tests/pages/Gradebook'));
+const TaskManagement          = lazy(() => import('@/features/tasks/pages/TaskManagement'));
+const TestTaking              = lazy(() => import('@/features/tests/pages/TestTaking'));
+const StudentTimetable        = lazy(() => import('@/features/timetable/pages/StudentTimetable'));
+const StudentSyllabus         = lazy(() => import('@/features/syllabus/pages/StudentSyllabus'));
+const StudentResults          = lazy(() => import('@/features/students/pages/StudentResults'));
+const StudentLearningResources= lazy(() => import('@/features/learning-resources/pages/StudentLearningResources'));
+const StudentCalendar         = lazy(() => import('@/features/calendar/pages/StudentCalendar'));
+const StudentAttendance       = lazy(() => import('@/features/students/pages/StudentAttendance'));
+const StudentSelfAnalytics    = lazy(() => import('@/features/analytics/pages/StudentSelfAnalytics'));
+const HrHub                   = lazy(() => import('@/features/hr/pages/HrHub'));
+const Announcements           = lazy(() => import('@/features/communications/pages/Announcements'));
+const CommunicationHub        = lazy(() => import('@/features/communications/pages/CommunicationHub'));
+const ReportComments          = lazy(() => import('@/features/communications/pages/ReportComments'));
+const StaffDirectory          = lazy(() => import('@/features/hr/pages/StaffDirectory'));
+const StaffDetail             = lazy(() => import('@/features/hr/pages/StaffDetail'));
+const Payroll                 = lazy(() => import('@/features/hr/pages/Payroll'));
+const LeavesApprovals         = lazy(() => import('@/features/hr/pages/LeavesApprovals'));
+const StaffAttendance         = lazy(() => import('@/features/hr/pages/StaffAttendance'));
+const MyHr                    = lazy(() => import('@/features/hr/pages/MyHr'));
+const SalaryComponents        = lazy(() => import('@/features/hr/pages/SalaryComponents'));
+const MyTaxDeclaration        = lazy(() => import('@/features/hr/pages/MyTaxDeclaration'));
+const TaxDeclarationsHr       = lazy(() => import('@/features/hr/pages/TaxDeclarationsHr'));
+const Form16Generation        = lazy(() => import('@/features/hr/pages/Form16Generation'));
+const Form24Q                 = lazy(() => import('@/features/hr/pages/Form24Q'));
+const Form15GH                = lazy(() => import('@/features/hr/pages/Form15GH'));
+const TaxSettings             = lazy(() => import('@/features/hr/pages/TaxSettings'));
+const MarkStaffAttendance     = lazy(() => import('@/features/hr/pages/MarkStaffAttendance'));
+const AdmissionsPipeline      = lazy(() => import('@/features/admissions/pages/AdmissionsPipeline'));
+const Inventory               = lazy(() => import('@/features/inventory/pages/Inventory'));
+const Chatbot                 = lazy(() => import('@/features/chatbot/pages/Chatbot'));
+const FinanceHub              = lazy(() => import('@/features/finance/pages/FinanceHub'));
+const FinanceTransactions     = lazy(() => import('@/features/finance/pages/Transactions'));
+const FinanceAccounts         = lazy(() => import('@/features/finance/pages/AccountsCategories'));
+const FinanceReports          = lazy(() => import('@/features/finance/pages/Reports'));
+const FinanceInconsistencies  = lazy(() => import('@/features/finance/pages/Inconsistencies'));
+
+const CRUMBS = {
+  '/':                            ['Dashboard'],
+  '/dashboard':                   ['Dashboard'],
+  '/cb-admin-dashboard':          ['Platform', 'Overview'],
+  '/add-schools':                 ['Platform', 'Schools'],
+  '/users':                       ['Admin', 'Users'],
+  '/attendance':                  ['Academic', 'Attendance'],
+  '/student/attendance':          ['Academic', 'Attendance'],
+  '/timetable':                   ['Academic', 'Timetable'],
+  '/student/timetable':           ['Academic', 'Timetable'],
+  '/calendar':                    ['Main', 'Calendar'],
+  '/student/calendar':            ['Main', 'Calendar'],
+  '/syllabus':                    ['Learning', 'Syllabus'],
+  '/student/syllabus':            ['Learning', 'Syllabus'],
+  '/learning-resources':          ['Learning', 'Resources'],
+  '/student/resources':           ['Learning', 'Resources'],
+  '/test-management':             ['Academic', 'Assessments'],
+  '/gradebook':                   ['Academic', 'Gradebook'],
+  '/take-tests':                  ['Academic', 'Assessments'],
+  '/student/results':             ['Academic', 'My Results'],
+  '/analytics':                   ['Academic', 'Analytics'],
+  '/student/analytics':           ['Academic', 'My Analytics'],
+  '/task-management':             ['Academic', 'Tasks'],
+  '/fees':                        ['Finance', 'Fees'],
+  '/finance':                     ['Finance', 'Hub'],
+  '/finance/transactions':        ['Finance', 'Transactions'],
+  '/finance/accounts':            ['Finance', 'Accounts'],
+  '/finance/reports':             ['Finance', 'Reports'],
+  '/finance/inconsistencies':     ['Finance', 'Inconsistencies'],
+  '/hr':                          ['HR', 'Dashboard'],
+  '/hr/staff':                    ['HR', 'Staff'],
+  '/hr/payroll':                  ['HR', 'Payroll'],
+  '/hr/leaves':                   ['HR', 'Leaves'],
+  '/hr/attendance':               ['HR', 'Staff Attendance'],
+  '/hr/attendance/mark':          ['HR', 'Mark Attendance'],
+  '/hr/salary-components':        ['HR', 'Salary Components'],
+  '/hr/my':                       ['HR', 'My HR'],
+  '/hr/my/tax':                   ['HR', 'My HR', 'Tax Declaration'],
+  '/hr/tax':                      ['HR', 'Tax Declarations'],
+  '/hr/tax/form-16':              ['HR', 'Form 16'],
+  '/hr/tax/form-24q':             ['HR', 'Form 24Q'],
+  '/hr/tax/form-15gh':            ['HR', 'Form 15G / 15H'],
+  '/hr/tax/settings':             ['HR', 'Tax Settings'],
+  '/school-setup':                ['Admin', 'School Setup'],
+  '/add-specific-class':          ['Admin', 'Classes'],
+  '/add-subjects':                ['Admin', 'Subjects'],
+  '/manage/admissions':           ['Operations', 'Admissions'],
+  '/manage/inventory':            ['Operations', 'Inventory'],
+  '/chatbot':                     ['Main', 'Ask Sage'],
+  '/academics/announcements':     ['Main', 'Announcements'],
+  '/academics/communication-hub': ['Main', 'Feedback'],
+  '/academics/report-comments':   ['Admin', 'Report Comments'],
+};
+
+function getCrumbs(pathname) {
+  if (CRUMBS[pathname]) return ['ClassBridge', ...CRUMBS[pathname]];
+  const candidate = Object.keys(CRUMBS)
+    .filter(p => p !== '/' && pathname.startsWith(p + '/'))
+    .sort((a, b) => b.length - a.length)[0];
+  if (candidate) return ['ClassBridge', ...CRUMBS[candidate]];
+  return ['ClassBridge'];
+}
+
+function Topbar({ expanded }) {
   const { pathname } = useLocation();
-  if (pathname === '/' || pathname === '/dashboard') return null;
-  // Analytics routes render their own header inside AnalyticsShell — skip here.
-  if (pathname.startsWith('/analytics')) return null;
-  // Match exact path; falls back to longest path-prefix match for dynamic segments.
-  let meta = PAGE_META[pathname];
-  if (!meta) {
-    const candidate = Object.keys(PAGE_META)
-      .filter((p) => pathname.startsWith(p + '/'))
-      .sort((a, b) => b.length - a.length)[0];
-    if (candidate) meta = PAGE_META[candidate];
-  }
-  if (!meta) return null;
+  const crumbs = getCrumbs(pathname);
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-      <span style={{ fontSize: 28, color: '#3a8fcf', display: 'inline-flex' }}>{meta.icon}</span>
-      <Title level={3} style={{ margin: 0 }}>{meta.label}</Title>
+    <div className="cb-topbar">
+      <div className="cb-crumbs">
+        {crumbs.map((c, i) => (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {i > 0 && <ChevronRight size={13} style={{ color: 'var(--fg-faint)', flexShrink: 0 }} />}
+            <span className={i === crumbs.length - 1 ? 'current' : ''}>{c}</span>
+          </span>
+        ))}
+      </div>
+
+      <div className="cb-searchbox">
+        <Search size={14} className="cb-search-ico" />
+        <input placeholder="Search anything…" readOnly />
+        <kbd>⌘K</kbd>
+      </div>
+
+      <button className="cb-icon-btn" aria-label="Notifications" style={{ position: 'relative' }}>
+        <Bell size={15} />
+        <span style={{
+          position: 'absolute', top: 6, right: 6,
+          width: 6, height: 6, borderRadius: '50%',
+          background: 'var(--accent)',
+        }} />
+      </button>
+    </div>
+  );
+}
+
+function PageLoading() {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'center', alignItems: 'center',
+      height: '60vh', color: 'var(--fg-subtle)',
+    }}>
+      <div className="cb-skel" style={{ width: 200, height: 16, borderRadius: 8 }} />
     </div>
   );
 }
 
 function AppLayout({ children }) {
-  const { isDarkMode } = useTheme();
   const [expanded, setExpanded] = useState(() => {
     const saved = localStorage.getItem('sidebarExpanded');
     return saved ? JSON.parse(saved) : false;
@@ -207,235 +205,149 @@ function AppLayout({ children }) {
     localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
   }, [expanded]);
 
-  const pagePaddingX = 12;
-  const pageMaxWidth = 1400;
-  const pagePaddingTop = 64;
-  const contentLeftOffset =
-    SIDEBAR_OFFSET + (expanded ? EXPANDED_WIDTH : RAIL_WIDTH) + CONTENT_SIDEBAR_GAP;
-
   return (
-    <Layout style={{
-      minHeight: '100vh',
-      background: isDarkMode
-        ? '#000000'
-        : '#f8fafc',
-    }}>
-      <Sidebar
-        expanded={expanded}
-        railWidth={RAIL_WIDTH}
-        expandedWidth={EXPANDED_WIDTH}
-      />
-      <Tooltip title={expanded ? 'Collapse sidebar' : 'Expand sidebar'} placement="right">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-          style={{
-            position: 'fixed',
-            top: 22,
-            left: contentLeftOffset,
-            width: 28,
-            height: 28,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '50%',
-            background: '#ffffff',
-            border: '1px solid rgba(15,23,42,0.10)',
-            boxShadow: '0 1px 3px rgba(15,23,42,0.08)',
-            color: '#475569',
-            cursor: 'pointer',
-            zIndex: 101,
-            transition: 'left 0.2s ease, background 0.15s ease, color 0.15s ease',
-          }}
-        >
-          {expanded ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
-        </button>
-      </Tooltip>
-      <Layout style={{
-        marginLeft: contentLeftOffset,
-        background: 'transparent',
-        transition: 'margin-left 0.2s ease',
-      }}>
-        <Content style={{
-          paddingTop: pagePaddingTop,
-          paddingBottom: 24,
-          paddingLeft: pagePaddingX,
-          paddingRight: pagePaddingX,
-          minHeight: '100vh',
-          background: 'transparent',
-          maxWidth: pageMaxWidth,
-          margin: 0,
-          width: '100%',
-        }}>
-          <PageHeader />
-          {children}
-        </Content>
-      </Layout>
-    </Layout>
+    <div className="cb-app" data-collapsed={!expanded}>
+      <Sidebar expanded={expanded} onToggle={() => setExpanded(v => !v)} />
+      <div className="cb-main">
+        <Topbar expanded={expanded} />
+        <div className="cb-scroll">
+          <div className="cb-fade-in">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { theme, isDarkMode } = useTheme();
+  const { isDarkMode } = useTheme();
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        background: isDarkMode 
-          ? 'linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(30, 41, 59) 100%)'
-          : 'linear-gradient(135deg, rgb(245, 247, 250) 0%, rgb(195, 207, 226) 100%)',
-        color: isDarkMode ? '#ffffff' : '#000000'
+      <div style={{
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        height: '100vh', background: 'var(--bg)',
       }}>
-        <div>Loading...</div>
+        <div className="cb-skel" style={{ width: 120, height: 14, borderRadius: 8 }} />
       </div>
     );
   }
 
   return (
-    <ConfigProvider theme={theme} locale={customLocale}>
+    <ConfigProvider theme={lightTheme} locale={customLocale}>
       <AntApp>
         <Router>
-        {user && (
-          <AppLayout>
-            <Suspense fallback={
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '80vh' 
-              }}>
-                <Spin size="large" tip="Loading..." />
-              </div>
-            }>
-              <Routes>
-              {/* Logged-in routes */}
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/cb-admin-dashboard" element={<CBAdminDashboard />} />
-              
-              {/* School Management Routes */}
-              <Route path="/add-schools" element={<PrivateRoute allowedRoles={routeAccess.addSchools}><AddSchools /></PrivateRoute>} />
-              <Route path="/school-setup" element={<PrivateRoute allowedRoles={routeAccess.schoolSetup}><SetupSchool /></PrivateRoute>} />
-              <Route path="/add-specific-class" element={<PrivateRoute allowedRoles={routeAccess.addSpecificClass}><AddSpecificClass /></PrivateRoute>} />
-              <Route path="/add-subjects" element={<PrivateRoute allowedRoles={routeAccess.addSubjects}><AddSubjects /></PrivateRoute>} />
+          {user && (
+            <AcademicYearProvider>
+            <AppLayout>
+              <Suspense fallback={<PageLoading />}>
+                <Routes>
+                  <Route path="/"                      element={<Dashboard />} />
+                  <Route path="/dashboard"             element={<Dashboard />} />
+                  <Route path="/cb-admin-dashboard"    element={<CBAdminDashboard />} />
+                  <Route path="/add-schools"           element={<PrivateRoute allowedRoles={routeAccess.addSchools}><AddSchools /></PrivateRoute>} />
+                  <Route path="/school-setup"          element={<PrivateRoute allowedRoles={routeAccess.schoolSetup}><SetupSchool /></PrivateRoute>} />
+                  <Route path="/add-specific-class"    element={<PrivateRoute allowedRoles={routeAccess.addSpecificClass}><AddSpecificClass /></PrivateRoute>} />
+                  <Route path="/add-subjects"          element={<PrivateRoute allowedRoles={routeAccess.addSubjects}><AddSubjects /></PrivateRoute>} />
+                  <Route path="/users"                 element={<PrivateRoute allowedRoles={routeAccess.users}><UsersHub /></PrivateRoute>} />
 
-              {/* User Management — single page that lists everyone using the app */}
-              <Route path="/users" element={<PrivateRoute allowedRoles={routeAccess.users}><UsersHub /></PrivateRoute>} />
+                  <Route path="/add-admin"             element={<Navigate to="/users" replace />} />
+                  <Route path="/add-super-admin"       element={<Navigate to="/users" replace />} />
+                  <Route path="/add-student"           element={<Navigate to="/users" replace />} />
+                  <Route path="/super-admin-count"     element={<Navigate to="/users" replace />} />
+                  <Route path="/signup-user"           element={<Navigate to="/users" replace />} />
 
-              {/* Backwards-compat redirects for scattered legacy routes */}
-              <Route path="/add-admin" element={<Navigate to="/users" replace />} />
-              <Route path="/add-super-admin" element={<Navigate to="/users" replace />} />
-              <Route path="/add-student" element={<Navigate to="/users" replace />} />
-              <Route path="/super-admin-count" element={<Navigate to="/users" replace />} />
-              <Route path="/signup-user" element={<Navigate to="/users" replace />} />
+                  <Route path="/attendance"            element={<PrivateRoute allowedRoles={routeAccess.attendance}><Attendance /></PrivateRoute>} />
+                  <Route path="/fees"                  element={<PrivateRoute allowedRoles={routeAccess.fees}><Fees /></PrivateRoute>} />
+                  <Route path="/analytics/*"           element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
+                  <Route path="/timetable"             element={<PrivateRoute allowedRoles={routeAccess.timetable}><Timetable /></PrivateRoute>} />
+                  <Route path="/calendar"              element={<PrivateRoute allowedRoles={routeAccess.timetable}><Calendar /></PrivateRoute>} />
+                  <Route path="/syllabus"              element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
+                  <Route path="/learning-resources"    element={<PrivateRoute allowedRoles={routeAccess.learningResources}><LearningResources /></PrivateRoute>} />
+                  <Route path="/test-management"       element={<PrivateRoute allowedRoles={routeAccess.testManagement}><UnifiedTestManagement /></PrivateRoute>} />
+                  <Route path="/gradebook"             element={<PrivateRoute allowedRoles={routeAccess.testManagement}><Gradebook /></PrivateRoute>} />
+                  <Route path="/task-management"       element={<PrivateRoute allowedRoles={routeAccess.taskManagement}><TaskManagement /></PrivateRoute>} />
+                  <Route path="/take-tests"            element={<PrivateRoute allowedRoles={['student']}><TestTaking /></PrivateRoute>} />
+                  <Route path="/assessments"           element={<PrivateRoute allowedRoles={routeAccess.assessments}><Assessments /></PrivateRoute>} />
 
-              {/* Feature Routes */}
-              <Route path="/attendance" element={<PrivateRoute allowedRoles={routeAccess.attendance}><Attendance /></PrivateRoute>} />
-              <Route path="/fees" element={<PrivateRoute allowedRoles={routeAccess.fees}><Fees /></PrivateRoute>} />
-              {/* Unified Analytics — handles /analytics, /analytics/student/:id, /analytics/class/:id,
-                  legacy tab redirects (/daily-trends, /weak-areas, /topic-heatmap, etc.) */}
-              <Route path="/analytics/*" element={<PrivateRoute allowedRoles={routeAccess.analytics}><Analytics /></PrivateRoute>} />
-              <Route path="/timetable" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Timetable /></PrivateRoute>} />
-              <Route path="/calendar" element={<PrivateRoute allowedRoles={routeAccess.timetable}><Calendar /></PrivateRoute>} />
-              <Route path="/syllabus" element={<PrivateRoute allowedRoles={routeAccess.syllabus}><SyllabusPage /></PrivateRoute>} />
-              <Route path="/learning-resources" element={<PrivateRoute allowedRoles={routeAccess.learningResources}><LearningResources /></PrivateRoute>} />
-              <Route path="/test-management" element={<PrivateRoute allowedRoles={routeAccess.testManagement}><UnifiedTestManagement /></PrivateRoute>} />
-              <Route path="/gradebook" element={<PrivateRoute allowedRoles={routeAccess.testManagement}><Gradebook /></PrivateRoute>} />
-              <Route path="/task-management" element={<PrivateRoute allowedRoles={routeAccess.taskManagement}><TaskManagement /></PrivateRoute>} />
-              <Route path="/take-tests" element={<PrivateRoute allowedRoles={['student']}><TestTaking /></PrivateRoute>} />
-              <Route path="/assessments" element={<PrivateRoute allowedRoles={routeAccess.assessments}><Assessments /></PrivateRoute>} />
+                  <Route path="/student/timetable"     element={<PrivateRoute allowedRoles={['student']}><StudentTimetable /></PrivateRoute>} />
+                  <Route path="/student/syllabus"      element={<PrivateRoute allowedRoles={['student']}><StudentSyllabus /></PrivateRoute>} />
+                  <Route path="/student/results"       element={<PrivateRoute allowedRoles={['student']}><StudentResults /></PrivateRoute>} />
+                  <Route path="/student/resources"     element={<PrivateRoute allowedRoles={['student']}><StudentLearningResources /></PrivateRoute>} />
+                  <Route path="/student/calendar"      element={<PrivateRoute allowedRoles={['student']}><StudentCalendar /></PrivateRoute>} />
+                  <Route path="/student/attendance"    element={<PrivateRoute allowedRoles={['student']}><StudentAttendance /></PrivateRoute>} />
+                  <Route path="/student/analytics"     element={<PrivateRoute allowedRoles={['student']}><StudentSelfAnalytics /></PrivateRoute>} />
 
-              {/* Student Routes */}
-              <Route path="/student/timetable" element={<PrivateRoute allowedRoles={['student']}><StudentTimetable /></PrivateRoute>} />
-              <Route path="/student/syllabus" element={<PrivateRoute allowedRoles={['student']}><StudentSyllabus /></PrivateRoute>} />
-              <Route path="/student/results" element={<PrivateRoute allowedRoles={['student']}><StudentResults /></PrivateRoute>} />
-              <Route path="/student/resources" element={<PrivateRoute allowedRoles={['student']}><StudentLearningResources /></PrivateRoute>} />
-              <Route path="/student/calendar" element={<PrivateRoute allowedRoles={['student']}><StudentCalendar /></PrivateRoute>} />
-              <Route path="/student/attendance" element={<PrivateRoute allowedRoles={['student']}><StudentAttendance /></PrivateRoute>} />
-              <Route path="/student/analytics" element={<PrivateRoute allowedRoles={['student']}><StudentSelfAnalytics /></PrivateRoute>} />
+                  <Route path="/hr"                    element={<PrivateRoute allowedRoles={['superadmin','admin']}><HrHub /></PrivateRoute>} />
+                  <Route path="/hr/staff"              element={<PrivateRoute allowedRoles={['superadmin','admin']}><StaffDirectory /></PrivateRoute>} />
+                  <Route path="/hr/staff/:id"          element={<PrivateRoute allowedRoles={['superadmin','admin']}><StaffDetail /></PrivateRoute>} />
+                  <Route path="/hr/payroll"            element={<PrivateRoute allowedRoles={['superadmin','admin']}><Payroll /></PrivateRoute>} />
+                  <Route path="/hr/leaves"             element={<PrivateRoute allowedRoles={['superadmin','admin']}><LeavesApprovals /></PrivateRoute>} />
+                  <Route path="/hr/attendance"         element={<PrivateRoute allowedRoles={['superadmin','admin']}><StaffAttendance /></PrivateRoute>} />
+                  <Route path="/hr/attendance/mark"    element={<PrivateRoute allowedRoles={['superadmin','admin']}><MarkStaffAttendance /></PrivateRoute>} />
+                  <Route path="/hr/my"                 element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><MyHr /></PrivateRoute>} />
+                  <Route path="/hr/my/tax"             element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><MyTaxDeclaration /></PrivateRoute>} />
+                  <Route path="/hr/tax"                element={<PrivateRoute allowedRoles={['superadmin','admin']}><TaxDeclarationsHr /></PrivateRoute>} />
+                  <Route path="/hr/tax/form-16"        element={<PrivateRoute allowedRoles={['superadmin','admin']}><Form16Generation /></PrivateRoute>} />
+                  <Route path="/hr/tax/form-24q"       element={<PrivateRoute allowedRoles={['superadmin','admin']}><Form24Q /></PrivateRoute>} />
+                  <Route path="/hr/tax/form-15gh"      element={<PrivateRoute allowedRoles={['superadmin','admin']}><Form15GH /></PrivateRoute>} />
+                  <Route path="/hr/tax/settings"       element={<PrivateRoute allowedRoles={['superadmin','admin']}><TaxSettings /></PrivateRoute>} />
+                  <Route path="/hr/salary-components"  element={<PrivateRoute allowedRoles={['superadmin','admin']}><SalaryComponents /></PrivateRoute>} />
 
-              {/* HRMS — mirrors /hr/* on mobile */}
-              <Route path="/hr" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><HrHub /></PrivateRoute>} />
-              <Route path="/hr/staff" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><StaffDirectory /></PrivateRoute>} />
-              <Route path="/hr/staff/:id" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><StaffDetail /></PrivateRoute>} />
-              <Route path="/hr/payroll" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><Payroll /></PrivateRoute>} />
-              <Route path="/hr/leaves" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><LeavesApprovals /></PrivateRoute>} />
-              <Route path="/hr/attendance" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><StaffAttendance /></PrivateRoute>} />
-              <Route path="/hr/my" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><MyHr /></PrivateRoute>} />
-              <Route path="/hr/salary-components" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><SalaryComponents /></PrivateRoute>} />
+                  <Route path="/manage/admissions"     element={<PrivateRoute allowedRoles={['superadmin','admin']}><AdmissionsPipeline /></PrivateRoute>} />
+                  <Route path="/manage/inventory"      element={<PrivateRoute allowedRoles={['superadmin','admin']}><Inventory /></PrivateRoute>} />
 
-              {/* Management — mirrors /manage/* on mobile */}
-              <Route path="/manage/admissions" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><AdmissionsPipeline /></PrivateRoute>} />
-              <Route path="/manage/inventory" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><Inventory /></PrivateRoute>} />
+                  <Route path="/finance"               element={<PrivateRoute allowedRoles={['superadmin','admin']}><FinanceHub /></PrivateRoute>} />
+                  <Route path="/finance/transactions"  element={<PrivateRoute allowedRoles={['superadmin','admin']}><FinanceTransactions /></PrivateRoute>} />
+                  <Route path="/finance/accounts"      element={<PrivateRoute allowedRoles={['superadmin','admin']}><FinanceAccounts /></PrivateRoute>} />
+                  <Route path="/finance/reports"       element={<PrivateRoute allowedRoles={['superadmin','admin']}><FinanceReports /></PrivateRoute>} />
+                  <Route path="/finance/inconsistencies" element={<PrivateRoute allowedRoles={['superadmin']}><FinanceInconsistencies /></PrivateRoute>} />
 
-              {/* Finance (school GL) — mirrors /finance on mobile (super-admin only) */}
-              <Route path="/finance"                  element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceHub /></PrivateRoute>} />
-              <Route path="/finance/transactions"     element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceTransactions /></PrivateRoute>} />
-              <Route path="/finance/accounts"         element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceAccounts /></PrivateRoute>} />
-              <Route path="/finance/reports"          element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><FinanceReports /></PrivateRoute>} />
-              <Route path="/finance/inconsistencies"  element={<PrivateRoute allowedRoles={['superadmin']}><FinanceInconsistencies /></PrivateRoute>} />
+                  <Route path="/chatbot"               element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><Chatbot /></PrivateRoute>} />
+                  <Route path="/ai-test-generator"     element={<Navigate to="/test-management?mode=ai" replace />} />
 
-              {/* AI tools — mirrors mobile */}
-              <Route path="/chatbot" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><Chatbot /></PrivateRoute>} />
-              {/* AI Test Generator — redirects into the unified Test Management hub */}
-              <Route path="/ai-test-generator" element={<Navigate to="/test-management?mode=ai" replace />} />
+                  <Route path="/academics/announcements"     element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><Announcements /></PrivateRoute>} />
+                  <Route path="/academics/communication-hub" element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><CommunicationHub /></PrivateRoute>} />
+                  <Route path="/academics/report-comments"   element={<PrivateRoute allowedRoles={['superadmin','admin']}><ReportComments /></PrivateRoute>} />
 
-              {/* Advanced analytics (/analytics/weak-areas, /topic-heatmap, /misconception-report)
-                  are now handled by the unified Analytics router as legacy → ?tab= redirects */}
+                  <Route path="/test/create"           element={<Navigate to="/test-management" replace />} />
+                  <Route path="/test/:testId/questions" element={<Navigate to="/test-management" replace />} />
+                  <Route path="/test/:testId/results"  element={<Navigate to="/test-management" replace />} />
+                  <Route path="/test/:testId/marks"    element={<Navigate to="/test-management" replace />} />
 
-              {/* Academics — mirrors /academics/* on mobile (extras not yet built on web) */}
-              <Route path="/academics/announcements" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><Announcements /></PrivateRoute>} />
-              <Route path="/academics/communication-hub" element={<PrivateRoute allowedRoles={['superadmin', 'admin', 'student']}><CommunicationHub /></PrivateRoute>} />
-              <Route path="/academics/report-comments" element={<PrivateRoute allowedRoles={['superadmin', 'admin']}><ReportComments /></PrivateRoute>} />
+                  <Route path="/unauthorized"          element={<UnauthorizedPage />} />
+                  <Route path="/reset-password"        element={<ResetPasswordPage />} />
+                  <Route path="*"                      element={<Navigate to="/dashboard" />} />
+                </Routes>
+              </Suspense>
+            </AppLayout>
+            </AcademicYearProvider>
+          )}
 
-              {/* Test detail screens — mirrors /test/[testId]/* on mobile.
-                  Web folds these into the unified Test Management hub. */}
-              <Route path="/test/create" element={<Navigate to="/test-management" replace />} />
-              <Route path="/test/:testId/questions" element={<Navigate to="/test-management" replace />} />
-              <Route path="/test/:testId/results" element={<Navigate to="/test-management" replace />} />
-              <Route path="/test/:testId/marks" element={<Navigate to="/test-management" replace />} />
-
-              {/* Error Routes */}
-              <Route path="/unauthorized" element={<UnauthorizedPage />} />
-              
-              {/* Password reset route - accessible when logged in (Supabase auto-logs in on reset link) */}
-              {/* ResetPasswordPage uses AuthLayout internally, so it will render full-page without sidebar */}
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              
-              {/* Default redirect */}
-              <Route path="*" element={<Navigate to="/dashboard" />} />
+          {!user && (
+            <Routes>
+              <Route path="/login"           element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password"  element={<ResetPasswordPage />} />
+              <Route path="*"               element={<Navigate to="/login" />} />
             </Routes>
-            </Suspense>
-          </AppLayout>
-        )}
-
-        {!user && (
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="*" element={<Navigate to="/login" />} />
-          </Routes>
-        )}
+          )}
         </Router>
       </AntApp>
     </ConfigProvider>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <ThemeProvider>
       <AppContent />
     </ThemeProvider>
   );
 }
-
-export default App;

@@ -14,10 +14,9 @@ import {
   calculateInvoiceTotal,
   addInvoiceItems,
   recalculateInvoiceTotal,
-  recalculateInvoicePaidAmount,
 } from './invoiceHelpers';
 
-const PAYMENT_METHODS = ['cash', 'card', 'online', 'cheque', 'bank_transfer', 'upi'];
+const PAYMENT_METHODS = ['cash', 'card', 'online', 'cheque', 'bank_transfer', 'upi', 'other'];
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 
@@ -477,7 +476,9 @@ export async function recordPayment(input) {
     .single();
   if (error) throw error;
 
-  await recalculateInvoicePaidAmount(invoice_id);
+  // fee_invoices.paid_amount + status are maintained by the
+  // trg_fee_payments_recalc_invoice DB trigger (see migration
+  // fee_payments_auto_recalc_invoice). No client-side recalc needed.
 
   // Auto-post to Finance GL (matches mobile fees.ts:574-606).
   // Only for super admin to mirror mobile's role gate.

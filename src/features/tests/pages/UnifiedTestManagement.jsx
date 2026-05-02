@@ -1,940 +1,545 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, Button, Table, Modal, Form, Input, Select, DatePicker, message, Space, Typography, Row, Col, Statistic, Tag, Tooltip, Dropdown, Switch, Alert, Empty, Spin, Pagination, Upload, Tabs } from 'antd';
-import dayjs from 'dayjs';
 import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  EyeOutlined,
-  ClockCircleOutlined,
-  TrophyOutlined,
-  BookOutlined,
-  UserOutlined,
-  QuestionCircleOutlined,
-  SettingOutlined,
-  UploadOutlined,
-  MoreOutlined,
-  FilterOutlined,
-  ReloadOutlined,
-  PlayCircleOutlined,
-  FileExcelOutlined,
-  BarChartOutlined,
-  ThunderboltOutlined
-} from '@ant-design/icons';
+  Edit, Eye, FileSpreadsheet, MoreHorizontal, PlayCircle,
+  Plus, RefreshCw, Trash2, Trophy, Upload, Zap,
+} from 'lucide-react';
+
 import { useAuth } from '@/AuthProvider';
-import { useTheme } from '@/contexts/ThemeContext';
 import { getSchoolCode } from '@/shared/utils/metadata';
-import { 
-  getTests, 
-  createTest, 
-  updateTest, 
-  deleteTest, 
-  getClassInstances, 
-  getSubjects 
-} from '../services/testService';
 import { useErrorHandler } from '@/shared/hooks/useErrorHandler';
+import {
+  getTests, createTest, updateTest, deleteTest,
+  getClassInstances, getSubjects,
+} from '../services/testService';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+import { PageHeader } from '@/shared/ui/PageHeader';
+import { Card } from '@/shared/ui/Card';
+import { EmptyState } from '@/shared/ui/EmptyState';
+import { FormDialog } from '@/shared/ui/FormDialog';
+import { Field } from '@/shared/ui/Field';
+import { Badge } from '@/shared/ui/Badge';
+
 import QuestionBuilder from '@/features/tests/components/QuestionBuilder';
 import TestImportModal from '@/features/tests/components/TestImportModal';
 import PreviewQuestionsModal from '@/features/tests/components/PreviewQuestionsModal';
 import OfflineTestMarksManager from '@/features/tests/components/OfflineTestMarksManagerCorrect';
-// import OfflineMarksPanel from '../components/OfflineMarksPanel'; // Deprecated - use OfflineTestMarksManager instead
-import TestAnalytics from './TestAnalytics';
 import AITestGeneratorWizard from '@/features/tests/components/AITestGeneratorWizard';
 
-const { Title, Text } = Typography;
+const TH = 'text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[color:var(--fg-muted)]';
+const TH_FIRST = `${TH} px-5`;
 
-const UnifiedTestManagement = () => {
+const EMPTY_FORM = {
+  title: '', description: '', test_mode: 'online', test_type: '',
+  subject_id: '', class_instance_id: '', test_date: '',
+  time_limit_seconds: '', allow_reattempts: false, status: 'active',
+};
+
+export default function UnifiedTestManagement() {
   const { user } = useAuth();
-  const { theme: antdTheme } = useTheme();
-  const { showError, showSuccess } = useErrorHandler();
-  
-  const [activeTab, setActiveTab] = useState('online');
+  const { showError } = useErrorHandler();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [loading, setLoading] = useState(false);
   const [tests, setTests] = useState([]);
   const [classInstances, setClassInstances] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('all');
-  const [questionBuilderVisible, setQuestionBuilderVisible] = useState(false);
-  const [testImportVisible, setTestImportVisible] = useState(false);
-  const [previewVisible, setPreviewVisible] = useState(false);
-  const [marksManagerVisible, setMarksManagerVisible] = useState(false);
+
   const [selectedTest, setSelectedTest] = useState(null);
+  const [questionBuilderOpen, setQuestionBuilderOpen] = useState(false);
+  const [testImportOpen, setTestImportOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [marksManagerOpen, setMarksManagerOpen] = useState(false);
   const [marksModalOpen, setMarksModalOpen] = useState(false);
   const [currentTestId, setCurrentTestId] = useState(null);
-  const [createModalVisible, setCreateModalVisible] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [aiWizardOpen, setAiWizardOpen] = useState(false);
+
+  const [formDialog, setFormDialog] = useState({ open: false, mode: 'create' });
   const [editingTest, setEditingTest] = useState(null);
-  const [aiWizardVisible, setAiWizardVisible] = useState(false);
-  const [form] = Form.useForm();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState({});
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
+
+  useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-      fetchData();
-  }, []);
-
-  // Auto-open the AI wizard when navigated with ?mode=ai
-  useEffect(() => {
-    if (searchParams.get('mode') === 'ai') {
-      setAiWizardVisible(true);
-    }
+    if (searchParams.get('mode') === 'ai') setAiWizardOpen(true);
   }, [searchParams]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const schoolCode = getSchoolCode(user);
-      
-      if (!schoolCode) {
-        showError('School code not found. Please contact support.');
-        return;
-      }
-      
-      const [testsData, classInstancesData, subjectsData] = await Promise.all([
+      if (!schoolCode) { showError('School code not found.'); return; }
+      const [testsData, classData, subjectsData] = await Promise.all([
         getTests(schoolCode),
         getClassInstances(schoolCode),
-        getSubjects(schoolCode)
+        getSubjects(schoolCode),
       ]);
-      
       setTests(testsData || []);
-      setClassInstances(classInstancesData || []);
+      setClassInstances(classData || []);
       setSubjects(subjectsData || []);
-    } catch (error) {
-      showError('Failed to fetch data: ' + error.message);
+    } catch (err) {
+      showError('Failed to fetch data: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateTest = async (values) => {
-    try {
-      setLoading(true);
-      const schoolCode = getSchoolCode(user);
-      const testData = {
-        ...values,
-        test_date: values.test_date ? dayjs(values.test_date).format('YYYY-MM-DD') : null,
-        status: values.status || 'active',
-        created_by: user.id,
-        school_code: schoolCode,
-        test_type: values.test_type // User-defined test type
-      };
-
-      await createTest(testData);
-      showSuccess('Test created successfully');
-      setCreateModalVisible(false);
-      form.resetFields();
-      fetchData();
-    } catch (error) {
-      console.error('Create test error:', error);
-      showError('Failed to create test: ' + error.message);
-    } finally {
-      setLoading(false);
+  const counts = useMemo(() => {
+    const c = { total: tests.length, online: 0, offline: 0, active: 0 };
+    for (const t of tests) {
+      if (t.test_mode === 'online') c.online++;
+      else if (t.test_mode === 'offline') c.offline++;
+      if (t.is_active) c.active++;
     }
+    return c;
+  }, [tests]);
+
+  const filteredTests = useMemo(() => {
+    let list = tests.filter(t => t.test_mode === 'online');
+    if (selectedClassId !== 'all')
+      list = list.filter(t => t.class_instance_id === selectedClassId);
+    return list;
+  }, [tests, selectedClassId]);
+
+  const openCreate = () => {
+    setForm(EMPTY_FORM);
+    setFormErrors({});
+    setEditingTest(null);
+    setFormDialog({ open: true, mode: 'create' });
   };
 
-  const handleEditTest = async (values) => {
-    try {
-      setLoading(true);
-      
-      const testData = {
-        ...values,
-        test_date: values.test_date ? dayjs(values.test_date).format('YYYY-MM-DD') : null,
-        status: values.status || 'active',
-        test_type: values.test_type // User-defined test type
-      };
-
-        await updateTest(editingTest.id, testData);
-      showSuccess('Test updated successfully');
-      setEditModalVisible(false);
-      setEditingTest(null);
-      form.resetFields();
-      fetchData();
-    } catch (error) {
-      console.error('Update test error:', error);
-      showError('Failed to update test: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
+  const openEdit = (test) => {
+    setForm({
+      title: test.title || '',
+      description: test.description || '',
+      test_mode: test.test_mode || 'online',
+      test_type: test.test_type || '',
+      subject_id: test.subject_id || '',
+      class_instance_id: test.class_instance_id || '',
+      test_date: test.test_date || '',
+      time_limit_seconds: String(test.time_limit_seconds || ''),
+      allow_reattempts: test.allow_reattempts || false,
+      status: test.status || 'active',
+    });
+    setFormErrors({});
+    setEditingTest(test);
+    setFormDialog({ open: true, mode: 'edit' });
   };
 
-  const handleDeleteTest = async (testId) => {
-    try {
-      await deleteTest(testId);
-      showSuccess('Test deleted successfully');
-      fetchData();
-    } catch (error) {
-      showError('Failed to delete test');
+  const validateForm = () => {
+    const errs = {};
+    if (!form.title.trim()) errs.title = 'Required';
+    if (!form.test_type.trim()) errs.test_type = 'Required';
+    if (!form.subject_id) errs.subject_id = 'Required';
+    if (!form.class_instance_id) errs.class_instance_id = 'Required';
+    return errs;
+  };
+
+  const handleSave = async () => {
+    const errs = validateForm();
+    if (Object.keys(errs).length) { setFormErrors(errs); return; }
+    const schoolCode = getSchoolCode(user);
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      test_mode: form.test_mode,
+      test_type: form.test_type.trim(),
+      subject_id: form.subject_id,
+      class_instance_id: form.class_instance_id,
+      test_date: form.test_date || null,
+      time_limit_seconds: form.time_limit_seconds ? parseInt(form.time_limit_seconds) : null,
+      allow_reattempts: form.allow_reattempts,
+      status: form.status || 'active',
+    };
+    if (formDialog.mode === 'create') {
+      await createTest({ ...payload, school_code: schoolCode, created_by: user.id });
+    } else {
+      await updateTest(editingTest.id, payload);
     }
+    setFormDialog(d => ({ ...d, open: false }));
+    fetchData();
+  };
+
+  const runDelete = async () => {
+    await deleteTest(deleteConfirm.id);
+    setDeleteConfirm({ open: false, id: null });
+    fetchData();
   };
 
   const handleManageQuestions = (test) => {
-    if (test.test_mode === 'offline') {
-      setSelectedTest(test);
-      setMarksManagerVisible(true);
-    } else {
     setSelectedTest(test);
-    setQuestionBuilderVisible(true);
-    }
-  };
-
-  const handlePreviewQuestions = (test) => {
     if (test.test_mode === 'offline') {
-      message.info('Offline tests don\'t have questions to preview');
-      return;
-    }
-    setSelectedTest(test);
-    setPreviewVisible(true);
-  };
-
-  const handleImportTests = () => {
-    setTestImportVisible(true);
-  };
-
-  const handleQuestionBuilderClose = () => {
-    setQuestionBuilderVisible(false);
-    setSelectedTest(null);
-      fetchData();
-  };
-
-  const handlePreviewClose = () => {
-    setPreviewVisible(false);
-    setSelectedTest(null);
-  };
-
-  const handleMarksManagerClose = () => {
-    setMarksManagerVisible(false);
-    setSelectedTest(null);
-    fetchData();
-  };
-
-  const handleToggleMarksPanel = (test) => {
-    setCurrentTestId(test.id);
-    setMarksModalOpen(true);
-  };
-
-  const handleCloseMarksPanel = () => {
-    setMarksModalOpen(false);
-    setCurrentTestId(null);
-  };
-
-  const handleMarksUpdate = () => {
-    fetchData(); // Refresh the test list to update marks counts
-  };
-
-  const handleImportClose = () => {
-    setTestImportVisible(false);
-    fetchData();
-  };
-
-  const handleEdit = (test) => {
-    setEditingTest(test);
-    form.setFieldsValue({
-      title: test.title,
-      description: test.description,
-      subject_id: test.subject_id,
-      class_instance_id: test.class_instance_id,
-      test_mode: test.test_mode,
-      test_type: test.test_type,
-      test_date: test.test_date ? dayjs(test.test_date).startOf('day') : null,
-      time_limit_seconds: test.time_limit_seconds,
-      allow_reattempts: test.allow_reattempts,
-      status: test.status || 'active'
-    });
-    setEditModalVisible(true);
-  };
-
-  const getFilteredTests = () => {
-    let filteredTests = tests;
-    
-    // Filter by class if not 'all'
-    if (selectedClassId !== 'all') {
-      filteredTests = filteredTests.filter(test => test.class_instance_id === selectedClassId);
-    }
-    
-    // Filter by test mode based on active tab
-    switch (activeTab) {
-      case 'online':
-        return filteredTests.filter(test => test.test_mode === 'online');
-      case 'offline':
-        return filteredTests.filter(test => test.test_mode === 'offline');
-      default:
-        return filteredTests;
-    }
-  };
-
-  const columns = [
-    {
-      title: 'Test Title',
-      dataIndex: 'title',
-      key: 'title',
-      width: 200,
-      render: (text, record) => (
-        <div>
-          <div style={{ fontWeight: '500', marginBottom: '4px' }}>
-            {text}
-            <Tag 
-              color={record.test_mode === 'online' ? 'blue' : 'orange'} 
-              style={{ marginLeft: '8px' }}
-            >
-              {record.test_mode === 'online' ? 'Online' : 'Offline'}
-            </Tag>
-          </div>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.description}
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Subject',
-      dataIndex: 'subject_name',
-      key: 'subject',
-      width: 120,
-      render: (text) => (
-        <Tag color="blue" icon={<BookOutlined />}>
-          {text}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Class',
-      dataIndex: 'class_name',
-      key: 'class',
-      width: 120,
-      render: (text) => (
-        <Tag color="green" icon={<UserOutlined />}>
-          {text}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Type',
-      dataIndex: 'test_mode',
-      key: 'test_mode',
-      width: 100,
-      render: (mode, record) => {
-        if (mode === 'online') {
-          return (
-            <Space>
-              <QuestionCircleOutlined />
-              <Text>{record.question_count || 0} questions</Text>
-            </Space>
-          );
+      setMarksManagerOpen(true);
     } else {
-          const marksUploaded = record.marks_uploaded || 0;
-          const totalStudents = record.total_students || 0;
-          return (
-            <Space>
-              <FileExcelOutlined />
-              <Text>{marksUploaded}/{totalStudents} marks</Text>
-            </Space>
-          );
-        }
-      },
-    },
-    {
-      title: 'Test Date',
-      dataIndex: 'test_date',
-      key: 'test_date',
-      width: 120,
-      render: (date) => (
-        <Space>
-          <ClockCircleOutlined />
-          {date ? dayjs(date).format('DD MMM, YYYY') : 'Not set'}
-        </Space>
-      ),
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      width: 100,
-      render: (_, record) => {
-        const status = record.status || 'active';
-        return (
-          <Tag color={status === 'active' ? 'green' : 'red'}>
-            {status === 'active' ? 'Active' : 'Inactive'}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 200,
-      render: (_, record) => {
-        const menuItems = [
-          {
-            key: 'preview',
-            label: 'Preview Questions',
-            icon: <EyeOutlined />,
-            onClick: () => handlePreviewQuestions(record),
-            disabled: record.test_mode === 'offline'
-          },
-          {
-            key: 'edit',
-            label: 'Edit Test',
-            icon: <EditOutlined />,
-            onClick: () => handleEdit(record)
-          },
-          {
-            key: 'delete',
-            label: 'Delete Test',
-            icon: <DeleteOutlined />,
-            danger: true,
-            onClick: () => {
-              Modal.confirm({
-                title: 'Delete Test',
-                content: 'Are you sure you want to delete this test? This action cannot be undone.',
-                onOk: () => handleDeleteTest(record.id)
-              });
-            }
-          }
-  ];
+      setQuestionBuilderOpen(true);
+    }
+  };
+
+  const closeAiWizard = () => {
+    setAiWizardOpen(false);
+    if (searchParams.get('mode')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('mode');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  const classLabel = (c) => `Grade ${c.grade ?? ''}${c.section ? ` ${c.section}` : ''}`;
 
   return (
-          <Space>
-            {record.test_mode === 'online' ? (
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                onClick={() => handleManageQuestions(record)}
-              >
-                Manage Questions
-              </Button>
-            ) : (
-              <Button
-                type="primary"
-                icon={<UploadOutlined />}
-                onClick={() => handleToggleMarksPanel(record)}
-                style={{ background: '#fa8c16', borderColor: '#fa8c16' }}
-              >
-                Upload Marks
-              </Button>
-            )}
-            <Dropdown
-              menu={{ items: menuItems }}
-              trigger={['click']}
-            >
-              <Button icon={<MoreOutlined />} />
-            </Dropdown>
-          </Space>
-        );
-      },
-    },
-  ];
-
-  const tabItems = [
-    {
-      key: 'online',
-      label: (
-        <Space>
-          <PlayCircleOutlined />
-          Online Tests
-        </Space>
-      ),
-      children: (
-          <div>
-          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={4} style={{ margin: 0 }}>
-              Online Tests ({getFilteredTests().length})
-            </Title>
-          <Space>
-            <Button
-              icon={<UploadOutlined />}
-              onClick={handleImportTests}
-            >
-              Import Tests
-            </Button>
-            <Button
-              icon={<ThunderboltOutlined />}
-              onClick={() => setAiWizardVisible(true)}
-              style={{ borderColor: '#722ed1', color: '#722ed1' }}
-            >
-              Generate with AI
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-                onClick={() => setCreateModalVisible(true)}
-              >
-                Create Online Test
-            </Button>
-          </Space>
-        </div>
-
-          <Table
-            columns={columns}
-            dataSource={getFilteredTests()}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} of ${total} online tests`
-            }}
-            scroll={{ x: 1000 }}
-          />
-                  </div>
-      )
-    },
-    // Offline tab removed — offline assessments now live under "Gradebook" in the sidebar.
-    {
-      key: 'analytics',
-      label: (
-        <Space>
-          <BarChartOutlined />
-          Analytics
-        </Space>
-      ),
-      children: <TestAnalytics />
-    }
-  ];
-
-  const totalTests = tests.length;
-  const onlineTests = tests.filter(test => test.test_mode === 'online').length;
-  const offlineTests = tests.filter(test => test.test_mode === 'offline').length;
-
-  return (
-    <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <Title level={2} style={{ margin: 0 }}>
-              Test Management
-            </Title>
-            <Text type="secondary">
-              Manage online tests. Offline assessments now live under Gradebook.
-                  </Text>
-                </div>
-          <Space>
-                      <Select
-              value={selectedClassId}
-              onChange={setSelectedClassId}
-              style={{ width: 200 }}
-              placeholder="Filter by class"
-            >
-              <Select.Option value="all">All Classes</Select.Option>
-                        {classInstances.map(cls => (
-                          <Select.Option key={cls.id} value={cls.id}>
-                            Grade {cls.grade} {cls.section}
-                          </Select.Option>
-                        ))}
-                      </Select>
-                        <Button 
-              icon={<ReloadOutlined />}
-              onClick={fetchData}
-              loading={loading}
-            >
+    <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">
+      <PageHeader
+        title="Test Management"
+        subtitle="Manage online tests. Offline assessments now live under Gradebook."
+        actions={
+          <div className="flex items-center gap-2">
+            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+              <SelectTrigger className="w-[180px] h-8 text-[13px]">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+                {classInstances.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{classLabel(c)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
               Refresh All
-                        </Button>
-          </Space>
-                  </div>
-                </div>
+            </Button>
+          </div>
+        }
+      />
 
-      {/* Statistics */}
-      <Row gutter={16} style={{ marginBottom: '24px' }}>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="Total Tests"
-              value={totalTests}
-              prefix={<TrophyOutlined />}
-            />
-            </Card>
-          </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="Online Tests"
-              value={onlineTests}
-              prefix={<PlayCircleOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-            </Card>
-          </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="Offline Tests"
-              value={offlineTests}
-              prefix={<FileExcelOutlined />}
-              valueStyle={{ color: '#fa8c16' }}
-            />
-            </Card>
-          </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="Active Tests"
-              value={tests.filter(test => test.is_active).length}
-              prefix={<TrophyOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-            </Card>
-          </Col>
-        </Row>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+        {[
+          { label: 'Total Tests',   value: counts.total,   icon: Trophy,          color: '--brand'   },
+          { label: 'Online Tests',  value: counts.online,  icon: PlayCircle,      color: '--brand'   },
+          { label: 'Offline Tests', value: counts.offline, icon: FileSpreadsheet, color: '--warning' },
+          { label: 'Active Tests',  value: counts.active,  icon: Trophy,          color: '--success' },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label}
+            className="rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--bg-elev)] px-4 py-3.5">
+            <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-[color:var(--fg-muted)] mb-2">
+              <Icon size={12} style={{ color: `var(${color})` }} />
+              {label}
+            </div>
+            <div className="text-[26px] font-semibold tracking-[-0.02em] tabular-nums text-[color:var(--fg)]">
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <Card>
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabItems}
-          size="large"
-        />
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-[15px] font-semibold text-[color:var(--fg)]">
+          Online Tests ({filteredTests.length})
+        </span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setTestImportOpen(true)}>
+            <Upload size={13} /> Import Tests
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            className="border-[color:var(--brand)] text-[color:var(--brand)] hover:bg-[color:var(--brand-soft)]"
+            onClick={() => setAiWizardOpen(true)}
+          >
+            <Zap size={13} /> Generate with AI
+          </Button>
+          <Button size="sm" onClick={openCreate}>
+            <Plus size={13} /> Create Online Test
+          </Button>
+        </div>
+      </div>
+
+      <Card padded={false}>
+            {loading ? (
+              <div className="p-10 text-center text-[13px] text-[color:var(--fg-subtle)]">Loading…</div>
+            ) : filteredTests.length === 0 ? (
+              <EmptyState
+                type="tests"
+                action={
+                  <Button size="sm" className="mt-3" onClick={openCreate}>
+                    <Plus size={13} /> Create first test
+                  </Button>
+                }
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[color:var(--bg-subtle)]">
+                    <TableHead className={TH_FIRST}>Test Title</TableHead>
+                    <TableHead className={TH}>Subject</TableHead>
+                    <TableHead className={TH}>Class</TableHead>
+                    <TableHead className={TH}>Type</TableHead>
+                    <TableHead className={TH}>Test Date</TableHead>
+                    <TableHead className={TH}>Status</TableHead>
+                    <TableHead className={TH}>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTests.map(t => (
+                    <TableRow key={t.id} className="hover:bg-[color:var(--bg-subtle)] transition-colors">
+                      <TableCell className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13.5px] font-semibold text-[color:var(--fg)]">{t.title}</span>
+                          <Badge variant={t.test_mode === 'online' ? 'accent' : 'warning'} className="capitalize">
+                            {t.test_mode}
+                          </Badge>
+                        </div>
+                        {t.description && (
+                          <div className="text-[12px] text-[color:var(--fg-muted)] mt-0.5">{t.description}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <Badge variant="info">{t.subject_name || '—'}</Badge>
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <Badge variant="success">{t.class_name || '—'}</Badge>
+                      </TableCell>
+                      <TableCell className="py-3 text-[13px] text-[color:var(--fg-muted)]">
+                        {t.test_mode === 'online'
+                          ? `${t.question_count || 0} questions`
+                          : `${t.marks_uploaded || 0}/${t.total_students || 0} marks`}
+                      </TableCell>
+                      <TableCell className="py-3 text-[13px] text-[color:var(--fg-muted)] tabular-nums">
+                        {t.test_date ? new Date(t.test_date).toLocaleDateString('en-IN') : 'Not set'}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <Badge variant={t.status === 'active' ? 'success' : 'neutral'} className="capitalize">
+                          {t.status || 'active'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" onClick={() => handleManageQuestions(t)}>
+                            <PlayCircle size={12} />
+                            {t.test_mode === 'online' ? 'Manage Questions' : 'Upload Marks'}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon-sm">
+                                <MoreHorizontal size={14} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {t.test_mode === 'online' && (
+                                <DropdownMenuItem onClick={() => { setSelectedTest(t); setPreviewOpen(true); }}>
+                                  <Eye size={13} /> Preview Questions
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => openEdit(t)}>
+                                <Edit size={13} /> Edit Test
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem variant="destructive" onClick={() => setDeleteConfirm({ open: true, id: t.id })}>
+                                <Trash2 size={13} /> Delete Test
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
       </Card>
 
-      {/* Create Test Modal */}
-      <Modal
-        title="Create Test"
-        open={createModalVisible}
-        onCancel={() => {
-          setCreateModalVisible(false);
-          form.resetFields();
-        }}
-        footer={null}
+      {/* Create / Edit dialog */}
+      <FormDialog
+        open={formDialog.open}
+        onClose={() => setFormDialog(d => ({ ...d, open: false }))}
+        title={formDialog.mode === 'create' ? 'Create Test' : 'Edit Test'}
+        onSubmit={handleSave}
+        submitLabel={formDialog.mode === 'create' ? 'Create Test' : 'Save Changes'}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreateTest}
-        >
-          <Form.Item
-            name="title"
-            label="Test Title"
-            rules={[{ required: true, message: 'Please enter test title' }]}
-          >
-            <Input placeholder="e.g., Math Quiz 1, Science Test" />
-          </Form.Item>
-
-          <Form.Item
-            name="description"
-            label="Description"
-          >
-            <Input.TextArea placeholder="Optional description of the test" />
-          </Form.Item>
-
-              <Form.Item
-            name="test_mode"
-            label="Test Mode"
-            rules={[{ required: true, message: 'Please select test mode' }]}
-          >
-            <Select placeholder="Select test mode">
-              <Select.Option value="online">Online Test</Select.Option>
-              {/* Offline Test option removed — managed in Gradebook */}
-                      </Select>
-              </Form.Item>
-
-          <Form.Item
-            name="test_type"
-            label="Test Type"
-            rules={[{ required: true, message: 'Please enter test type' }]}
-          >
-            <Input 
-              placeholder="Enter test type (e.g., Unit Test, Mid-Term, Final Exam, Quiz, etc.)" 
-              style={{ width: '100%' }}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Test Title" required error={formErrors.title} className="col-span-2">
+            <Input
+              placeholder="e.g. Math Quiz 1, Science Test"
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
             />
-          </Form.Item>
+          </Field>
 
-          <Form.Item
-            name="subject_id"
-            label="Subject"
-            rules={[{ required: true, message: 'Please select subject' }]}
-          >
-            <Select placeholder="Select subject">
-                        {subjects.map(subject => (
-                          <Select.Option key={subject.id} value={subject.id}>
-                            {subject.subject_name}
-                          </Select.Option>
-                        ))}
-                      </Select>
-          </Form.Item>
-
-              <Form.Item
-                name="class_instance_id"
-                label="Class"
-                rules={[{ required: true, message: 'Please select class' }]}
-              >
-            <Select placeholder="Select class">
-                  {classInstances.map(cls => (
-                    <Select.Option key={cls.id} value={cls.id}>
-                      Grade {cls.grade} {cls.section}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-          <Form.Item
-            name="test_date"
-            label="Test Date"
-            rules={[{ required: false, message: 'Please select test date' }]}
-          >
-            <DatePicker 
-              style={{ width: '100%' }} 
-              format="DD-MM-YYYY"
-              placeholder="Select test date (optional)"
-              showToday
-              allowClear
-              changeOnBlur={false}
+          <Field label="Description" className="col-span-2">
+            <Textarea
+              placeholder="Optional description of the test"
+              rows={2}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             />
-          </Form.Item>
+          </Field>
 
-          <Form.Item
-            name="time_limit_seconds"
-            label="Time Limit (minutes)"
-          >
-            <Input type="number" placeholder="60" />
-          </Form.Item>
+          <Field label="Test Type" required error={formErrors.test_type}>
+            <Input
+              placeholder="e.g. Unit Test, Quiz, Final Exam"
+              value={form.test_type}
+              onChange={e => setForm(f => ({ ...f, test_type: e.target.value }))}
+            />
+          </Field>
 
-          <Form.Item
-            name="allow_reattempts"
-            label="Allow Reattempts"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
+          <Field label="Test Date">
+            <Input
+              type="date"
+              value={form.test_date}
+              onChange={e => setForm(f => ({ ...f, test_date: e.target.value }))}
+            />
+          </Field>
 
-          <Form.Item
-            name="status"
-            label="Status"
-            initialValue="active"
-          >
-            <Select>
-              <Select.Option value="active">Active</Select.Option>
-              <Select.Option value="inactive">Inactive</Select.Option>
+          <Field label="Subject" required error={formErrors.subject_id}>
+            <Select value={form.subject_id || ''} onValueChange={v => setForm(f => ({ ...f, subject_id: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+              <SelectContent>
+                {subjects.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.subject_name}</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-          </Form.Item>
+          </Field>
 
-          <Form.Item>
-            <Space>
-              <Button onClick={() => setCreateModalVisible(false)}>
-                Cancel
-              </Button>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Create Test
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+          <Field label="Class" required error={formErrors.class_instance_id}>
+            <Select value={form.class_instance_id || ''} onValueChange={v => setForm(f => ({ ...f, class_instance_id: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+              <SelectContent>
+                {classInstances.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{classLabel(c)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
 
-      {/* Edit Test Modal */}
-      <Modal
-        title="Edit Test"
-        open={editModalVisible}
-        onCancel={() => {
-          setEditModalVisible(false);
-          setEditingTest(null);
-          form.resetFields();
-        }}
-        footer={null}
-        width={600}
+          <Field label="Time Limit (minutes)">
+            <Input
+              type="number"
+              placeholder="60"
+              value={form.time_limit_seconds}
+              onChange={e => setForm(f => ({ ...f, time_limit_seconds: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Status">
+            <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="Allow Reattempts" className="col-span-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.allow_reattempts}
+                onChange={e => setForm(f => ({ ...f, allow_reattempts: e.target.checked }))}
+                className="rounded border-[color:var(--border)] accent-[color:var(--brand)]"
+              />
+              <span className="text-[13px] text-[color:var(--fg)]">Students can retake this test</span>
+            </label>
+          </Field>
+        </div>
+      </FormDialog>
+
+      {/* Delete confirm */}
+      <FormDialog
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm(d => ({ ...d, open: false }))}
+        title="Delete Test"
+        onSubmit={runDelete}
+        submitLabel="Delete"
+        destructive
+        width={420}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleEditTest}
-        >
-          <Form.Item
-            name="title"
-            label="Test Title"
-            rules={[{ required: true, message: 'Please enter test title' }]}
-          >
-            <Input placeholder="e.g., Math Quiz 1, Science Test" />
-          </Form.Item>
+        <p className="text-[13.5px] text-[color:var(--fg-subtle)]">
+          Are you sure you want to delete this test? This action cannot be undone.
+        </p>
+      </FormDialog>
 
-          <Form.Item
-            name="description"
-            label="Description"
-          >
-            <Input.TextArea placeholder="Optional description of the test" />
-          </Form.Item>
-
-              <Form.Item
-            name="test_mode"
-            label="Test Mode"
-            rules={[{ required: true, message: 'Please select test mode' }]}
-          >
-            <Select placeholder="Select test mode">
-              <Select.Option value="online">Online Test</Select.Option>
-              {/* Offline Test option removed — managed in Gradebook */}
-                </Select>
-              </Form.Item>
-
-          <Form.Item
-            name="test_type"
-            label="Test Type"
-            rules={[{ required: true, message: 'Please enter test type' }]}
-          >
-            <Input 
-              placeholder="Enter test type (e.g., Unit Test, Mid-Term, Final Exam, Quiz, etc.)" 
-              style={{ width: '100%' }}
+      {/* AI Wizard */}
+      <Dialog open={aiWizardOpen} onOpenChange={open => { if (!open) closeAiWizard(); }}>
+        <DialogContent className="max-w-[920px] p-0" onPointerDownOutside={e => e.preventDefault()}>
+          <DialogHeader className="px-6 pt-5 pb-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Zap size={16} style={{ color: 'var(--brand)' }} /> AI Test Generator
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-6 pt-4">
+            <AITestGeneratorWizard
+              onCancel={closeAiWizard}
+              onSaved={() => { closeAiWizard(); fetchData(); }}
             />
-          </Form.Item>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-          <Form.Item
-            name="subject_id"
-            label="Subject"
-            rules={[{ required: true, message: 'Please select subject' }]}
-          >
-            <Select placeholder="Select subject">
-              {subjects.map(subject => (
-                <Select.Option key={subject.id} value={subject.id}>
-                  {subject.subject_name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="class_instance_id"
-            label="Class"
-            rules={[{ required: true, message: 'Please select class' }]}
-          >
-            <Select placeholder="Select class">
-              {classInstances.map(cls => (
-                <Select.Option key={cls.id} value={cls.id}>
-                  Grade {cls.grade} {cls.section}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="test_date"
-            label="Test Date"
-            rules={[{ required: false, message: 'Please select test date' }]}
-          >
-            <DatePicker 
-              style={{ width: '100%' }} 
-              format="DD-MM-YYYY"
-              placeholder="Select test date (optional)"
-              showToday
-              allowClear
-              changeOnBlur={false}
-            />
-          </Form.Item>
-
-              <Form.Item
-                name="time_limit_seconds"
-            label="Time Limit (minutes)"
-          >
-            <Input type="number" placeholder="60" />
-              </Form.Item>
-
-              <Form.Item
-                name="allow_reattempts"
-                label="Allow Reattempts"
-                valuePropName="checked"
-              >
-            <Switch />
-              </Form.Item>
-
-          <Form.Item>
-            <Space>
-              <Button onClick={() => setEditModalVisible(false)}>
-                Cancel
-              </Button>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Update Test
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Question Builder Modal */}
-      {selectedTest && selectedTest.test_mode === 'online' && (
-      <QuestionBuilder
-        visible={questionBuilderVisible}
-        onClose={handleQuestionBuilderClose}
-        test={selectedTest}
+      {/* Question Builder */}
+      {selectedTest?.test_mode === 'online' && (
+        <QuestionBuilder
+          visible={questionBuilderOpen}
+          onClose={() => { setQuestionBuilderOpen(false); setSelectedTest(null); fetchData(); }}
+          test={selectedTest}
         />
       )}
 
-      {/* Test Import Modal */}
+      {/* Test Import */}
       <TestImportModal
-        visible={testImportVisible}
-        onClose={handleImportClose}
+        visible={testImportOpen}
+        onClose={() => { setTestImportOpen(false); fetchData(); }}
         classInstances={classInstances}
         subjects={subjects}
         schoolCode={getSchoolCode(user)}
         userId={user?.id}
       />
 
-      {/* Preview Questions Modal */}
-      {selectedTest && selectedTest.test_mode === 'online' && (
-      <PreviewQuestionsModal
-          visible={previewVisible}
-          onClose={handlePreviewClose}
-        test={selectedTest}
-      />
-      )}
-
-      {/* Marks Manager Modal */}
-      {selectedTest && selectedTest.test_mode === 'offline' && (
-        <OfflineTestMarksManager
-          visible={marksManagerVisible}
-          onClose={handleMarksManagerClose}
+      {/* Preview Questions */}
+      {selectedTest?.test_mode === 'online' && (
+        <PreviewQuestionsModal
+          visible={previewOpen}
+          onClose={() => { setPreviewOpen(false); setSelectedTest(null); }}
           test={selectedTest}
         />
       )}
 
-      {/* Offline Test Marks Modal */}
-      {currentTestId && (
+      {/* Offline Marks Manager (from row action) */}
+      {selectedTest?.test_mode === 'offline' && (
         <OfflineTestMarksManager
-          open={marksModalOpen}
-          onClose={handleCloseMarksPanel}
-          testId={currentTestId}
-          onSaved={(count) => {
-            handleMarksUpdate();
-            handleCloseMarksPanel();
-          }}
+          visible={marksManagerOpen}
+          onClose={() => { setMarksManagerOpen(false); setSelectedTest(null); fetchData(); }}
+          test={selectedTest}
         />
       )}
 
-      {/* AI Test Generator Modal */}
-      <Modal
-        open={aiWizardVisible}
-        onCancel={() => {
-          setAiWizardVisible(false);
-          // Strip ?mode=ai from URL so refreshes don't reopen the wizard
-          if (searchParams.get('mode')) {
-            const next = new URLSearchParams(searchParams);
-            next.delete('mode');
-            setSearchParams(next, { replace: true });
-          }
-        }}
-        title={<><ThunderboltOutlined style={{ color: '#722ed1' }} /> AI Test Generator</>}
-        footer={null}
-        width={920}
-        destroyOnClose
-        maskClosable={false}
-      >
-        <AITestGeneratorWizard
-          onCancel={() => {
-            setAiWizardVisible(false);
-            if (searchParams.get('mode')) {
-              const next = new URLSearchParams(searchParams);
-              next.delete('mode');
-              setSearchParams(next, { replace: true });
-            }
-          }}
-          onSaved={(testId) => {
-            setAiWizardVisible(false);
-            if (searchParams.get('mode')) {
-              const next = new URLSearchParams(searchParams);
-              next.delete('mode');
-              setSearchParams(next, { replace: true });
-            }
-            fetchData();
-          }}
+      {/* Offline Marks Manager (from marks panel) */}
+      {currentTestId && (
+        <OfflineTestMarksManager
+          open={marksModalOpen}
+          onClose={() => { setMarksModalOpen(false); setCurrentTestId(null); fetchData(); }}
+          testId={currentTestId}
         />
-      </Modal>
+      )}
     </div>
   );
-};
-
-export default UnifiedTestManagement;
+}

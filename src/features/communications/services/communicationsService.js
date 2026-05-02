@@ -91,13 +91,13 @@ export const announcementsService = {
     return data;
   },
 
-  async listClasses(schoolCode) {
-    const { data, error } = await supabase
+  async listClasses(schoolCode, academicYearId) {
+    let q = supabase
       .from('class_instances')
       .select('id, grade, section')
-      .eq('school_code', schoolCode)
-      .order('grade')
-      .order('section');
+      .eq('school_code', schoolCode);
+    if (academicYearId) q = q.eq('academic_year_id', academicYearId);
+    const { data, error } = await q.order('grade').order('section');
     if (error) throw error;
     return data ?? [];
   },
@@ -292,13 +292,13 @@ export const feedbackService = {
     return data ?? [];
   },
 
-  async listClasses(schoolCode) {
-    const { data, error } = await supabase
+  async listClasses(schoolCode, academicYearId) {
+    let q = supabase
       .from('class_instances')
       .select('id, grade, section')
-      .eq('school_code', schoolCode)
-      .order('grade')
-      .order('section');
+      .eq('school_code', schoolCode);
+    if (academicYearId) q = q.eq('academic_year_id', academicYearId);
+    const { data, error } = await q.order('grade').order('section');
     if (error) throw error;
     return data ?? [];
   },
@@ -316,13 +316,13 @@ export const feedbackService = {
 
 // ── Report Comments ──────────────────────────────────────────────────────────
 export const reportCommentsService = {
-  async listClasses(schoolCode) {
-    const { data, error } = await supabase
+  async listClasses(schoolCode, academicYearId) {
+    let q = supabase
       .from('class_instances')
       .select('id, grade, section')
-      .eq('school_code', schoolCode)
-      .order('grade')
-      .order('section');
+      .eq('school_code', schoolCode);
+    if (academicYearId) q = q.eq('academic_year_id', academicYearId);
+    const { data, error } = await q.order('grade').order('section');
     if (error) throw error;
     return data ?? [];
   },

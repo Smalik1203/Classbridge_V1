@@ -1,26 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { App as AntApp } from 'antd';
 import {
-  Card, Row, Col, Statistic, Button, Tag, Space, Typography, List, Avatar, Modal, Input, App, Empty, Skeleton,
-} from 'antd';
-import {
-  ArrowLeftOutlined, CheckOutlined, CloseOutlined, ReloadOutlined, SettingOutlined, IdcardOutlined,
-} from '@ant-design/icons';
+  Check, X, RefreshCw, Settings2, IdCard, FileCheck2, Users, CalendarDays, Hourglass, CheckCircle2,
+} from 'lucide-react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+
 import { useAuth } from '@/AuthProvider';
 import { getSchoolCode } from '@/shared/utils/metadata';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+
 import { hrService } from '../services/hrService';
 import LeaveTypesModal from '../components/LeaveTypesModal';
+import {
+  PageHeader, KpiTile, SectionCard, EmptyState, StatusPill, AlertBar,
+} from '../components/visuals';
+import { cn } from '@/lib/utils';
 
 dayjs.extend(relativeTime);
-const { Title, Text } = Typography;
 
 export default function LeavesApprovals() {
   const { user } = useAuth();
   const schoolCode = getSchoolCode(user);
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message } = AntApp.useApp();
 
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState([]);
@@ -80,111 +89,178 @@ export default function LeavesApprovals() {
     return `${f.format('DD MMM')} → ${t.format('DD MMM YYYY')}`;
   };
 
-  if (loading) return <Skeleton active paragraph={{ rows: 8 }} />;
+  if (loading) {
+    return (
+      <div className="px-7 py-6 max-w-[1200px] mx-auto space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      <Space style={{ marginBottom: 16 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/hr')}>HR Hub</Button>
-      </Space>
+    <div className="px-7 py-6 max-w-[1200px] mx-auto">
+      <PageHeader
+        eyebrow="Approvals queue"
+        title="Leaves & Approvals"
+        subtitle="Review pending leave applications across all staff"
+        actions={
+          <>
+            <Button variant="outline" onClick={load} disabled={loading}>
+              <RefreshCw className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </Button>
+            <Button variant="outline" onClick={() => setTypesOpen(true)}>
+              <Settings2 />
+              Leave types
+            </Button>
+          </>
+        }
+      />
 
-      <Card>
-        <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap' }}>
-          <div>
-            <Title level={4} style={{ margin: 0 }}>Leaves & Approvals</Title>
-            <Text type="secondary">Pending leave applications</Text>
-          </div>
-          <Space>
-            <Button icon={<ReloadOutlined />} onClick={load}>Refresh</Button>
-            <Button icon={<SettingOutlined />} onClick={() => setTypesOpen(true)}>Leave Types</Button>
-          </Space>
-        </Space>
-
-        {stats.count > 0 && (
-          <div style={{
-            padding: 16,
-            borderRadius: 8,
-            background: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
-            color: '#fff',
-            marginBottom: 16,
-          }}>
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>
-              {stats.count} request{stats.count > 1 ? 's' : ''} awaiting review
-            </Text>
-            <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, marginTop: 4 }}>
-              {stats.days.toFixed(1)} total day{stats.days === 1 ? '' : 's'} across {stats.staff} staff member{stats.staff > 1 ? 's' : ''}
+      {stats.count > 0 ? (
+        <div className="rounded-2xl bg-gradient-to-br from-amber-500 via-amber-400 to-orange-400 text-white p-5 mb-5 shadow-lg shadow-amber-500/30 relative overflow-hidden">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full"
+            style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.25), transparent)' }}
+          />
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="grid place-items-center size-12 rounded-xl bg-white/20">
+              <Hourglass size={22} />
+            </div>
+            <div className="flex-1">
+              <div className="text-lg font-bold leading-tight">
+                {stats.count} request{stats.count > 1 ? 's' : ''} awaiting your review
+              </div>
+              <div className="text-sm text-white/90 mt-0.5">
+                {stats.days.toFixed(1)} total day{stats.days === 1 ? '' : 's'} · {stats.staff} staff member{stats.staff > 1 ? 's' : ''}
+              </div>
             </div>
           </div>
-        )}
+        </div>
+      ) : (
+        <AlertBar
+          tone="emerald"
+          className="mb-5"
+          icon={<CheckCircle2 size={18} className="text-emerald-600" />}
+          title="All caught up"
+          description="No leave requests waiting for review right now."
+        />
+      )}
 
-        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={8}><Card size="small"><Statistic title="Pending requests" value={stats.count} /></Card></Col>
-          <Col xs={24} sm={8}><Card size="small"><Statistic title="Total days" value={stats.days.toFixed(1)} /></Card></Col>
-          <Col xs={24} sm={8}><Card size="small"><Statistic title="Staff members" value={stats.staff} /></Card></Col>
-        </Row>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <KpiTile tone="amber" label="Pending requests" value={stats.count} icon={<FileCheck2 size={16} />} />
+        <KpiTile tone="brand" label="Total days" value={stats.days.toFixed(1)} icon={<CalendarDays size={16} />} />
+        <KpiTile tone="sky" label="Staff" value={stats.staff} icon={<Users size={16} />} />
+      </div>
 
+      <SectionCard padding={pending.length === 0 ? 'p-0' : 'p-0'}>
         {pending.length === 0 ? (
-          <Empty description="All caught up — no pending requests" />
-        ) : (
-          <List
-            dataSource={pending}
-            renderItem={(item) => (
-              <List.Item
-                actions={[
-                  <Button key="a" type="primary" icon={<CheckOutlined />} onClick={() => openReview(item, 'approve')}>Approve</Button>,
-                  <Button key="r" danger icon={<CloseOutlined />} onClick={() => openReview(item, 'reject')}>Reject</Button>,
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={<Avatar icon={<IdcardOutlined />} />}
-                  title={
-                    <Space wrap>
-                      <Text strong>{item.employees?.full_name}</Text>
-                      <Text type="secondary">{item.employees?.designation}</Text>
-                      <Tag>{item.leave_types?.code}</Tag>
-                      {item.is_half_day && <Tag color="blue">Half-day {item.half_day_slot}</Tag>}
-                    </Space>
-                  }
-                  description={
-                    <Space direction="vertical" size={2}>
-                      <Text>{formatRange(item.from_date, item.to_date)} · <Text strong>{item.days} day{item.days > 1 ? 's' : ''}</Text></Text>
-                      {item.reason && <Text style={{ fontStyle: 'italic' }}>"{item.reason}"</Text>}
-                      <Text type="secondary" style={{ fontSize: 12 }}>Applied {dayjs(item.applied_at).fromNow()}</Text>
-                    </Space>
-                  }
-                />
-              </List.Item>
-            )}
+          <EmptyState
+            icon={<CheckCircle2 size={20} />}
+            title="No pending requests"
+            subtitle="When staff submit leave applications they'll appear here."
           />
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {pending.map((item) => (
+              <li
+                key={item.id}
+                className="px-5 py-4 flex flex-wrap items-start gap-4 hover:bg-slate-50/70 transition-colors"
+              >
+                <div className="grid place-items-center size-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 text-white shadow-sm shadow-indigo-500/30 shrink-0">
+                  <IdCard size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-900">{item.employees?.full_name}</span>
+                    {item.employees?.designation && (
+                      <span className="text-xs text-slate-500">· {item.employees.designation}</span>
+                    )}
+                    <StatusPill tone="brand">{item.leave_types?.code}</StatusPill>
+                    {item.is_half_day && <StatusPill tone="sky">Half-day · {item.half_day_slot}</StatusPill>}
+                  </div>
+                  <div className="text-sm text-slate-700 mt-1.5">
+                    <span className="font-medium">{formatRange(item.from_date, item.to_date)}</span>
+                    <span className="mx-1.5 text-slate-400">·</span>
+                    <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100 font-semibold text-xs tabular-nums">
+                      {item.days} day{item.days > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {item.reason && (
+                    <div className="text-sm text-slate-600 italic mt-1.5 max-w-[640px]">"{item.reason}"</div>
+                  )}
+                  <div className="text-[11px] text-slate-400 mt-1.5">Applied {dayjs(item.applied_at).fromNow()}</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    className={cn('bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-sm shadow-emerald-500/25')}
+                    onClick={() => openReview(item, 'approve')}
+                  >
+                    <Check />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-rose-700 border-rose-200 hover:bg-rose-50 hover:text-rose-800"
+                    onClick={() => openReview(item, 'reject')}
+                  >
+                    <X />
+                    Reject
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-      </Card>
+      </SectionCard>
 
-      <Modal
-        open={!!reviewing}
-        onCancel={() => setReviewing(null)}
-        onOk={submitReview}
-        confirmLoading={busy}
-        okText={reviewMode === 'approve' ? 'Approve' : 'Reject'}
-        okButtonProps={{ danger: reviewMode === 'reject' }}
-        title={reviewMode === 'approve' ? 'Approve Leave' : 'Reject Leave'}
-        destroyOnClose
-      >
-        {reviewing && (
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Text strong>{reviewing.employees?.full_name}</Text>
-            <Text type="secondary">
-              {formatRange(reviewing.from_date, reviewing.to_date)} · {reviewing.days} day{reviewing.days > 1 ? 's' : ''} · {reviewing.leave_types?.name}
-            </Text>
-            {reviewing.reason && <Text style={{ fontStyle: 'italic' }}>"{reviewing.reason}"</Text>}
-            <Input.TextArea
-              rows={3}
-              placeholder="Optional review note (visible to employee)"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </Space>
-        )}
-      </Modal>
+      <Dialog open={!!reviewing} onOpenChange={(o) => !o && setReviewing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{reviewMode === 'approve' ? 'Approve leave' : 'Reject leave'}</DialogTitle>
+            {reviewing && (
+              <DialogDescription className="space-y-1">
+                <div className="text-slate-900 font-medium">{reviewing.employees?.full_name}</div>
+                <div className="text-sm">
+                  {formatRange(reviewing.from_date, reviewing.to_date)}
+                  <span className="mx-1">·</span>
+                  {reviewing.days} day{reviewing.days > 1 ? 's' : ''}
+                  <span className="mx-1">·</span>
+                  {reviewing.leave_types?.name}
+                </div>
+                {reviewing.reason && (
+                  <div className="text-sm italic mt-1">"{reviewing.reason}"</div>
+                )}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <Textarea
+            placeholder="Optional review note (visible to employee)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewing(null)} disabled={busy}>Cancel</Button>
+            <Button
+              onClick={submitReview}
+              disabled={busy}
+              className={
+                reviewMode === 'approve'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-0'
+                  : 'bg-rose-600 hover:bg-rose-700 text-white border-0'
+              }
+            >
+              {reviewMode === 'approve' ? <Check /> : <X />}
+              {reviewMode === 'approve' ? 'Approve' : 'Reject'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <LeaveTypesModal open={typesOpen} onClose={() => setTypesOpen(false)} schoolCode={schoolCode} />
     </div>

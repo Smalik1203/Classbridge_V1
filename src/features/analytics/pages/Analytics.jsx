@@ -1,6 +1,5 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AcademicYearProvider } from '../context/AcademicYearContext';
 import AnalyticsShell from './AnalyticsShell';
 import AnalyticsHub from './AnalyticsHub';
 import AttendanceAnalytics from './AttendanceAnalytics';
@@ -27,7 +26,6 @@ const LegacyRedirect = ({ to }) => <Navigate to={to} replace />;
 
 export default function AnalyticsRouter() {
   return (
-    <AcademicYearProvider>
       <Routes>
         <Route element={<AnalyticsShell />}>
           <Route path="/" element={<AnalyticsHub />} />
@@ -53,6 +51,5 @@ export default function AnalyticsRouter() {
         <Route path="/student" element={<Navigate to="/analytics" replace />} />
         <Route path="*" element={<Navigate to="/analytics" replace />} />
       </Routes>
-    </AcademicYearProvider>
   );
 }

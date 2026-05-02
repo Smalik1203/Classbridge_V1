@@ -43,7 +43,7 @@ const AuthLayout = ({ children, title, subtitle }) => {
               width: '64px',
               height: '64px',
               borderRadius: '16px',
-              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+              background: 'linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

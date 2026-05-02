@@ -154,8 +154,8 @@ export const AddSchools = () => {
                 style={{
                   fontSize: '14px',
                   height: '40px',
-                  background: '#8B5CF6',
-                  borderColor: '#8B5CF6',
+                  background: '#3B82F6',
+                  borderColor: '#3B82F6',
                   borderRadius: '8px',
                   fontWeight: 500,
                 }}

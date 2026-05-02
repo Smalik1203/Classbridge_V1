@@ -7,19 +7,14 @@ import { listClasses } from '../services/feesService';
 /**
  * FeesContext — invoice-first lean provider.
  *
- * Replaces the old plan-based provider that read from fee_student_plans /
- * fee_payments and held a global studentPlans Map. The new fees flow uses
- * React Query-style local state inside pages calling feesService directly,
- * so this context just exposes the small shared facts:
+ * Exposes:
  *   - schoolCode, userRole
- *   - active academic year
- *   - class list (for pickers)
+ *   - academicYears: full list for the school (active first)
+ *   - activeAcademicYear: the school's flagged active year
+ *   - selectedAcademicYear / setSelectedAcademicYearId — current filter
+ *     (null = "All years")
+ *   - classes (for pickers)
  *   - refresh helper
- *
- * The old API surface (loadStudentPlans, addPayment, getStudentPlan, etc.)
- * has been removed because no external feature consumed it; only the fees
- * folder itself imported FeesContext, and it has been rebuilt against
- * fee_invoices / fee_invoice_items / fee_payments.
  */
 
 const FeesContext = createContext(null);
@@ -29,7 +24,9 @@ export function FeesProvider({ children }) {
   const schoolCode = getSchoolCode(user);
   const userRole = getUserRole(user);
 
-  const [academicYear, setAcademicYear] = useState(null);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [activeAcademicYear, setActiveAcademicYear] = useState(null);
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(null);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -39,16 +36,20 @@ export function FeesProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [{ data: ay }, classRows] = await Promise.all([
+      const [{ data: ays }, classRows] = await Promise.all([
         supabase
           .from('academic_years')
           .select('id, year_start, year_end, is_active')
           .eq('school_code', schoolCode)
-          .eq('is_active', true)
-          .maybeSingle(),
+          .order('year_start', { ascending: false }),
         listClasses(schoolCode),
       ]);
-      setAcademicYear(ay || null);
+      const list = ays || [];
+      setAcademicYears(list);
+      const active = list.find((a) => a.is_active) || list[0] || null;
+      setActiveAcademicYear(active);
+      // Default the picker to the active year on first load only.
+      setSelectedAcademicYearId((curr) => curr === null && active ? active.id : curr);
       setClasses(classRows || []);
     } catch (err) {
       setError(err?.message || 'Failed to load fees context');
@@ -61,15 +62,32 @@ export function FeesProvider({ children }) {
     if (user && schoolCode) refresh();
   }, [user, schoolCode, refresh]);
 
+  const selectedAcademicYear = useMemo(
+    () => academicYears.find((a) => a.id === selectedAcademicYearId) || null,
+    [academicYears, selectedAcademicYearId],
+  );
+
   const value = useMemo(() => ({
     schoolCode,
     userRole,
-    academicYear,
+    academicYears,
+    activeAcademicYear,
+    selectedAcademicYear,
+    selectedAcademicYearId,
+    setSelectedAcademicYearId,
+    // Back-compat: components that previously read `academicYear` get the
+    // currently selected one (or the active year if "All years" is picked,
+    // since invoice creation always needs a concrete AY).
+    academicYear: selectedAcademicYear || activeAcademicYear,
     classes,
     loading,
     error,
     refresh,
-  }), [schoolCode, userRole, academicYear, classes, loading, error, refresh]);
+  }), [
+    schoolCode, userRole, academicYears, activeAcademicYear,
+    selectedAcademicYear, selectedAcademicYearId,
+    classes, loading, error, refresh,
+  ]);
 
   return <FeesContext.Provider value={value}>{children}</FeesContext.Provider>;
 }

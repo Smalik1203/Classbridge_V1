@@ -200,7 +200,7 @@ const UnifiedAttendance = () => {
         } else if (role === 'admin') {
           const { data, error } = await supabase
             .from('class_instances')
-            .select('id, grade, section')
+            .select('id, grade, section, academic_year_id')
             .eq('class_teacher_id', user.id)
             .order('grade', { ascending: true })
             .order('section', { ascending: true });
@@ -216,7 +216,7 @@ const UnifiedAttendance = () => {
         } else if (role === 'superadmin') {
           const { data, error } = await supabase
             .from('class_instances')
-            .select('id, grade, section')
+            .select('id, grade, section, academic_year_id')
             .eq('school_code', schoolCode)
             .order('grade', { ascending: true })
             .order('section', { ascending: true });
@@ -365,7 +365,25 @@ const UnifiedAttendance = () => {
       const marked_by = user?.id;
       const roleCode = user?.user_metadata?.admin_code || user?.user_metadata?.super_admin_code || '';
       const dateStr = date.format('YYYY-MM-DD');
-      
+
+      // attendance.academic_year_id is NOT NULL — resolve from the selected
+      // class instance, with a direct DB fallback for the student-view code
+      // path where classInstances isn't populated.
+      let academicYearId =
+        classInstances.find(c => c.id === selectedClassId)?.academic_year_id || null;
+      if (!academicYearId) {
+        const { data: ci, error: ciErr } = await supabase
+          .from('class_instances')
+          .select('academic_year_id')
+          .eq('id', selectedClassId)
+          .single();
+        if (ciErr) throw ciErr;
+        academicYearId = ci?.academic_year_id || null;
+      }
+      if (!academicYearId) {
+        throw new Error('Could not determine the academic year for this class.');
+      }
+
       // Build full set of records for upsert (idempotent)
       const records = students.map(s => ({
         student_id: s.id,
@@ -375,13 +393,37 @@ const UnifiedAttendance = () => {
         marked_by,
         marked_by_role_code: roleCode,
         school_code: schoolCode,
+        academic_year_id: academicYearId,
       }));
 
-      // Upsert using composite unique key (school_code, class_instance_id, student_id, date)
-      const { error } = await supabase.from('attendance').upsert(records, {
-        onConflict: 'school_code,class_instance_id,student_id,date'
+      console.log('[attendance] save payload', {
+        count: records.length,
+        first: records[0],
+        scope: { schoolCode, selectedClassId, dateStr },
       });
-      if (error) throw error;
+
+      // The unique index for daily attendance is *partial*
+      // (school_code, class_instance_id, student_id, date) WHERE timetable_slot_id IS NULL.
+      // PostgREST's on_conflict= can't target partial indexes, so a plain
+      // upsert returns 42P10. Replace existing rows for this class+date
+      // (daily/no-slot only) then insert the fresh set.
+      const { error: delErr } = await supabase
+        .from('attendance')
+        .delete()
+        .eq('school_code', schoolCode)
+        .eq('class_instance_id', selectedClassId)
+        .eq('date', dateStr)
+        .is('timetable_slot_id', null);
+      if (delErr) {
+        console.error('[attendance] delete-before-insert failed', delErr);
+        throw delErr;
+      }
+
+      const { error } = await supabase.from('attendance').insert(records);
+      if (error) {
+        console.error('[attendance] insert failed', error);
+        throw error;
+      }
       
       // Show success toast with class and date details
       const selectedClass = classInstances.find(c => c.id === selectedClassId);

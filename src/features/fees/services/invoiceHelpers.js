@@ -182,33 +182,8 @@ export async function recalculateInvoiceTotal(invoiceId) {
   return { total: newTotal, paid, status };
 }
 
-/**
- * Recompute paid_amount + status from fee_payments. Use after any payment
- * insert / delete (mirrors mobile updateInvoicePaidAmount).
- */
-export async function recalculateInvoicePaidAmount(invoiceId) {
-  const { data: invoiceData, error } = await supabase
-    .from('fee_invoices')
-    .select('id, total_amount, payments:fee_payments(amount_inr)')
-    .eq('id', invoiceId)
-    .single();
-
-  if (error || !invoiceData) throw error || new Error('Invoice not found');
-
-  const totalPaid = (invoiceData.payments || []).reduce(
-    (sum, p) => sum + Number(p.amount_inr || 0),
-    0,
-  );
-  const totalAmount = Number(invoiceData.total_amount || 0);
-  const status = calculateInvoiceStatus(totalAmount, totalPaid);
-
-  const { error: updateErr } = await supabase
-    .from('fee_invoices')
-    .update({ paid_amount: totalPaid, status })
-    .eq('id', invoiceId);
-  if (updateErr) throw updateErr;
-
-  return { total: totalAmount, paid: totalPaid, status };
-}
+// fee_invoices.paid_amount + status are now maintained by the
+// trg_fee_payments_recalc_invoice DB trigger. The previous
+// recalculateInvoicePaidAmount helper was removed in favour of that.
 
 export const _internal = { todayISO };

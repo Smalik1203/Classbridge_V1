@@ -16,7 +16,7 @@ export default function TypingIndicator({ phase, slowHint }) {
           width: 32,
           height: 32,
           borderRadius: 16,
-          background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+          background: 'linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

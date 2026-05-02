@@ -1,32 +1,48 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Table, InputNumber, Button, Space, message, Tag, Popconfirm, Empty } from 'antd';
-import { SaveOutlined, DeleteOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { Table, InputNumber, Button, Space, message, Tag, Popconfirm, Empty, Tooltip } from 'antd';
+import { SaveOutlined, MoreOutlined, FilePdfOutlined } from '@ant-design/icons';
 import {
   getGroupTests, getStudentsForClass, getMarksForTests,
   bulkSaveMarks, deleteSubjectTest,
+  getGradingScale, getDefaultGradingScale,
 } from '@/features/tests/services/gradebookService';
+import { getGrade } from '@/features/tests/utils/grading';
+
+const ROW_STYLE = `
+.marks-grid-row .marks-row-action { opacity: 0.35; transition: opacity 0.15s; }
+.marks-grid-row:hover .marks-row-action { opacity: 1; }
+.marks-grid-subject-menu { opacity: 0.4; transition: opacity 0.15s; }
+.marks-grid-subject-header:hover .marks-grid-subject-menu { opacity: 1; }
+`;
 
 /**
  * Inline marks-entry grid: rows = students, columns = subject tests.
  * Saves all dirty cells in a single upsert.
  */
-export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
+export default function MarksGrid({ examGroup, selectedClassId, onGenerateReport, refreshKey }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [students, setStudents] = useState([]);
-  const [groupTests, setGroupTests] = useState([]); // [{test_id, sequence, tests:{...}}]
-  const [marks, setMarks] = useState({}); // key: `${test_id}:${student_id}` => marks_obtained
-  const [dirty, setDirty] = useState({}); // same key shape
+  const [groupTests, setGroupTests] = useState([]);
+  const [marks, setMarks] = useState({});
+  const [dirty, setDirty] = useState({});
+  const [scale, setScale] = useState(null);
 
   const load = async () => {
     if (!examGroup) return;
+    const classId = selectedClassId || examGroup.class_instance_id;
+    if (!classId) return;
     setLoading(true);
-    const [stRes, gtRes] = await Promise.all([
-      getStudentsForClass(examGroup.class_instance_id),
-      getGroupTests(examGroup.id),
+    const [stRes, gtRes, scaleRes] = await Promise.all([
+      getStudentsForClass(classId),
+      getGroupTests(examGroup.id, classId),
+      examGroup.grading_scale_id
+        ? getGradingScale(examGroup.grading_scale_id)
+        : getDefaultGradingScale(examGroup.school_code),
     ]);
     if (stRes.success) setStudents(stRes.data);
     if (gtRes.success) setGroupTests(gtRes.data);
+    setScale(scaleRes?.success ? scaleRes.data : null);
 
     const testIds = (gtRes.data || []).map((g) => g.test_id);
     if (testIds.length > 0 && stRes.success) {
@@ -45,7 +61,7 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [examGroup?.id, refreshKey]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [examGroup?.id, selectedClassId, refreshKey]);
 
   const setCell = (testId, studentId, value) => {
     const key = `${testId}:${studentId}`;
@@ -88,18 +104,33 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
     const max = gt.tests?.max_marks ?? 100;
     return {
       title: (
-        <div style={{ minWidth: 110 }}>
-          <div style={{ fontWeight: 600 }}>{subj}</div>
-          <div style={{ fontSize: 11, color: '#888', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>/ {max}</span>
-            <Popconfirm title="Remove this subject from the exam?" onConfirm={() => handleRemoveSubject(gt.test_id)} okText="Remove" okButtonProps={{ danger: true }}>
-              <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+        <div className="marks-grid-subject-header" style={{ minWidth: 86 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+            <span style={{ fontWeight: 600, fontSize: 12.5, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {subj}
+            </span>
+            <Popconfirm
+              title="Remove this subject from the exam?"
+              onConfirm={() => handleRemoveSubject(gt.test_id)}
+              okText="Remove"
+              okButtonProps={{ danger: true }}
+            >
+              <Tooltip title="Subject options">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<MoreOutlined />}
+                  className="marks-grid-subject-menu"
+                  style={{ width: 18, height: 18, padding: 0, minWidth: 18, flexShrink: 0 }}
+                />
+              </Tooltip>
             </Popconfirm>
           </div>
+          <div style={{ fontSize: 11, color: '#888', fontWeight: 400 }}>/ {max}</div>
         </div>
       ),
       key: gt.test_id,
-      width: 130,
+      width: 100,
       render: (_, student) => {
         const key = `${gt.test_id}:${student.id}`;
         return (
@@ -109,7 +140,7 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
             max={max}
             value={marks[key]}
             onChange={(v) => setCell(gt.test_id, student.id, v)}
-            style={{ width: 80, background: dirty[key] ? '#fffbe6' : undefined }}
+            style={{ width: 72, background: dirty[key] ? '#fffbe6' : undefined }}
             placeholder="–"
           />
         );
@@ -121,60 +152,102 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
     borderLeft: '2px solid #d9d9d9',
     background: '#fafafa',
   };
+  const computeTotals = (student) => {
+    let obt = 0, max = 0, hasAny = false;
+    groupTests.forEach((gt) => {
+      const v = marks[`${gt.test_id}:${student.id}`];
+      if (v != null && v !== '') { obt += Number(v); hasAny = true; }
+      max += Number(gt.tests?.max_marks ?? 100);
+    });
+    return { obt, max, hasAny };
+  };
+
   const totalCol = {
     title: 'Total',
     key: '_total',
-    width: 120,
+    width: 100,
     fixed: 'right',
     onHeaderCell: () => ({ style: { ...totalColCellStyle, background: '#f0f0f0' } }),
     onCell: () => ({ style: totalColCellStyle }),
     render: (_, student) => {
-      let obt = 0, max = 0, hasAny = false;
-      groupTests.forEach((gt) => {
-        const v = marks[`${gt.test_id}:${student.id}`];
-        if (v != null && v !== '') { obt += Number(v); hasAny = true; }
-        max += Number(gt.tests?.max_marks ?? 100);
-      });
-      const pct = hasAny && max > 0 ? ((obt / max) * 100).toFixed(1) : null;
+      const { obt, max, hasAny } = computeTotals(student);
       if (!hasAny) return <span style={{ color: '#bbb' }}>—</span>;
-      const pctNum = Number(pct);
+      return (
+        <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#1f1f1f' }}>
+          {obt}<span style={{ color: '#888', fontWeight: 500 }}>/{max}</span>
+        </span>
+      );
+    },
+  };
+
+  const gradeCol = scale?.scale?.length ? {
+    title: 'Grade',
+    key: '_grade',
+    width: 80,
+    fixed: 'right',
+    onHeaderCell: () => ({ style: { ...totalColCellStyle, background: '#f0f0f0' } }),
+    onCell: () => ({ style: totalColCellStyle }),
+    render: (_, student) => {
+      const { obt, max, hasAny } = computeTotals(student);
+      if (!hasAny) return <span style={{ color: '#bbb' }}>—</span>;
+      const pctNum = max > 0 ? Number(((obt / max) * 100).toFixed(1)) : 0;
+      const grade = getGrade(pctNum, scale);
+      if (!grade?.grade) return <span style={{ color: '#bbb' }}>—</span>;
       const tone = pctNum >= 75 ? { bg: '#ecfdf5', fg: '#047857', bd: '#a7f3d0' }
         : pctNum >= 50 ? { bg: '#eff6ff', fg: '#1d4ed8', bd: '#bfdbfe' }
         : pctNum >= 33 ? { bg: '#fffbeb', fg: '#b45309', bd: '#fde68a' }
         : { bg: '#fef2f2', fg: '#b91c1c', bd: '#fecaca' };
       return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: '#1f1f1f' }}>
-            {obt}<span style={{ color: '#888', fontWeight: 500 }}>/{max}</span>
-          </span>
-          <span style={{
-            fontSize: 11, fontWeight: 700, padding: '2px 8px',
-            borderRadius: 999, background: tone.bg, color: tone.fg,
-            border: `1px solid ${tone.bd}`, fontVariantNumeric: 'tabular-nums',
-          }}>{pct}%</span>
-        </div>
+        <span
+          title={grade.description || grade.grade}
+          style={{
+            display: 'inline-block',
+            fontSize: 12, fontWeight: 700,
+            padding: '2px 9px', borderRadius: 4,
+            background: tone.bg, color: tone.fg,
+            border: `1px solid ${tone.bd}`,
+          }}
+        >
+          {grade.grade}
+        </span>
       );
     },
-  };
+  } : null;
 
-  const actionCol = {
-    title: 'Report',
-    key: '_action',
-    width: 120,
-    fixed: 'right',
+  const studentCol = {
+    title: 'Student',
+    dataIndex: 'full_name',
+    width: 200,
+    fixed: 'left',
     render: (_, student) => (
-      <Button size="small" icon={<FilePdfOutlined />} onClick={() => onGenerateReport?.(student)}>
-        Card
-      </Button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontWeight: 500, fontSize: 13, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {student.full_name}
+          </div>
+          <div style={{ fontSize: 11, color: '#888', lineHeight: 1.2 }}>
+            {student.student_code}
+          </div>
+        </div>
+        <Tooltip title="Generate report card">
+          <Button
+            size="small"
+            type="text"
+            icon={<FilePdfOutlined />}
+            className="marks-row-action"
+            onClick={() => onGenerateReport?.(student)}
+            style={{ flexShrink: 0 }}
+          />
+        </Tooltip>
+      </div>
     ),
   };
 
   const columns = [
-    { title: 'Code', dataIndex: 'student_code', width: 90, fixed: 'left' },
-    { title: 'Student', dataIndex: 'full_name', width: 180, fixed: 'left' },
+    studentCol,
     ...subjectColumns,
     totalCol,
-    actionCol,
+    ...(gradeCol ? [gradeCol] : []),
   ];
 
   const dirtyCount = Object.keys(dirty).length;
@@ -185,6 +258,7 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
 
   return (
     <div>
+      <style>{ROW_STYLE}</style>
       <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <Tag>{students.length} students</Tag>
@@ -202,6 +276,7 @@ export default function MarksGrid({ examGroup, onGenerateReport, refreshKey }) {
         loading={loading}
         dataSource={students}
         columns={columns}
+        rowClassName="marks-grid-row"
         pagination={{ pageSize: 25 }}
         scroll={{ x: 'max-content' }}
         size="small"

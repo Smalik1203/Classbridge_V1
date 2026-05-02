@@ -7,7 +7,7 @@ import {
   TeamOutlined,
   CalendarOutlined,
   FileTextOutlined,
-  DollarOutlined,
+  MoneyCollectOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -102,7 +102,7 @@ const SetupSchool = () => {
       title: 'Fee Management',
       tagline: 'Handle billing',
       description: 'Handle payments, billing, and fee collection',
-      icon: <DollarOutlined />,
+      icon: <MoneyCollectOutlined />,
       link: '/fees',
       color: '#f97316',
       bgColor: '#fff7ed',

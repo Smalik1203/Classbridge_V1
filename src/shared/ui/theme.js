@@ -7,9 +7,9 @@ import { theme } from 'antd';
 
 // Enhanced Brand Colors - Modern indigo-purple palette
 const BRAND_PRIMARY = '#6366F1'; // Indigo-500 - Modern and vibrant
-const BRAND_ACCENT = '#8B5CF6'; // Purple-500 - Beautiful accent
+const BRAND_ACCENT = '#3B82F6'; // Purple-500 - Beautiful accent
 const BRAND_SECONDARY = '#10b981'; // Emerald-500 - Success actions
-const LOGO_BG = '#5B21B6'; // Violet-800 - Deeper brand
+const LOGO_BG = '#1E40AF'; // Indigo-800 - Deeper brand
 
 // Enhanced Neutral Color Scale - Optimized for readability and hierarchy
 const NEUTRALS = {
@@ -69,12 +69,12 @@ const DATA_VIZ_PALETTE = [
   '#10b981', // Emerald-500 - Success
   '#f59e0b', // Amber-500 - Warning
   '#ef4444', // Red-500 - Error
-  '#8B5CF6', // Purple-500 - Accent
+  '#3B82F6', // Purple-500 - Accent
   '#14b8a6', // Teal-500 - Teal
   '#f97316', // Orange-500 - Orange
   '#ec4899', // Pink-500 - Pink
-  '#7C3AED', // Violet-600 - Secondary
-  '#A78BFA', // Violet-400 - Light variant
+  '#4F46E5', // Indigo-600 - Secondary
+  '#818CF8', // Indigo-400 - Light variant
 ];
 
 // Enhanced spacing system for better visual hierarchy
@@ -118,8 +118,8 @@ export const lightTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#7C3AED',
-    colorPrimaryActive: '#5B21B6',
+    colorPrimaryHover: '#4F46E5',
+    colorPrimaryActive: '#1E40AF',
     colorPrimaryBg: 'hsl(244, 100%, 98%)',
     colorPrimaryBgHover: 'hsl(244, 100%, 96%)',
     colorPrimaryBorder: 'hsl(244, 90%, 92%)',
@@ -528,8 +528,8 @@ export const darkTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#8B5CF6',
-    colorPrimaryActive: '#A78BFA',
+    colorPrimaryHover: '#3B82F6',
+    colorPrimaryActive: '#818CF8',
     colorPrimaryBg: 'hsl(244, 95%, 8%)',
     colorPrimaryBgHover: 'hsl(244, 95%, 10%)',
     colorPrimaryBorder: 'hsl(244, 95%, 18%)',

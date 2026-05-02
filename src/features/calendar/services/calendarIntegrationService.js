@@ -154,6 +154,7 @@ export const createTestCalendarEvent = async (testData, schoolCode) => {
 
     const eventData = {
       school_code: schoolCode,
+      academic_year_id: testData.academic_year_id,
       title: `${testData.title} (${testData.test_type})`,
       description: testData.description || `Test for ${testData.subject_name || 'Subject'}`,
       event_type: 'exam',

@@ -6,7 +6,7 @@ import {
 import {
   InboxOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, EditOutlined,
   DeleteOutlined, ExportOutlined, MoreOutlined, RollbackOutlined, ThunderboltOutlined,
-  WarningOutlined, ShoppingOutlined, DollarOutlined, AppstoreOutlined,
+  WarningOutlined, ShoppingOutlined, MoneyCollectOutlined, AppstoreOutlined,
   UnorderedListOutlined, ArrowUpOutlined, BarcodeOutlined, FilterOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -549,7 +549,7 @@ export default function Inventory() {
               title="Stock value"
               value={totalStockValue}
               precision={0}
-              prefix={<DollarOutlined style={{ color: '#10b981' }} />}
+              prefix={<MoneyCollectOutlined style={{ color: '#10b981' }} />}
               suffix="₹"
               valueStyle={{ color: '#10b981' }}
             />

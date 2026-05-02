@@ -23,6 +23,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/config/supabaseClient';
 import { TaskService } from '../services/taskService';
 import { getSchoolCode, getUserRole, hasRole } from '@/shared/utils/metadata';
+import { useAcademicYear } from '@/features/analytics/context/AcademicYearContext';
 import TaskForm from '@/features/tasks/components/TaskForm';
 import TaskList from '@/features/tasks/components/TaskList';
 import StudentTaskView from '@/features/tasks/components/StudentTaskView';
@@ -42,6 +43,7 @@ export default function TaskManagement() {
   });
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const { selectedAyId } = useAcademicYear();
   const [academicYearId, setAcademicYearId] = useState(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -72,7 +74,7 @@ export default function TaskManagement() {
         abortControllerRef.current.abort();
       }
     };
-  }, [schoolCode]);
+  }, [schoolCode, selectedAyId]);
 
   const fetchInitialData = async () => {
     setLoading(true);
@@ -126,11 +128,13 @@ export default function TaskManagement() {
   };
 
   const fetchClasses = async () => {
+    if (!selectedAyId) { setClasses([]); return; }
     try {
       const { data, error } = await supabase
         .from('class_instances')
         .select('id, grade, section')
         .eq('school_code', schoolCode)
+        .eq('academic_year_id', selectedAyId)
         .order('grade', { ascending: true })
         .order('section', { ascending: true });
 

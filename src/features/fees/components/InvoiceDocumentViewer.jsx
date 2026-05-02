@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Button, Space, Spin, Alert, message } from 'antd';
-import { PrinterOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Modal, Button, Spin, Alert, message } from 'antd';
+import { PrinterOutlined, ReloadOutlined, DownloadOutlined, CloseOutlined } from '@ant-design/icons';
 import { generateInvoiceDocument } from '../services/feesService';
 
 /**
- * Iframe + window.print invoice viewer. Mirrors HrDocumentViewer pattern.
- * Calls Edge Function `generate-invoice-document` for the canonical HTML so
- * totals are server-computed (never trust client-side amounts).
+ * Premium invoice/receipt viewer.
+ * Server returns canonical HTML with totals — we just render and offer print.
  */
 export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
   const [loading, setLoading] = useState(false);
@@ -22,7 +21,7 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
       const data = await generateInvoiceDocument(invoiceId, forceRegenerate);
       setDoc(data);
     } catch (err) {
-      setError(err?.message || 'Failed to generate invoice document');
+      setError(err?.message || 'Failed to generate document');
     } finally {
       setLoading(false);
     }
@@ -37,7 +36,7 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
     try {
       iframeRef.current?.contentWindow?.focus();
       iframeRef.current?.contentWindow?.print();
-    } catch (err) {
+    } catch {
       message.error('Could not open print dialog');
     }
   };
@@ -48,7 +47,7 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `invoice-${doc.invoice_number || invoiceId}.html`;
+    a.download = `${doc.invoice_number || invoiceId}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -57,48 +56,71 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
     <Modal
       open={open}
       onCancel={onClose}
-      width={900}
+      width="min(1180px, calc(100vw - 48px))"
       footer={null}
-      title={
-        <Space>
-          <span>Invoice document</span>
-          {doc?.invoice_number && <span style={{ color: '#888' }}>#{doc.invoice_number}</span>}
-        </Space>
-      }
+      closable={false}
       destroyOnClose
+      styles={{
+        body: { padding: 0 },
+        content: { padding: 0, overflow: 'hidden', borderRadius: 16 },
+      }}
     >
-      <Space style={{ marginBottom: 12 }} wrap>
-        <Button icon={<PrinterOutlined />} type="primary" onClick={handlePrint} disabled={!doc}>
-          Print / Save as PDF
-        </Button>
-        <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={!doc}>
-          Download HTML
-        </Button>
-        <Button icon={<ReloadOutlined />} onClick={() => load(true)} loading={loading}>
-          Regenerate
-        </Button>
-      </Space>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '14px 20px',
+        borderBottom: '1px solid #e2e8f0',
+        background: '#fff',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>
+            {doc?.server_computed?.status === 'PAID' ? 'Receipt' : 'Invoice'}
+          </span>
+          {doc?.invoice_number && (
+            <span style={{
+              fontSize: 12,
+              color: '#64748b',
+              fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+              background: '#f1f5f9',
+              padding: '3px 8px',
+              borderRadius: 6,
+            }}>
+              {doc.invoice_number}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button size="small" icon={<ReloadOutlined />} onClick={() => load(true)} loading={loading}>
+            Regenerate
+          </Button>
+          <Button size="small" icon={<DownloadOutlined />} onClick={handleDownload} disabled={!doc}>
+            Download
+          </Button>
+          <Button size="small" type="primary" icon={<PrinterOutlined />} onClick={handlePrint} disabled={!doc}>
+            Print / PDF
+          </Button>
+          <Button size="small" type="text" icon={<CloseOutlined />} onClick={onClose} />
+        </div>
+      </div>
 
       {error && (
-        <Alert
-          type="error"
-          showIcon
-          message="Could not generate document"
-          description={error}
-          style={{ marginBottom: 12 }}
-        />
+        <div style={{ padding: 16 }}>
+          <Alert type="error" showIcon message="Could not generate document" description={error} />
+        </div>
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 80 }}>
-          <Spin size="large" tip="Generating server-computed invoice..." />
+        <div style={{ padding: 80, textAlign: 'center', background: '#f8fafc', minHeight: 500 }}>
+          <Spin size="large" />
+          <div style={{ marginTop: 16, color: '#64748b', fontSize: 13 }}>Generating document…</div>
         </div>
       ) : doc ? (
         <iframe
           ref={iframeRef}
           srcDoc={doc.html_content}
           title="Invoice document"
-          style={{ width: '100%', height: '70vh', border: '1px solid #eee', background: '#fff' }}
+          style={{ width: '100%', height: '78vh', border: 'none', background: '#f8fafc', display: 'block' }}
         />
       ) : null}
     </Modal>

@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import { Modal, Descriptions, Tag, Space, Typography, Button, App } from 'antd';
-import { CheckOutlined, InboxOutlined } from '@ant-design/icons';
+/**
+ * FeedbackDetailModal — read-only deep-dive on one feedback record, with
+ * "Acknowledge" and "Archive" actions. shadcn Dialog version.
+ */
+import { useState } from 'react';
 import dayjs from 'dayjs';
-import { feedbackService, SENTIMENT_META, CATEGORY_LABELS } from '../services/communicationsService';
+import { Check, Archive } from 'lucide-react';
 
-const { Paragraph, Text } = Typography;
+import {
+  feedbackService, SENTIMENT_META, CATEGORY_LABELS,
+} from '../services/communicationsService';
+
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/shared/ui/Badge';
 
 const TYPE_LABEL = {
   student_to_admin: 'From student',
@@ -13,8 +23,15 @@ const TYPE_LABEL = {
   superadmin_to_admin: 'Super-admin → admin',
 };
 
-export default function FeedbackDetailModal({ open, onClose, item, currentUserId, onChanged }) {
-  const { message } = App.useApp();
+const SENTIMENT_VARIANT = {
+  positive: 'success',
+  neutral: 'neutral',
+  needs_improvement: 'warning',
+};
+
+export default function FeedbackDetailModal({
+  open, onClose, item, currentUserId, onChanged,
+}) {
   const [busy, setBusy] = useState(false);
 
   if (!item) return null;
@@ -29,75 +46,104 @@ export default function FeedbackDetailModal({ open, onClose, item, currentUserId
     try {
       setBusy(true);
       await feedbackService.archive(item.id, currentUserId);
-      message.success('Archived');
       onChanged?.();
       onClose?.();
-    } catch (e) { message.error(e.message || 'Failed to archive'); }
-    finally { setBusy(false); }
+    } finally { setBusy(false); }
   };
 
   const acknowledge = async () => {
     try {
       setBusy(true);
       await feedbackService.acknowledge(item.id);
-      message.success('Acknowledged');
       onChanged?.();
       onClose?.();
-    } catch (e) { message.error(e.message || 'Failed'); }
-    finally { setBusy(false); }
+    } finally { setBusy(false); }
   };
 
   return (
-    <Modal
-      open={open}
-      onCancel={busy ? undefined : onClose}
-      title="Feedback details"
-      width={640}
-      footer={[
-        <Button key="close" onClick={onClose}>Close</Button>,
-        item.requires_acknowledgement && !item.acknowledged_at && (
-          <Button key="ack" type="primary" icon={<CheckOutlined />} loading={busy} onClick={acknowledge}>
-            Acknowledge
-          </Button>
-        ),
-        <Button key="arc" danger icon={<InboxOutlined />} loading={busy} onClick={archive}>
-          Archive
-        </Button>,
-      ].filter(Boolean)}
+    <Dialog
+      open={!!open}
+      onOpenChange={(o) => { if (!o && !busy) onClose?.(); }}
     >
-      <Space direction="vertical" size={12} style={{ width: '100%' }}>
-        <Space wrap>
-          <Tag color="blue">{TYPE_LABEL[item.feedback_type] || item.feedback_type}</Tag>
-          <Tag>{CATEGORY_LABELS[item.category] || item.category}</Tag>
-          {sentimentMeta && (
-            <Tag color={sentimentMeta.color === '#059669' ? 'green' : sentimentMeta.color === '#D97706' ? 'orange' : 'default'}>
-              {sentimentMeta.label}
-            </Tag>
-          )}
-          {item.acknowledged_at
-            ? <Tag color="green">Acknowledged</Tag>
-            : item.requires_acknowledgement && <Tag color="orange">Pending acknowledgement</Tag>}
-        </Space>
+      <DialogContent
+        className="gap-0 p-0 sm:max-w-none flex flex-col max-h-[calc(100vh-64px)] bg-[color:var(--bg-elev)] border-[color:var(--border)] rounded-[var(--radius-lg)]"
+        style={{ width: 640 }}
+        showCloseButton={!busy}
+      >
+        <DialogHeader className="px-6 pt-[18px] pb-4 border-b border-[color:var(--border)] flex-row items-start justify-between gap-4 flex-shrink-0 space-y-0">
+          <div className="text-left">
+            <DialogTitle className="text-[17px] font-semibold tracking-[-0.012em] text-[color:var(--fg)] leading-tight">
+              Feedback details
+            </DialogTitle>
+          </div>
+        </DialogHeader>
 
-        <Descriptions size="small" column={1} bordered>
-          <Descriptions.Item label="From">
-            {fromUser ? `${fromUser.full_name} (${fromUser.role})` : '—'}
-          </Descriptions.Item>
-          <Descriptions.Item label="To">
-            {toUser ? `${toUser.full_name} (${toUser.role})` : '—'}
-          </Descriptions.Item>
-          {subj && <Descriptions.Item label="Subject">{subj.subject_name}</Descriptions.Item>}
-          {cls && <Descriptions.Item label="Class">Grade {cls.grade}-{cls.section}</Descriptions.Item>}
-          <Descriptions.Item label="Date">{dayjs(item.created_at).format('DD MMM YYYY · HH:mm')}</Descriptions.Item>
-        </Descriptions>
+        <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
+          <div className="flex items-center flex-wrap gap-2">
+            <Badge variant="info">{TYPE_LABEL[item.feedback_type] || item.feedback_type}</Badge>
+            <Badge variant="neutral">{CATEGORY_LABELS[item.category] || item.category}</Badge>
+            {sentimentMeta && (
+              <Badge variant={SENTIMENT_VARIANT[item.sentiment] || 'neutral'} dot>
+                {sentimentMeta.label}
+              </Badge>
+            )}
+            {item.acknowledged_at ? (
+              <Badge variant="success" dot>Acknowledged</Badge>
+            ) : item.requires_acknowledgement ? (
+              <Badge variant="warning" dot>Pending acknowledgement</Badge>
+            ) : null}
+          </div>
 
-        <div>
-          <Text strong>Content</Text>
-          <Paragraph style={{ background: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 6, marginTop: 6, whiteSpace: 'pre-wrap' }}>
-            {item.content}
-          </Paragraph>
+          <dl className="rounded-[var(--radius-lg)] border border-[color:var(--border)] divide-y divide-[color:var(--border)] overflow-hidden">
+            <DetailRow label="From" value={fromUser ? `${fromUser.full_name} (${fromUser.role})` : '—'} />
+            <DetailRow label="To" value={toUser ? `${toUser.full_name} (${toUser.role})` : '—'} />
+            {subj && <DetailRow label="Subject" value={subj.subject_name} />}
+            {cls && <DetailRow label="Class" value={`Grade ${cls.grade}-${cls.section}`} />}
+            <DetailRow label="Date" value={dayjs(item.created_at).format('DD MMM YYYY · HH:mm')} />
+          </dl>
+
+          <div>
+            <div className="text-[12.5px] font-medium text-[color:var(--fg)] mb-1.5">Content</div>
+            <p className="rounded-md border border-[color:var(--border)] bg-[color:var(--bg-subtle)] px-3 py-2.5 text-[13.5px] text-[color:var(--fg)] leading-[1.55] whitespace-pre-wrap m-0">
+              {item.content}
+            </p>
+          </div>
         </div>
-      </Space>
-    </Modal>
+
+        <DialogFooter className="px-6 py-3.5 border-t border-[color:var(--border)] bg-[color:var(--bg-subtle)] flex-shrink-0 sm:justify-end gap-2 flex-row">
+          <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={busy}>
+            Close
+          </Button>
+          {item.requires_acknowledgement && !item.acknowledged_at && (
+            <Button type="button" size="sm" onClick={acknowledge} disabled={busy}>
+              <Check size={14} />
+              Acknowledge
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={archive}
+            disabled={busy}
+            className="text-[color:var(--danger)] hover:text-[color:var(--danger)]"
+          >
+            <Archive size={14} />
+            Archive
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="grid grid-cols-[140px_1fr] text-[13px]">
+      <dt className="px-3 py-2 bg-[color:var(--bg-subtle)] text-[color:var(--fg-muted)] font-medium">
+        {label}
+      </dt>
+      <dd className="px-3 py-2 text-[color:var(--fg)] m-0">{value}</dd>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 // VideoPlayer.jsx — Plyr-based version
-import React, { useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import Plyr from 'plyr-react';
 import 'plyr-react/plyr.css';
 
@@ -49,19 +49,28 @@ export default function VideoPlayer({ url, title, onReady, onProgress, onStateCh
     vimeo: { byline: false, portrait: false, title: false },
   }), []);
 
-  const handleReady = useCallback((instance) => {
-    plyrRef.current = instance;
-    if (onReady) onReady(instance);
-
-    instance.on('timeupdate', () => {
-      const cur = instance.currentTime || 0;
-      const dur = instance.duration || 0;
-      onProgress && onProgress(cur, dur);
-    });
-    instance.on('playing', () => onStateChange && onStateChange('PLAYING'));
-    instance.on('pause', () => onStateChange && onStateChange('PAUSED'));
-    instance.on('ended', () => onStateChange && onStateChange('ENDED'));
-  }, [onReady, onProgress, onStateChange]);
+  // Attach Plyr events via ref — only when callers actually provide callbacks.
+  useEffect(() => {
+    if (!onReady && !onProgress && !onStateChange) return;
+    const p = plyrRef.current?.plyr;
+    if (!p || typeof p.on !== 'function') return;
+    if (onReady) onReady(p);
+    const onTime = () => { onProgress && onProgress(p.currentTime || 0, p.duration || 0); };
+    const onPlay = () => onStateChange && onStateChange('PLAYING');
+    const onPause = () => onStateChange && onStateChange('PAUSED');
+    const onEnd = () => onStateChange && onStateChange('ENDED');
+    p.on('timeupdate', onTime);
+    p.on('playing', onPlay);
+    p.on('pause', onPause);
+    p.on('ended', onEnd);
+    return () => {
+      p.off('timeupdate', onTime);
+      p.off('playing', onPlay);
+      p.off('pause', onPause);
+      p.off('ended', onEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
 
   // YouTube
   if (isYouTube(url)) {
@@ -70,8 +79,8 @@ export default function VideoPlayer({ url, title, onReady, onProgress, onStateCh
       sources: [{ src: url, provider: 'youtube' }]
     };
     return (
-      <div style={{ position: 'relative', width: '100%', height: '100%', ...style }} className={className}>
-        <Plyr source={source} options={options} onReady={handleReady} />
+      <div style={{ position: 'relative', width: '100%', ...style }} className={className}>
+        <Plyr ref={plyrRef} source={source} options={options} />
       </div>
     );
   }
@@ -83,8 +92,8 @@ export default function VideoPlayer({ url, title, onReady, onProgress, onStateCh
     })();
     const source = { type: 'video', sources: [{ src: id, provider: 'vimeo' }] };
     return (
-      <div style={{ position: 'relative', width: '100%', height: '100%', ...style }} className={className}>
-        <Plyr source={source} options={options} onReady={handleReady} />
+      <div style={{ position: 'relative', width: '100%', ...style }} className={className}>
+        <Plyr ref={plyrRef} source={source} options={options} />
       </div>
     );
   }
@@ -93,8 +102,8 @@ export default function VideoPlayer({ url, title, onReady, onProgress, onStateCh
   if (isDirectVideo(url)) {
     const source = { type: 'video', sources: [{ src: url, type: guessMimeType(url) }] };
     return (
-      <div style={{ position: 'relative', width: '100%', height: '100%', ...style }} className={className}>
-        <Plyr source={source} options={options} onReady={handleReady} />
+      <div style={{ position: 'relative', width: '100%', ...style }} className={className}>
+        <Plyr ref={plyrRef} source={source} options={options} />
       </div>
     );
   }

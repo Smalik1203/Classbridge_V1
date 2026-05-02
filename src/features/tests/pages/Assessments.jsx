@@ -1,990 +1,497 @@
-import React, { useState } from 'react';
-import { useSupabaseQuery, useSupabaseMutation, useSupabaseSubscription } from '@/shared/hooks/useSupabaseQuery';
-import { 
-  Layout, 
-  Card, 
-  Row, 
-  Col, 
-  Button, 
-  Table, 
-  Select, 
-  DatePicker, 
-  Form, 
-  Input, 
-  Modal, 
-  Tabs, 
-  Tag, 
-  Space, 
-  Typography, 
-  Statistic,
-  Progress,
-  Empty,
-  Badge
-} from 'antd';
+import { useState, useMemo } from 'react';
 import {
-  BookOutlined,
-  PlusOutlined,
-  EditOutlined,
-  EyeOutlined,
-  DeleteOutlined,
-  FileTextOutlined,
-  TrophyOutlined,
-  CalendarOutlined,
-  UserOutlined,
-  BarChartOutlined
-} from '@ant-design/icons';
+  BarChart2, BookOpen, Calendar, CheckCircle, Edit,
+  Eye, FileText, MoreHorizontal, Plus, Trash2, Trophy,
+} from 'lucide-react';
+
+import {
+  useSupabaseQuery, useSupabaseMutation, useSupabaseSubscription,
+} from '@/shared/hooks/useSupabaseQuery';
 import { useAuth } from '@/AuthProvider';
-import { getSchoolCode, getUserRole, getFullName } from '@/shared/utils/metadata';
+import { getSchoolCode, getUserRole } from '@/shared/utils/metadata';
 
-const { Content } = Layout;
-const { Title, Text } = Typography;
-const { Option } = Select;
-const { TabPane } = Tabs;
-const { TextArea } = Input;
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// ==========================================
-// HARDCODED SAMPLE DATA
-// ==========================================
-// TODO: Replace with Supabase queries when integrating backend
+import { PageHeader } from '@/shared/ui/PageHeader';
+import { Card } from '@/shared/ui/Card';
+import { EmptyState } from '@/shared/ui/EmptyState';
+import { FormDialog } from '@/shared/ui/FormDialog';
+import { Field } from '@/shared/ui/Field';
+import { Badge } from '@/shared/ui/Badge';
 
-const SAMPLE_ASSESSMENTS = [
-  {
-    id: 1,
-    title: "Mathematics Unit Test 1",
-    subject: "Mathematics",
-    classId: 1,
-    className: "Grade 10 - Section A",
-    type: "Unit Test",
-    totalMarks: 100,
-    duration: 90,
-    date: "2025-01-25",
-    description: "Covers chapters 1-3: Algebra and Geometry basics",
-    status: "scheduled",
-    createdBy: "Mrs. Sunita Sharma"
-  },
-  {
-    id: 2,
-    title: "Science Practical Exam",
-    subject: "Science",
-    classId: 1,
-    className: "Grade 10 - Section A",
-    type: "Practical",
-    totalMarks: 50,
-    duration: 120,
-    date: "2025-01-20",
-    description: "Laboratory experiments and observations",
-    status: "completed",
-    createdBy: "Mr. Rajesh Kumar"
-  }
-];
+const EXAM_TYPES = ['Unit Test', 'Chapter Test', 'Assignment', 'Practical', 'Project'];
 
-const SAMPLE_RESULTS = [
-  {
-    id: 1,
-    assessmentId: 2,
-    studentName: "Amit Sharma",
-    rollNumber: "10A001",
-    marksObtained: 42,
-    maxMarks: 50,
-    percentage: 84,
-    grade: "A",
-    remarks: "Excellent practical skills"
-  }
-];
+const STATUS_VARIANT = {
+  draft:     'neutral',
+  scheduled: 'accent',
+  ongoing:   'warning',
+  completed: 'success',
+  graded:    'info',
+};
 
-const SAMPLE_CLASSES = [
-  { id: 1, name: "Grade 10 - Section A" },
-  { id: 2, name: "Grade 10 - Section B" },
-  { id: 3, name: "Grade 9 - Section A" },
-  { id: 4, name: "Grade 11 - Section A" }
-];
+const GRADE_VARIANT = (g) =>
+  ['A+', 'A', 'B+', 'B'].includes(g) ? 'success' :
+  ['C+', 'C'].includes(g) ? 'warning' : 'danger';
 
-const Assessments = () => {
-  const {user} = useAuth();
-  const [activeTab, setActiveTab] = useState('list');
-  const [selectedAssessment, setSelectedAssessment] = useState(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [modalType, setModalType] = useState('create'); // 'create', 'edit', 'view'
-  const [form] = Form.useForm();
+const TH = 'text-[11.5px] font-semibold uppercase tracking-[0.05em] text-[color:var(--fg-muted)]';
+const TH_FIRST = `${TH} px-5`;
 
-  // Get user role and school context
-  const currentUser = {
-    role: getUserRole(user) || 'student',
-    name: getFullName(user) || 'User',
-    schoolCode: getSchoolCode(user)
-  };
+const EMPTY_FORM = { title: '', subject: '', classId: '', type: '', totalMarks: '', duration: '', date: '', description: '' };
 
-  // Supabase queries
-  const { data: assessments = [], loading: assessmentsLoading, refetch: refetchAssessments } = useSupabaseQuery('assessments', {
-    select: `
-      id,
-      title,
-      subject,
-      exam_type,
-      total_marks,
-      duration,
-      exam_date,
-      description,
-      status,
-      class_instance_id,
-      class_instances!inner(
-        id,
-        classes!inner(grade, section)
-      )
-    `,
-    filters: [
-      { column: 'school_code', operator: 'eq', value: currentUser.schoolCode }
-    ]
+export default function Assessments() {
+  const { user } = useAuth();
+  const schoolCode = getSchoolCode(user);
+  const role = getUserRole(user);
+  const canEdit = ['admin', 'superadmin'].includes(role);
+
+  const [tab, setTab] = useState('assessments');
+  const [dialog, setDialog] = useState({ open: false, mode: 'create', data: null });
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formErrors, setFormErrors] = useState({});
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
+
+  const { data: assessments = [], loading: assessmentsLoading, refetch } = useSupabaseQuery('assessments', {
+    select: `id, title, subject, exam_type, total_marks, duration, exam_date, description, status,
+      class_instance_id, class_instances!inner(id, grade, section)`,
+    filters: [{ column: 'school_code', operator: 'eq', value: schoolCode }],
   });
 
   const { data: results = [], loading: resultsLoading } = useSupabaseQuery('assessment_results', {
-    select: `
-      id,
-      marks_obtained,
-      max_marks,
-      percentage,
-      grade,
-      remarks,
-      student:student(full_name),
-      assessment:assessments(title)
-    `,
-    filters: [
-      { column: 'school_code', operator: 'eq', value: currentUser.schoolCode }
-    ]
+    select: `id, marks_obtained, max_marks, percentage, grade, remarks,
+      student:student(full_name), assessment:assessments(title)`,
+    filters: [{ column: 'school_code', operator: 'eq', value: schoolCode }],
   });
 
-  const { data: classes = [], loading: classesLoading } = useSupabaseQuery('class_instances', {
-    select: `
-      id,
-      grade,
-      section,
-      classes!inner(grade, section)
-    `,
-    filters: [
-      { column: 'school_code', operator: 'eq', value: currentUser.schoolCode }
-    ]
+  const { data: classes = [] } = useSupabaseQuery('class_instances', {
+    select: 'id, grade, section',
+    filters: [{ column: 'school_code', operator: 'eq', value: schoolCode }],
   });
 
-  // Mutation hooks
-  const { insert: createAssessment, update: updateAssessment, remove: deleteAssessment, loading: mutationLoading } = useSupabaseMutation('assessments');
+  const { insert, update, remove, loading: mutating } = useSupabaseMutation('assessments');
 
-  // Real-time subscription for assessments
-  useSupabaseSubscription('assessments', (payload) => {
-    refetchAssessments();
-  }, [{ column: 'school_code', value: currentUser.schoolCode }]);
+  useSupabaseSubscription('assessments', () => refetch(), [{ column: 'school_code', value: schoolCode }]);
 
-  const SUBJECTS = [
-    "Mathematics", "Science", "English", "History", "Geography", "Computer Science"
-  ];
+  const classLabel = (c) => `Grade ${c.grade ?? ''}${c.section ? `-${c.section}` : ''}`;
 
-  const permissions = {
-    canCreateAssessment: ['superadmin', 'admin'].includes(currentUser.role),
-    canEditAssessment: ['superadmin', 'admin'].includes(currentUser.role),
-    canDeleteAssessment: ['superadmin', 'admin'].includes(currentUser.role),
-    canViewAllClasses: currentUser.role === 'superadmin',
-    canGradeAssessment: ['superadmin', 'admin'].includes(currentUser.role),
-    availableTabs: currentUser.role === 'student' ? ['list', 'results'] : 
-                  ['list', 'create', 'results', 'analytics']
+  const counts = useMemo(() => {
+    const c = { total: assessments.length, scheduled: 0, completed: 0, graded: 0 };
+    for (const a of assessments) {
+      if (a.status === 'scheduled') c.scheduled++;
+      else if (a.status === 'completed') c.completed++;
+      else if (a.status === 'graded') c.graded++;
+    }
+    return c;
+  }, [assessments]);
+
+  const openCreate = () => {
+    setForm(EMPTY_FORM);
+    setFormErrors({});
+    setDialog({ open: true, mode: 'create', data: null });
   };
 
-  const getFilteredAssessments = () => {
-    // RLS policies handle filtering at database level
-    return assessments;
-  };
-
-  const getAvailableClasses = () => {
-    return classes;
-  };
-
-  const handleCreateAssessment = () => {
-    setModalType('create');
-    setSelectedAssessment(null);
-    form.resetFields();
-    setIsModalVisible(true);
-  };
-
-  const handleEditAssessment = (assessment) => {
-    setModalType('edit');
-    setSelectedAssessment(assessment);
-    form.setFieldsValue({
-      ...assessment,
-      date: assessment.date
+  const openEdit = (a) => {
+    setForm({
+      title: a.title || '',
+      subject: a.subject || '',
+      classId: a.class_instance_id || '',
+      type: a.exam_type || '',
+      totalMarks: String(a.total_marks || ''),
+      duration: String(a.duration || ''),
+      date: a.exam_date || '',
+      description: a.description || '',
     });
-    setIsModalVisible(true);
+    setFormErrors({});
+    setDialog({ open: true, mode: 'edit', data: a });
   };
 
-  const handleViewAssessment = (assessment) => {
-    setModalType('view');
-    setSelectedAssessment(assessment);
-    setIsModalVisible(true);
+  const openView = (a) => setDialog({ open: true, mode: 'view', data: a });
+
+  const validateForm = () => {
+    const errs = {};
+    if (!form.title.trim()) errs.title = 'Required';
+    if (!form.subject.trim()) errs.subject = 'Required';
+    if (!form.classId) errs.classId = 'Required';
+    if (!form.type) errs.type = 'Required';
+    if (!form.totalMarks) errs.totalMarks = 'Required';
+    if (!form.duration) errs.duration = 'Required';
+    if (!form.date) errs.date = 'Required';
+    return errs;
   };
 
-  const handleDeleteAssessment = (assessmentId) => {
-    Modal.confirm({
-      title: 'Delete Assessment',
-      content: 'Are you sure you want to delete this assessment? This action cannot be undone.',
-      okText: 'Delete',
-      okType: 'danger',
-      cancelText: 'Cancel',
-      onOk: async () => {
-        try {
-          await deleteAssessment(assessmentId);
-          refetchAssessments();
-        } catch (error) {
-        }
-      }
-    });
-  };
+  const handleSave = async () => {
+    const errs = validateForm();
+    if (Object.keys(errs).length) { setFormErrors(errs); return; }
 
-  const handleModalSubmit = async (values) => {
-    try {
-      if (modalType === 'create') {
-        await createAssessment({
-          ...values,
-          class_instance_id: values.classId,
-          exam_date: values.date.format('YYYY-MM-DD'),
-          exam_type: values.type,
-          total_marks: parseInt(values.totalMarks),
-          duration: parseInt(values.duration),
-          school_code: currentUser.schoolCode,
-          created_by: user.id
-        });
-      } else if (modalType === 'edit') {
-        await updateAssessment(selectedAssessment.id, {
-          ...values,
-          class_instance_id: values.classId,
-          exam_date: values.date.format('YYYY-MM-DD'),
-          exam_type: values.type,
-          total_marks: parseInt(values.totalMarks),
-          duration: parseInt(values.duration)
-        });
-      }
-      
-      setIsModalVisible(false);
-      form.resetFields();
-      refetchAssessments();
-    } catch (error) {
+    const payload = {
+      title: form.title.trim(),
+      subject: form.subject.trim(),
+      class_instance_id: form.classId,
+      exam_type: form.type,
+      total_marks: parseInt(form.totalMarks),
+      duration: parseInt(form.duration),
+      exam_date: form.date,
+      description: form.description.trim() || null,
+    };
+
+    if (dialog.mode === 'create') {
+      await insert({ ...payload, school_code: schoolCode, created_by: user.id });
+    } else {
+      await update(dialog.data.id, payload);
     }
+    setDialog(d => ({ ...d, open: false }));
+    refetch();
   };
 
-  const assessmentColumns = [
-    {
-      title: 'Assessment',
-      key: 'assessment',
-      render: (_, record) => (
-        <div>
-          <Text strong>{record.title}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.subject} • {record.exam_type}
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Class',
-      key: 'class',
-      render: (_, record) => (
-        <Tag color="blue">
-          Grade {record.class_instances?.classes?.grade} - {record.class_instances?.classes?.section}
-        </Tag>
-      )
-    },
-    {
-      title: 'Date',
-      dataIndex: 'exam_date',
-      key: 'exam_date',
-      render: (date) => new Date(date).toLocaleDateString('en-IN')
-    },
-    {
-      title: 'Marks',
-      key: 'marks',
-      render: (_, record) => (
-        <div>
-          <Text strong>{record.total_marks}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.duration} min
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const colors = {
-          draft: 'default',
-          scheduled: 'blue',
-          ongoing: 'orange',
-          completed: 'green',
-          graded: 'purple'
-        };
-        return <Tag color={colors[status]}>{status.toUpperCase()}</Tag>;
-      }
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewAssessment(record)}
-          />
-          {permissions.canEditAssessment && (
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={() => handleEditAssessment(record)}
-            />
-          )}
-          {permissions.canDeleteAssessment && (
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDeleteAssessment(record.id)}
-            />
-          )}
-        </Space>
-      ),
-    },
-  ];
+  const confirmDelete = (id) => setDeleteConfirm({ open: true, id });
 
-  const resultColumns = [
-    {
-      title: 'Student',
-      key: 'student',
-      render: (_, record) => record.student?.full_name || 'Unknown'
-    },
-    {
-      title: 'Assessment',
-      key: 'assessment',
-      render: (_, record) => record.assessment?.title || 'Unknown'
-    },
-    {
-      title: 'Marks',
-      key: 'marks',
-      render: (_, record) => {
-        const percentage = Math.round(record.percentage || 0);
-        return (
-          <div>
-            <Text strong>{record.marks_obtained}</Text>
-            <Text type="secondary">/{record.max_marks}</Text>
-            <br />
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {percentage}%
-            </Text>
-          </div>
-        );
-      }
-    },
-    {
-      title: 'Grade',
-      dataIndex: 'grade',
-      key: 'grade',
-      render: (grade) => {
-        const colors = {
-          'A+': 'green',
-          'A': 'green',
-          'B+': 'blue',
-          'B': 'blue',
-          'C+': 'orange',
-          'C': 'orange',
-          'D': 'red',
-          'F': 'red'
-        };
-        return <Tag color={colors[grade]}>{grade}</Tag>;
-      }
-    },
-    {
-      title: 'Remarks',
-      dataIndex: 'remarks',
-      key: 'remarks',
-      ellipsis: true
-    }
-  ];
-
-  const renderAssessmentsList = () => {
-    const filteredAssessments = getFilteredAssessments();
-    
-    return (
-      <div>
-        {/* Header with Create Button */}
-        <Row justify="space-between" align="middle" style={{ marginBottom: '16px' }}>
-          <Col>
-            <Title level={4} style={{ margin: 0 }}>
-              Assessments
-            </Title>
-          </Col>
-          <Col>
-            {permissions.canCreateAssessment && (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={handleCreateAssessment}
-              >
-                Create Assessment
-              </Button>
-            )}
-          </Col>
-        </Row>
-
-        {/* Statistics Cards */}
-        <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Total Assessments"
-                value={filteredAssessments.length}
-                prefix={<FileTextOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Scheduled"
-                value={filteredAssessments.filter(a => a.status === 'scheduled').length}
-                prefix={<CalendarOutlined />}
-                valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Completed"
-                value={filteredAssessments.filter(a => a.status === 'completed').length}
-                prefix={<TrophyOutlined />}
-                valueStyle={{ color: '#722ed1' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Graded"
-                value={filteredAssessments.filter(a => a.status === 'graded').length}
-                prefix={<BarChartOutlined />}
-                valueStyle={{ color: '#fa8c16' }}
-              />
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Assessments Table */}
-        <Card>
-          <Table
-            columns={assessmentColumns}
-            dataSource={filteredAssessments}
-            rowKey="id"
-            loading={assessmentsLoading}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} of ${total} assessments`
-            }}
-          />
-        </Card>
-      </div>
-    );
-  };
-
-  const renderCreateAssessment = () => {
-    if (!permissions.canCreateAssessment) {
-      return (
-        <Card>
-          <Empty
-            description="You don't have permission to create assessments"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        </Card>
-      );
-    }
-
-    return (
-      <Card title="Create New Assessment">
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleModalSubmit}
-        >
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="title"
-                label="Assessment Title"
-                rules={[{ required: true, message: 'Please enter assessment title' }]}
-              >
-                <Input placeholder="e.g., Mathematics Unit Test 1" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="subject"
-                label="Subject"
-                rules={[{ required: true, message: 'Please select subject' }]}
-              >
-                <Select placeholder="Select subject">
-                  {SUBJECTS.map(subject => (
-                    <Option key={subject} value={subject}>{subject}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="classId"
-                label="Class"
-                rules={[{ required: true, message: 'Please select class' }]}
-              >
-                <Select placeholder="Select class">
-                  {getAvailableClasses().map(cls => (
-                    <Option key={cls.id} value={cls.id}>
-                      Grade {cls.classes?.grade} - {cls.classes?.section}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="type"
-                label="Assessment Type"
-                rules={[{ required: true, message: 'Please select type' }]}
-              >
-                <Select placeholder="Select type">
-                  <Option value="Unit Test">Unit Test</Option>
-                  <Option value="Chapter Test">Chapter Test</Option>
-                  <Option value="Assignment">Assignment</Option>
-                  <Option value="Practical">Practical</Option>
-                  <Option value="Project">Project</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item
-                name="totalMarks"
-                label="Total Marks"
-                rules={[{ required: true, message: 'Please enter total marks' }]}
-              >
-                <Input type="number" placeholder="100" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item
-                name="duration"
-                label="Duration (minutes)"
-                rules={[{ required: true, message: 'Please enter duration' }]}
-              >
-                <Input type="number" placeholder="90" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item
-                name="date"
-                label="Assessment Date"
-                rules={[{ required: true, message: 'Please select date' }]}
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24}>
-              <Form.Item
-                name="description"
-                label="Description"
-              >
-                <TextArea 
-                  rows={4} 
-                  placeholder="Enter assessment description, topics covered, instructions, etc."
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          
-          <Form.Item>
-            <Space>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={mutationLoading}
-                icon={<PlusOutlined />}
-                size="large"
-                style={{
-                  borderRadius: '6px',
-                  fontWeight: 500
-                }}
-              >
-                {mutationLoading ? 'Adding...' : 'Create Assessment'}
-              </Button>
-              <Button onClick={() => form.resetFields()}>
-                Reset
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-    );
-  };
-
-  const renderResults = () => {
-    const filteredResults = results;
-    
-    return (
-      <div>
-        <Row justify="space-between" align="middle" style={{ marginBottom: '16px' }}>
-          <Col>
-            <Title level={4} style={{ margin: 0 }}>
-              Assessment Results
-            </Title>
-          </Col>
-        </Row>
-
-        <Card>
-          <Table
-            columns={resultColumns}
-            dataSource={filteredResults}
-            rowKey="id"
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} of ${total} results`
-            }}
-          />
-        </Card>
-      </div>
-    );
-  };
-
-  const renderAnalytics = () => {
-    if (!permissions.canViewAllClasses && currentUser.role !== 'admin') {
-      return (
-        <Card>
-          <Empty
-            description="Analytics not available for your role"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        </Card>
-      );
-    }
-
-    return (
-      <div>
-        <Title level={4} style={{ marginBottom: '16px' }}>
-          Assessment Analytics
-        </Title>
-        
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
-            <Card title="Performance Overview">
-              <div style={{ textAlign: 'center' }}>
-                <Progress
-                  type="circle"
-                  percent={78}
-                  format={percent => `${percent}%`}
-                  strokeColor="#52c41a"
-                />
-                <div style={{ marginTop: '16px' }}>
-                  <Text>Average Performance</Text>
-                </div>
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} md={12}>
-            <Card title="Subject-wise Performance">
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <div>
-                  <Text>Mathematics</Text>
-                  <Progress percent={85} strokeColor="#1890ff" />
-                </div>
-                <div>
-                  <Text>Science</Text>
-                  <Progress percent={78} strokeColor="#52c41a" />
-                </div>
-                <div>
-                  <Text>English</Text>
-                  <Progress percent={82} strokeColor="#722ed1" />
-                </div>
-                <div>
-                  <Text>History</Text>
-                  <Progress percent={75} strokeColor="#fa8c16" />
-                </div>
-              </Space>
-            </Card>
-          </Col>
-        </Row>
-      </div>
-    );
+  const runDelete = async () => {
+    await remove(deleteConfirm.id);
+    setDeleteConfirm({ open: false, id: null });
+    refetch();
   };
 
   return (
-    <Content className="page-container">
-      {/* Header */}
-      <div className="page-header">
-        <Row justify="space-between" align="middle">
-          <Col>
-            <Title level={2} style={{ margin: 0 }}>
-              Assessment Management
-            </Title>
-            <Text type="secondary" style={{ fontSize: '16px' }}>
-              Create, manage, and track student assessments and results
-            </Text>
-          </Col>
-          <Col>
-            <Badge color="#1890ff" text={`${currentUser.role.toUpperCase()} - ${currentUser.name}`} />
-          </Col>
-        </Row>
+    <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">
+      <PageHeader
+        title="Assessments"
+        subtitle="Create, manage, and track student assessments"
+        actions={
+          canEdit && (
+            <Button size="sm" onClick={openCreate}>
+              <Plus size={14} /> Create assessment
+            </Button>
+          )
+        }
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+        {[
+          { label: 'Total',     value: counts.total,     icon: FileText,    color: '--brand'   },
+          { label: 'Scheduled', value: counts.scheduled, icon: Calendar,    color: '--brand'   },
+          { label: 'Completed', value: counts.completed, icon: CheckCircle, color: '--success' },
+          { label: 'Graded',    value: counts.graded,    icon: Trophy,      color: '--warning' },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label}
+            className="rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--bg-elev)] px-4 py-3.5">
+            <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-[color:var(--fg-muted)] mb-2">
+              <Icon size={12} style={{ color: `var(${color})` }} />
+              {label}
+            </div>
+            <div className="text-[26px] font-semibold tracking-[-0.02em] tabular-nums text-[color:var(--fg)]">
+              {value}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Tab Content */}
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        type="card"
-        size="large"
-      >
-        {permissions.availableTabs.includes('list') && (
-          <TabPane
-            tab={
-              <Space>
-                <BookOutlined />
-                Assessments
-              </Space>
-            }
-            key="list"
-          >
-            {renderAssessmentsList()}
-          </TabPane>
-        )}
-        
-        {permissions.availableTabs.includes('create') && (
-          <TabPane
-            tab={
-              <Space>
-                <PlusOutlined />
-                Create
-              </Space>
-            }
-            key="create"
-          >
-            {renderCreateAssessment()}
-          </TabPane>
-        )}
-        
-        {permissions.availableTabs.includes('results') && (
-          <TabPane
-            tab={
-              <Space>
-                <TrophyOutlined />
-                Results
-              </Space>
-            }
-            key="results"
-          >
-            {renderResults()}
-          </TabPane>
-        )}
-        
-        {permissions.availableTabs.includes('analytics') && (
-          <TabPane
-            tab={
-              <Space>
-                <BarChartOutlined />
-                Analytics
-              </Space>
-            }
-            key="analytics"
-          >
-            {renderAnalytics()}
-          </TabPane>
-        )}
+      <Tabs value={tab} onValueChange={setTab} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="assessments">
+            <BookOpen size={13} /> Assessments
+          </TabsTrigger>
+          <TabsTrigger value="results">
+            <BarChart2 size={13} /> Results
+          </TabsTrigger>
+        </TabsList>
       </Tabs>
 
-      {/* Assessment Modal */}
-      <Modal
-        title={
-          modalType === 'create' ? 'Create Assessment' :
-          modalType === 'edit' ? 'Edit Assessment' : 'Assessment Details'
-        }
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={modalType === 'view' ? [
-          <Button key="close" onClick={() => setIsModalVisible(false)}>
-            Close
-          </Button>
-        ] : null}
-        width={800}
+      {tab === 'assessments' && (
+        <Card padded={false}>
+          {assessmentsLoading ? (
+            <div className="p-10 text-center text-[13px] text-[color:var(--fg-subtle)]">Loading…</div>
+          ) : assessments.length === 0 ? (
+            <EmptyState
+              type="tests"
+              action={canEdit && (
+                <Button size="sm" className="mt-3" onClick={openCreate}>
+                  <Plus size={13} /> Create first assessment
+                </Button>
+              )}
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[color:var(--bg-subtle)]">
+                  <TableHead className={TH_FIRST}>Assessment</TableHead>
+                  <TableHead className={TH}>Class</TableHead>
+                  <TableHead className={TH}>Date</TableHead>
+                  <TableHead className={TH}>Marks</TableHead>
+                  <TableHead className={TH}>Status</TableHead>
+                  <TableHead className="w-[48px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assessments.map(a => (
+                  <TableRow key={a.id} className="hover:bg-[color:var(--bg-subtle)] transition-colors">
+                    <TableCell className="px-5 py-3">
+                      <div className="text-[13.5px] font-semibold text-[color:var(--fg)]">{a.title}</div>
+                      <div className="text-[12px] text-[color:var(--fg-muted)] mt-0.5">
+                        {a.subject}{a.exam_type ? ` · ${a.exam_type}` : ''}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <Badge variant="accent">
+                        {a.class_instances
+                          ? classLabel(a.class_instances)
+                          : '—'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-3 text-[13px] text-[color:var(--fg-muted)] tabular-nums">
+                      {a.exam_date ? new Date(a.exam_date).toLocaleDateString('en-IN') : '—'}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="text-[13px] font-semibold text-[color:var(--fg)]">{a.total_marks}</span>
+                      {a.duration && (
+                        <div className="text-[11.5px] text-[color:var(--fg-muted)]">{a.duration} min</div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <Badge variant={STATUS_VARIANT[a.status] ?? 'neutral'} className="capitalize">
+                        {a.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-3 px-3">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon-sm">
+                            <MoreHorizontal size={14} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openView(a)}>
+                            <Eye size={13} /> View
+                          </DropdownMenuItem>
+                          {canEdit && (
+                            <>
+                              <DropdownMenuItem onClick={() => openEdit(a)}>
+                                <Edit size={13} /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem variant="destructive" onClick={() => confirmDelete(a.id)}>
+                                <Trash2 size={13} /> Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+      )}
+
+      {tab === 'results' && (
+        <Card padded={false}>
+          {resultsLoading ? (
+            <div className="p-10 text-center text-[13px] text-[color:var(--fg-subtle)]">Loading…</div>
+          ) : results.length === 0 ? (
+            <EmptyState title="No results yet" sub="Results will appear here once assessments are graded." />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[color:var(--bg-subtle)]">
+                  <TableHead className={TH_FIRST}>Student</TableHead>
+                  <TableHead className={TH}>Assessment</TableHead>
+                  <TableHead className={TH}>Marks</TableHead>
+                  <TableHead className={TH}>Grade</TableHead>
+                  <TableHead className={TH}>Remarks</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {results.map(r => (
+                  <TableRow key={r.id} className="hover:bg-[color:var(--bg-subtle)] transition-colors">
+                    <TableCell className="px-5 py-3 text-[13.5px] font-medium text-[color:var(--fg)]">
+                      {r.student?.full_name || '—'}
+                    </TableCell>
+                    <TableCell className="py-3 text-[13px] text-[color:var(--fg-muted)]">
+                      {r.assessment?.title || '—'}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <span className="text-[13px] font-semibold text-[color:var(--fg)] tabular-nums">
+                        {r.marks_obtained}
+                      </span>
+                      <span className="text-[12px] text-[color:var(--fg-muted)]">/{r.max_marks}</span>
+                      {r.percentage != null && (
+                        <div className="text-[11.5px] text-[color:var(--fg-muted)]">
+                          {Math.round(r.percentage)}%
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      {r.grade
+                        ? <Badge variant={GRADE_VARIANT(r.grade)}>{r.grade}</Badge>
+                        : <span className="text-[color:var(--fg-muted)]">—</span>}
+                    </TableCell>
+                    <TableCell className="py-3 text-[13px] text-[color:var(--fg-muted)] max-w-[200px] truncate">
+                      {r.remarks || '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+      )}
+
+      <FormDialog
+        open={dialog.open && dialog.mode !== 'view'}
+        onClose={() => setDialog(d => ({ ...d, open: false }))}
+        title={dialog.mode === 'create' ? 'Create assessment' : 'Edit assessment'}
+        onSubmit={handleSave}
+        submitLabel={dialog.mode === 'create' ? 'Create assessment' : 'Save changes'}
+        submitting={mutating}
+        width={600}
       >
-        {modalType === 'view' && selectedAssessment && (
-          <div>
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={12}>
-                <Text strong>Title: </Text>
-                <Text>{selectedAssessment.title}</Text>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Subject: </Text>
-                <Text>{selectedAssessment.subject}</Text>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Class: </Text>
-                <Text>{selectedAssessment.className}</Text>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Type: </Text>
-                <Text>{selectedAssessment.type}</Text>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Total Marks: </Text>
-                <Text>{selectedAssessment.totalMarks}</Text>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Duration: </Text>
-                <Text>{selectedAssessment.duration} minutes</Text>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Date: </Text>
-                <Text>{new Date(selectedAssessment.date).toLocaleDateString('en-IN')}</Text>
-              </Col>
-              <Col xs={24} md={12}>
-                <Text strong>Status: </Text>
-                <Tag color="blue">{selectedAssessment.status.toUpperCase()}</Tag>
-              </Col>
-              <Col xs={24}>
-                <Text strong>Description: </Text>
-                <br />
-                <Text>{selectedAssessment.description}</Text>
-              </Col>
-              <Col xs={24}>
-                <Text strong>Created By: </Text>
-                <Text>{selectedAssessment.createdBy}</Text>
-              </Col>
-            </Row>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Title" required error={formErrors.title} className="col-span-2">
+            <Input
+              placeholder="e.g. Mathematics Unit Test 1"
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Subject" required error={formErrors.subject}>
+            <Input
+              placeholder="e.g. Mathematics"
+              value={form.subject}
+              onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Class" required error={formErrors.classId}>
+            <Select value={form.classId || ''} onValueChange={v => setForm(f => ({ ...f, classId: v }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{classLabel(c)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="Type" required error={formErrors.type}>
+            <Select value={form.type || ''} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {EXAM_TYPES.map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="Date" required error={formErrors.date}>
+            <Input
+              type="date"
+              value={form.date}
+              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Total marks" required error={formErrors.totalMarks}>
+            <Input
+              type="number"
+              placeholder="100"
+              value={form.totalMarks}
+              onChange={e => setForm(f => ({ ...f, totalMarks: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Duration (min)" required error={formErrors.duration}>
+            <Input
+              type="number"
+              placeholder="90"
+              value={form.duration}
+              onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
+            />
+          </Field>
+
+          <Field label="Description" className="col-span-2">
+            <Textarea
+              placeholder="Topics covered, instructions, etc."
+              rows={3}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            />
+          </Field>
+        </div>
+      </FormDialog>
+
+      <FormDialog
+        open={dialog.open && dialog.mode === 'view'}
+        onClose={() => setDialog(d => ({ ...d, open: false }))}
+        title="Assessment details"
+        onSubmit={() => setDialog(d => ({ ...d, open: false }))}
+        submitLabel="Close"
+        cancelLabel={null}
+        width={560}
+      >
+        {[
+          ['Title',    dialog.data?.title],
+          ['Subject',  dialog.data?.subject],
+          ['Class',    dialog.data?.class_instances
+            ? classLabel(dialog.data.class_instances)
+            : '—'],
+          ['Type',     dialog.data?.exam_type],
+          ['Date',     dialog.data?.exam_date ? new Date(dialog.data.exam_date).toLocaleDateString('en-IN') : '—'],
+          ['Marks',    dialog.data?.total_marks],
+          ['Duration', dialog.data?.duration ? `${dialog.data.duration} min` : '—'],
+        ].map(([label, value]) => (
+          <div key={label} className="flex gap-3 py-1.5 border-b border-[color:var(--border)] last:border-0">
+            <span className="text-[12.5px] font-medium text-[color:var(--fg-muted)] w-[90px] shrink-0">{label}</span>
+            <span className="text-[13px] text-[color:var(--fg)]">{value ?? '—'}</span>
+          </div>
+        ))}
+        {dialog.data?.status && (
+          <div className="flex gap-3 py-1.5 border-b border-[color:var(--border)]">
+            <span className="text-[12.5px] font-medium text-[color:var(--fg-muted)] w-[90px] shrink-0">Status</span>
+            <Badge variant={STATUS_VARIANT[dialog.data.status] ?? 'neutral'} className="capitalize">
+              {dialog.data.status}
+            </Badge>
           </div>
         )}
-        
-        {(modalType === 'create' || modalType === 'edit') && (
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleModalSubmit}
-          >
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="title"
-                  label="Assessment Title"
-                  rules={[{ required: true, message: 'Please enter assessment title' }]}
-                >
-                  <Input placeholder="e.g., Mathematics Unit Test 1" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="subject"
-                  label="Subject"
-                  rules={[{ required: true, message: 'Please select subject' }]}
-                >
-                  <Select placeholder="Select subject">
-                    {SUBJECTS.map(subject => (
-                      <Option key={subject} value={subject}>{subject}</Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="classId"
-                  label="Class"
-                  rules={[{ required: true, message: 'Please select class' }]}
-                >
-                  <Select placeholder="Select class">
-                    {getAvailableClasses().map(cls => (
-                      <Option key={cls.id} value={cls.id}>
-                        Grade {cls.classes?.grade} - {cls.classes?.section}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="type"
-                  label="Assessment Type"
-                  rules={[{ required: true, message: 'Please select type' }]}
-                >
-                  <Select placeholder="Select type">
-                    <Option value="Unit Test">Unit Test</Option>
-                    <Option value="Chapter Test">Chapter Test</Option>
-                    <Option value="Assignment">Assignment</Option>
-                    <Option value="Practical">Practical</Option>
-                    <Option value="Project">Project</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="totalMarks"
-                  label="Total Marks"
-                  rules={[{ required: true, message: 'Please enter total marks' }]}
-                >
-                  <Input type="number" placeholder="100" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="duration"
-                  label="Duration (minutes)"
-                  rules={[{ required: true, message: 'Please enter duration' }]}
-                >
-                  <Input type="number" placeholder="90" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
-                <Form.Item
-                  name="date"
-                  label="Assessment Date"
-                  rules={[{ required: true, message: 'Please select date' }]}
-                >
-                  <DatePicker style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-              <Col xs={24}>
-                <Form.Item
-                  name="description"
-                  label="Description"
-                >
-                  <TextArea 
-                    rows={4} 
-                    placeholder="Enter assessment description, topics covered, instructions, etc."
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-            
-            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-              <Space>
-                <Button onClick={() => setIsModalVisible(false)}>
-                  Cancel
-                </Button>
-                <Button type="primary" htmlType="submit" loading={mutationLoading}>
-                  {modalType === 'create' ? 'Create' : 'Update'} Assessment
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
+        {dialog.data?.description && (
+          <div className="flex gap-3 py-1.5">
+            <span className="text-[12.5px] font-medium text-[color:var(--fg-muted)] w-[90px] shrink-0">Notes</span>
+            <span className="text-[13px] text-[color:var(--fg)]">{dialog.data.description}</span>
+          </div>
         )}
-      </Modal>
-    </Content>
-  );
-};
+      </FormDialog>
 
-export default Assessments;
+      <FormDialog
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm(d => ({ ...d, open: false }))}
+        title="Delete assessment"
+        onSubmit={runDelete}
+        submitLabel="Delete"
+        destructive
+        width={420}
+      >
+        <p className="text-[13.5px] text-[color:var(--fg-subtle)]">
+          This assessment and all associated data will be permanently deleted. This cannot be undone.
+        </p>
+      </FormDialog>
+    </div>
+  );
+}

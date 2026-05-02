@@ -99,7 +99,7 @@ const StudentCalendar = () => {
         // Try to find student by auth_user_id first (most reliable)
         let { data, error } = await supabase
           .from('student')
-          .select('id, full_name, student_code, class_instance_id, school_code')
+          .select('id, full_name, student_code, class_instance_id, school_code, class_instances(academic_year_id)')
           .eq('auth_user_id', user.id)
           .eq('school_code', schoolCode)
           .maybeSingle();
@@ -108,7 +108,7 @@ const StudentCalendar = () => {
         if (!data && !error) {
           let query = supabase
             .from('student')
-            .select('id, full_name, student_code, class_instance_id, school_code')
+            .select('id, full_name, student_code, class_instance_id, school_code, class_instances(academic_year_id)')
             .eq('school_code', schoolCode);
 
           if (studentCode) {
@@ -150,11 +150,17 @@ const StudentCalendar = () => {
 
   const fetchEvents = async (studentData) => {
     try {
-      // Fetch school-wide and class-specific events
+      const academicYearId = studentData.class_instances?.academic_year_id;
+      if (!academicYearId) {
+        setEvents([]);
+        return;
+      }
+      // Fetch school-wide and class-specific events for the student's current academic year
       const { data, error } = await supabase
         .from('school_calendar_events')
         .select('id, title, description, event_type, start_date, end_date, is_all_day, start_time, end_time, color')
         .eq('school_code', studentData.school_code)
+        .eq('academic_year_id', academicYearId)
         .or(`class_instance_id.is.null,class_instance_id.eq.${studentData.class_instance_id}`)
         .eq('is_active', true)
         .order('start_date', { ascending: true });

@@ -1,50 +1,82 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
-  Card, Row, Col, Statistic, Tabs, Select, Button, Space, Tag, Empty, message, Typography,
-  Segmented, Divider, Tooltip,
+  Empty, Button, Spin, message, Tabs, Modal, Progress, Tag, List, Select,
 } from 'antd';
 import {
-  BankOutlined, PlusOutlined, ThunderboltOutlined, MailOutlined, ReloadOutlined,
-  DownloadOutlined, BellOutlined,
+  PlusOutlined, ReloadOutlined, DownloadOutlined, BellOutlined, MailOutlined,
+  WalletOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import { useAuth } from '@/AuthProvider';
-import { getUserRole, getSchoolCode } from '@/shared/utils/metadata';
+import { getUserRole } from '@/shared/utils/metadata';
 import { FeesProvider, useFees } from '../context/FeesContext';
 import {
-  getByClass, getAllForSchool, summariseInvoices, ageReceivables, sendPaymentReminder,
+  getAllForSchool, summariseInvoices, sendPaymentReminder,
 } from '../services/feesService';
+import { supabase } from '@/config/supabaseClient';
 import { fmtRupees, fmtRupeesCompact } from '../utils/money';
-import { kpiTone, TONES } from '@/shared/components/kpiTone';
+
 import InvoiceTable from '../components/InvoiceTable';
-import InvoiceDetailDrawer from '../components/InvoiceDetailDrawer';
-import PaymentDrawer from '../components/PaymentDrawer';
-import GenerateInvoicesDrawer from '../components/GenerateInvoicesDrawer';
-import CreateInvoiceDrawer from '../components/CreateInvoiceDrawer';
-import InvoiceDocumentViewer from '../components/InvoiceDocumentViewer';
-import BulkRemindersDrawer from '../components/BulkRemindersDrawer';
+import InvoiceSidePanel from '../components/InvoiceSidePanel';
+import NewInvoicePanel from '../components/NewInvoicePanel';
+import CollectMode from '../components/CollectMode';
 import StudentFees from '../components/StudentFees';
-import FeeAnalytics from '../components/FeeAnalytics';
 
-const { Title, Text } = Typography;
+/* ─── Tiny KPI tile ─────────────────────────────────────────────────────── */
+function KpiTile({ label, value, sub, accent, icon }) {
+  return (
+    <div style={{
+      flex: 1,
+      background: '#fff',
+      border: '1px solid #e2e8f0',
+      borderRadius: 14,
+      padding: '16px 18px',
+      display: 'flex', alignItems: 'center', gap: 14,
+      minWidth: 180,
+    }}>
+      {icon && (
+        <div style={{
+          width: 40, height: 40, borderRadius: 10,
+          background: accent ? `${accent}15` : '#eff6ff',
+          color: accent || '#2563eb',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 18, flexShrink: 0,
+        }}>{icon}</div>
+      )}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{
+          fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em',
+          color: '#94a3b8', fontWeight: 600,
+        }}>{label}</div>
+        <div style={{
+          fontSize: 20, fontWeight: 700, color: '#0f172a',
+          fontVariantNumeric: 'tabular-nums', marginTop: 2,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{value}</div>
+        {sub && (
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{sub}</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
+/* ─── Main hub ──────────────────────────────────────────────────────────── */
 function FeesHub() {
-  const { user } = useAuth();
-  const role = getUserRole(user);
-  const { schoolCode, academicYear, classes, refresh: refreshContext } = useFees();
+  const {
+    schoolCode, academicYear, classes, refresh: refreshContext,
+    academicYears, selectedAcademicYearId, setSelectedAcademicYearId,
+    activeAcademicYear,
+  } = useFees();
 
-  const [scope, setScope] = useState('all'); // 'all' | 'class'
-  const [classId, setClassId] = useState(null);
   const [invoices, setInvoices] = useState([]);
+  const [collectedThisMonth, setCollectedThisMonth] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState('invoices');
+  const [tab, setTab] = useState('collect');
 
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [detailId, setDetailId] = useState(null);
-  const [paymentInvoice, setPaymentInvoice] = useState(null);
-  const [docInvoiceId, setDocInvoiceId] = useState(null);
-  const [generateOpen, setGenerateOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [bulkRemindersOpen, setBulkRemindersOpen] = useState(false);
 
@@ -52,29 +84,28 @@ function FeesHub() {
     if (!schoolCode) return;
     setLoading(true);
     try {
-      let rows;
-      if (scope === 'class' && classId) {
-        rows = await getByClass(classId, schoolCode, academicYear?.id);
-      } else {
-        rows = await getAllForSchool(schoolCode, academicYear?.id);
-      }
+      const monthStart = dayjs().startOf('month').format('YYYY-MM-DD');
+      const [rows, mtd] = await Promise.all([
+        getAllForSchool(schoolCode, selectedAcademicYearId || null),
+        supabase
+          .from('fee_payments')
+          .select('amount_inr')
+          .eq('school_code', schoolCode)
+          .gte('payment_date', monthStart),
+      ]);
       setInvoices(rows || []);
+      const sum = (mtd?.data || []).reduce((s, p) => s + Number(p.amount_inr || 0), 0);
+      setCollectedThisMonth(sum);
     } catch (err) {
       message.error(err?.message || 'Failed to load invoices');
     } finally {
       setLoading(false);
     }
-  }, [schoolCode, scope, classId, academicYear?.id]);
+  }, [schoolCode, selectedAcademicYearId]);
 
   useEffect(() => { loadInvoices(); }, [loadInvoices]);
 
   const summary = useMemo(() => summariseInvoices(invoices), [invoices]);
-  const aging = useMemo(() => ageReceivables(invoices), [invoices]);
-
-  const selectedInvoices = useMemo(
-    () => (invoices || []).filter((inv) => selectedKeys.includes(inv.id)),
-    [invoices, selectedKeys],
-  );
 
   const overdueInvoices = useMemo(
     () => (invoices || []).filter((inv) => {
@@ -84,11 +115,22 @@ function FeesHub() {
     [invoices],
   );
 
-  const handleExportCsv = () => {
-    if (!invoices.length) {
-      message.info('Nothing to export');
-      return;
+  const studentsWithDues = useMemo(() => {
+    const set = new Set();
+    for (const inv of invoices || []) {
+      const balance = Number(inv.total_amount || 0) - Number(inv.paid_amount || 0);
+      if (balance > 0 && inv.student?.id) set.add(inv.student.id);
     }
+    return set.size;
+  }, [invoices]);
+
+  const selectedInvoices = useMemo(
+    () => (invoices || []).filter((inv) => selectedKeys.includes(inv.id)),
+    [invoices, selectedKeys],
+  );
+
+  const handleExportCsv = () => {
+    if (!invoices.length) { message.info('Nothing to export'); return; }
     const rows = invoices.map((inv) => {
       const balance = Math.max(0, Number(inv.total_amount || 0) - Number(inv.paid_amount || 0));
       return {
@@ -109,227 +151,208 @@ function FeesHub() {
     XLSX.writeFile(wb, `fee_invoices_${dayjs().format('YYYY-MM-DD')}.xlsx`);
   };
 
-  const handleQuickReminder = async (invoice) => {
+  const handleQuickReminder = async (inv) => {
     try {
-      await sendPaymentReminder(invoice.id);
-      message.success(`Reminder sent to ${invoice.student?.full_name || 'student'}`);
+      const result = await sendPaymentReminder(inv.id);
+      const name = inv.student?.full_name || 'student';
+      if (result?.notified > 0) {
+        message.success(`Reminder sent to ${name}`);
+      } else {
+        message.warning(result?.message || `Couldn't reach ${name} — no app account or push token`);
+      }
     } catch (err) {
-      message.error(err?.message || 'Failed to send reminder');
+      message.error(err?.message || 'Failed');
     }
   };
 
-  const refreshAll = () => {
-    setSelectedKeys([]);
-    loadInvoices();
-  };
+  const refreshAll = () => { setSelectedKeys([]); loadInvoices(); };
 
-  if (!schoolCode) {
-    return <Empty description="No school context. Please re-login." />;
-  }
+  if (!schoolCode) return <Empty description="No school context. Please re-login." />;
 
   return (
-    <div style={{ padding: 24, background: '#f8fafc', minHeight: '100vh' }}>
-      {/* Header */}
-      <Card
-        size="small"
-        style={{
-          marginBottom: 16,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          border: 'none',
-          borderRadius: 12,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'white', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <Title level={4} style={{ color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BankOutlined /> Fee Management
-            </Title>
-            {academicYear && (
-              <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
-                Academic Year {academicYear.year_start}–{academicYear.year_end}
-              </Text>
-            )}
+    <div style={{ padding: '24px 28px', background: '#f8fafc', minHeight: '100vh' }}>
+      {/* Page header */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+        marginBottom: 20, flexWrap: 'wrap', gap: 12,
+      }}>
+        <div>
+          <div style={{
+            fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em',
+            color: '#64748b', fontWeight: 600, marginBottom: 4,
+          }}>
+            School operations
           </div>
-          <Space wrap>
-            <Button icon={<PlusOutlined />} type="default" onClick={() => setCreateOpen(true)}>
-              New invoice
-            </Button>
-            <Button icon={<ThunderboltOutlined />} type="primary" onClick={() => setGenerateOpen(true)}>
-              Generate for class
-            </Button>
-          </Space>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>
+            Fees
+          </div>
         </div>
-      </Card>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Select
+          value={selectedAcademicYearId ?? '__all__'}
+          onChange={(v) => setSelectedAcademicYearId(v === '__all__' ? null : v)}
+          style={{ minWidth: 200 }}
+          options={[
+            { value: '__all__', label: 'All academic years' },
+            ...academicYears.map((ay) => ({
+              value: ay.id,
+              label: `${ay.year_start}–${ay.year_end}${ay.is_active ? ' · Active' : ''}`,
+            })),
+          ]}
+        />
+        <Button icon={<ReloadOutlined />} onClick={() => { refreshContext(); loadInvoices(); }}>
+          Refresh
+        </Button>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setCreateOpen(true)}
+          style={{
+            background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+            border: 'none', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+            fontWeight: 600,
+          }}
+        >
+          New invoice
+        </Button>
+        </div>
+      </div>
 
-      {/* KPIs */}
-      <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic title="Invoices" value={summary.invoiceCount} />
-            <Text type="secondary">
-              {summary.paidCount} paid · {summary.partialCount} partial · {summary.dueCount} pending
-            </Text>
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic title="Total billed" value={fmtRupeesCompact(summary.total)} />
-            <Text type="secondary">{fmtRupees(summary.total)}</Text>
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic
-              title="Collected"
-              value={fmtRupeesCompact(summary.collected)}
-              valueStyle={{ color: '#3f8600' }}
-              suffix={<Text type="secondary" style={{ fontSize: 12 }}>{summary.collectionRate.toFixed(1)}%</Text>}
-            />
-            <Text type="secondary">{fmtRupees(summary.collected)}</Text>
-          </Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card size="small">
-            <Statistic
-              title="Outstanding"
-              value={fmtRupeesCompact(summary.outstanding)}
-              // Outstanding only colors when it's actually owed AND overdue.
-              // A non-zero balance with zero overdue invoices is just normal billing in flight.
-              valueStyle={{ color: kpiTone(summary.overdueCount, () => 'critical') }}
-            />
-            <Text type="secondary">{summary.overdueCount} overdue</Text>
-          </Card>
-        </Col>
-      </Row>
+      {/* KPI strip — 4 ops numbers, no analytics */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <KpiTile
+          label="Outstanding"
+          value={fmtRupeesCompact(summary.outstanding)}
+          sub={fmtRupees(summary.outstanding)}
+          accent={summary.outstanding > 0 ? '#dc2626' : '#16a34a'}
+          icon={<WalletOutlined />}
+        />
+        <KpiTile
+          label="Collected this month"
+          value={fmtRupeesCompact(collectedThisMonth)}
+          sub={`${dayjs().format('MMM YYYY')}`}
+          accent="#16a34a"
+          icon="₹"
+        />
+        <KpiTile
+          label="Overdue invoices"
+          value={overdueInvoices.length}
+          sub={`of ${summary.invoiceCount} total`}
+          accent={overdueInvoices.length > 0 ? '#dc2626' : '#16a34a'}
+          icon={<BellOutlined />}
+        />
+        <KpiTile
+          label="Students with dues"
+          value={studentsWithDues}
+          sub={`${summary.collectionRate.toFixed(0)}% collected`}
+          accent="#2563eb"
+          icon={<FileTextOutlined />}
+        />
+      </div>
 
-      {/* Aged-receivables card */}
-      <Card size="small" style={{ marginBottom: 16 }} title="Aged receivables">
-        <Row gutter={[12, 12]}>
-          <Col xs={12} sm={8} md={4}>
-            <Statistic title="Not yet due" value={fmtRupeesCompact(aging.current)} />
-          </Col>
-          <Col xs={12} sm={8} md={5}>
-            <Statistic title="0–30 days overdue" value={fmtRupeesCompact(aging.b0_30)}
-              valueStyle={{ color: kpiTone(aging.b0_30, TONES.agingBucket('0-30')) }} />
-          </Col>
-          <Col xs={12} sm={8} md={5}>
-            <Statistic title="31–60 days" value={fmtRupeesCompact(aging.b31_60)}
-              valueStyle={{ color: kpiTone(aging.b31_60, TONES.agingBucket('31-60')) }} />
-          </Col>
-          <Col xs={12} sm={8} md={5}>
-            <Statistic title="61–90 days" value={fmtRupeesCompact(aging.b61_90)}
-              valueStyle={{ color: kpiTone(aging.b61_90, TONES.agingBucket('61-90')) }} />
-          </Col>
-          <Col xs={12} sm={8} md={5}>
-            <Statistic title="90+ days" value={fmtRupeesCompact(aging.b90_plus)}
-              valueStyle={{ color: kpiTone(aging.b90_plus, TONES.agingBucket('90+')) }} />
-          </Col>
-        </Row>
-      </Card>
-
-      <Card>
-        <Space wrap style={{ marginBottom: 12 }}>
-          <Segmented
-            value={scope}
-            onChange={(v) => { setScope(v); if (v === 'all') setClassId(null); }}
-            options={[{ value: 'all', label: 'All classes' }, { value: 'class', label: 'By class' }]}
-          />
-          {scope === 'class' && (
-            <Select
-              placeholder="Select class"
-              style={{ width: 280 }}
-              value={classId || undefined}
-              onChange={setClassId}
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              options={(classes || []).map((c) => ({
-                value: c.id,
-                label: `Grade ${c.grade ?? '-'}${c.section ? ` ${c.section}` : ''}`,
-              }))}
-            />
-          )}
-          <Button icon={<ReloadOutlined />} onClick={() => { refreshContext(); loadInvoices(); }}>Refresh</Button>
-          <Button icon={<DownloadOutlined />} onClick={handleExportCsv}>Export</Button>
-          <Tooltip title="Pick rows in the table to enable">
-            <Button
-              icon={<MailOutlined />}
-              disabled={selectedInvoices.length === 0}
-              onClick={() => setBulkRemindersOpen(true)}
-            >
-              {selectedInvoices.length > 0 ? `Bulk reminders (${selectedInvoices.length})` : 'Bulk reminders'}
-            </Button>
-          </Tooltip>
-          {overdueInvoices.length > 0 && (
-            <Button
-              danger
-              icon={<BellOutlined />}
-              onClick={() => {
-                setSelectedKeys(overdueInvoices.map((i) => i.id));
-                setBulkRemindersOpen(true);
-              }}
-            >
-              Remind all overdue ({overdueInvoices.length})
-            </Button>
-          )}
-        </Space>
-
+      {/* Tabs */}
+      <div style={{
+        background: '#fff',
+        borderRadius: 16,
+        border: '1px solid #e2e8f0',
+        overflow: 'hidden',
+      }}>
         <Tabs
           activeKey={tab}
           onChange={setTab}
+          tabBarStyle={{
+            margin: 0,
+            padding: '0 20px',
+            borderBottom: '1px solid #e2e8f0',
+          }}
           items={[
             {
-              key: 'invoices',
-              label: 'Invoices',
+              key: 'collect',
+              label: <span style={{ fontWeight: 600, fontSize: 14 }}>💰 Collect</span>,
               children: (
-                <InvoiceTable
-                  data={invoices}
-                  loading={loading}
-                  selectedKeys={selectedKeys}
-                  onSelectChange={setSelectedKeys}
-                  onOpenDetail={(r) => setDetailId(r.id)}
-                  onRecordPayment={(r) => setPaymentInvoice(r)}
-                  onViewDocument={(r) => setDocInvoiceId(r.id)}
-                  onSendReminder={handleQuickReminder}
-                />
+                <div style={{ padding: 20 }}>
+                  <CollectMode
+                    invoices={invoices}
+                    loading={loading}
+                    onChanged={refreshAll}
+                  />
+                </div>
               ),
             },
             {
-              key: 'analytics',
-              label: 'Analytics',
-              children: <FeeAnalytics invoices={invoices} />,
+              key: 'invoices',
+              label: <span style={{ fontWeight: 600, fontSize: 14 }}>📄 Invoices ({summary.invoiceCount})</span>,
+              children: (
+                <div style={{ padding: 20 }}>
+                  {/* Action bar */}
+                  <div style={{
+                    display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14,
+                    padding: '8px 12px',
+                    background: '#f8fafc',
+                    borderRadius: 10,
+                    border: '1px solid #e2e8f0',
+                    alignItems: 'center',
+                  }}>
+                    <Button size="small" icon={<DownloadOutlined />} onClick={handleExportCsv}>
+                      Export
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<MailOutlined />}
+                      disabled={selectedInvoices.length === 0}
+                      onClick={() => setBulkRemindersOpen(true)}
+                    >
+                      {selectedInvoices.length > 0
+                        ? `Remind selected (${selectedInvoices.length})`
+                        : 'Bulk reminders'}
+                    </Button>
+                    {overdueInvoices.length > 0 && (
+                      <Button
+                        size="small"
+                        danger
+                        icon={<BellOutlined />}
+                        onClick={() => {
+                          setSelectedKeys(overdueInvoices.map((i) => i.id));
+                          setBulkRemindersOpen(true);
+                        }}
+                      >
+                        Remind all overdue ({overdueInvoices.length})
+                      </Button>
+                    )}
+                    <div style={{ flex: 1 }} />
+                    {selectedInvoices.length > 0 && (
+                      <Tag style={{ background: '#eff6ff', color: '#2563eb', border: 'none', fontWeight: 600 }}>
+                        {selectedInvoices.length} selected
+                      </Tag>
+                    )}
+                  </div>
+
+                  <InvoiceTable
+                    data={invoices}
+                    loading={loading}
+                    classes={classes}
+                    selectedKeys={selectedKeys}
+                    onSelectChange={setSelectedKeys}
+                    onOpenDetail={(r) => setDetailId(r.id)}
+                    onRecordPayment={(r) => setDetailId(r.id)}
+                    onViewDocument={(r) => setDetailId(r.id)}
+                    onSendReminder={handleQuickReminder}
+                  />
+                </div>
+              ),
             },
           ]}
         />
-      </Card>
+      </div>
 
-      <InvoiceDetailDrawer
+      {/* Side panels & modals */}
+      <InvoiceSidePanel
         open={!!detailId}
         invoiceId={detailId}
         onClose={() => setDetailId(null)}
         onChanged={refreshAll}
       />
-      <PaymentDrawer
-        open={!!paymentInvoice}
-        invoice={paymentInvoice}
-        onClose={() => setPaymentInvoice(null)}
-        onPaymentRecorded={refreshAll}
-      />
-      <InvoiceDocumentViewer
-        open={!!docInvoiceId}
-        invoiceId={docInvoiceId}
-        onClose={() => setDocInvoiceId(null)}
-      />
-      <GenerateInvoicesDrawer
-        open={generateOpen}
-        onClose={() => setGenerateOpen(false)}
-        classes={classes}
-        academicYear={academicYear}
-        schoolCode={schoolCode}
-        defaultClassId={scope === 'class' ? classId : null}
-        onGenerated={refreshAll}
-      />
-      <CreateInvoiceDrawer
+      <NewInvoicePanel
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         classes={classes}
@@ -337,7 +360,7 @@ function FeesHub() {
         schoolCode={schoolCode}
         onCreated={refreshAll}
       />
-      <BulkRemindersDrawer
+      <BulkRemindersModal
         open={bulkRemindersOpen}
         onClose={() => setBulkRemindersOpen(false)}
         invoices={selectedInvoices.length ? selectedInvoices : overdueInvoices}
@@ -346,12 +369,114 @@ function FeesHub() {
   );
 }
 
+/* ─── Inline bulk reminders modal (replaces drawer) ─────────────────────── */
+function BulkRemindersModal({ open, onClose, invoices = [] }) {
+  const [progress, setProgress] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState([]);
+
+  useEffect(() => { if (open) { setProgress(0); setResults([]); setRunning(false); } }, [open]);
+
+  const handleSend = async () => {
+    if (!invoices.length) { message.info('No invoices selected'); return; }
+    setRunning(true);
+    setResults([]);
+    setProgress(0);
+
+    const out = [];
+    for (let i = 0; i < invoices.length; i += 1) {
+      const inv = invoices[i];
+      try {
+        const r = await sendPaymentReminder(inv.id);
+        if (r?.notified > 0) {
+          out.push({ id: inv.id, label: inv.student?.full_name || inv.id, status: 'sent' });
+        } else {
+          out.push({ id: inv.id, label: inv.student?.full_name || inv.id, status: 'skipped', reason: r?.message || 'no account / no push token' });
+        }
+      } catch (err) {
+        out.push({ id: inv.id, label: inv.student?.full_name || inv.id, status: 'failed', reason: err?.message || 'failed' });
+      }
+      setProgress(Math.round(((i + 1) / invoices.length) * 100));
+      setResults([...out]);
+    }
+    const sent = out.filter((r) => r.status === 'sent').length;
+    const skipped = out.filter((r) => r.status === 'skipped').length;
+    const failed = out.filter((r) => r.status === 'failed').length;
+    const parts = [`${sent} sent`];
+    if (skipped) parts.push(`${skipped} skipped`);
+    if (failed) parts.push(`${failed} failed`);
+    if (sent > 0) message.success(parts.join(' · '));
+    else message.warning(parts.join(' · '));
+    setRunning(false);
+  };
+
+  return (
+    <Modal
+      open={open}
+      onCancel={onClose}
+      title={
+        <div>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', fontWeight: 600 }}>
+            Bulk action
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>
+            Send {invoices.length} reminder{invoices.length === 1 ? '' : 's'}
+          </div>
+        </div>
+      }
+      width={520}
+      footer={[
+        <Button key="cancel" onClick={onClose} disabled={running}>Close</Button>,
+        <Button
+          key="send"
+          type="primary"
+          icon={<MailOutlined />}
+          loading={running}
+          disabled={!invoices.length}
+          onClick={handleSend}
+          style={{
+            background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+            border: 'none', fontWeight: 600,
+          }}
+        >
+          Send {invoices.length}
+        </Button>,
+      ]}
+    >
+      {running && <Progress percent={progress} status="active" />}
+      {results.length > 0 && (
+        <List
+          style={{ marginTop: 16, maxHeight: 320, overflow: 'auto' }}
+          size="small"
+          dataSource={results}
+          renderItem={(r) => {
+            const tone = r.status === 'sent' ? 'green' : r.status === 'skipped' ? 'orange' : 'red';
+            return (
+              <List.Item style={{ padding: '8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
+                  <Tag color={tone} style={{ margin: 0 }}>{r.status}</Tag>
+                  <span style={{ flex: 1 }}>{r.label}</span>
+                  {r.reason && <span style={{ color: '#64748b', fontSize: 12 }}>{r.reason}</span>}
+                </div>
+              </List.Item>
+            );
+          }}
+        />
+      )}
+      {!running && results.length === 0 && (
+        <div style={{ color: '#64748b', fontSize: 13 }}>
+          Reminders are sent to parent contacts via the school's notification channel.
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/* ─── Entry ─────────────────────────────────────────────────────────────── */
 export default function Fees() {
   const { user } = useAuth();
   const role = getUserRole(user);
-  if (role === 'student') {
-    return <StudentFees />;
-  }
+  if (role === 'student') return <StudentFees />;
   return (
     <FeesProvider>
       <FeesHub />

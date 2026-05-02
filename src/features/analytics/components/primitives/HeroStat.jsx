@@ -4,7 +4,7 @@ import { Typography, Space } from 'antd';
 const { Text } = Typography;
 
 const GRADIENTS = {
-  brand:    'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+  brand:    'linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)',
   emerald:  'linear-gradient(135deg, #059669 0%, #10b981 100%)',
   amber:    'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
   rose:     'linear-gradient(135deg, #dc2626 0%, #f43f5e 100%)',

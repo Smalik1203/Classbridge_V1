@@ -315,6 +315,78 @@ export const hrService = {
     return data ?? [];
   },
 
+  /**
+   * Day-level attendance for the school: returns one row per active employee with
+   * today's punch (or null if not yet marked). Used by the marking UI.
+   */
+  async getDayAttendance(schoolCode, date) {
+    const [{ data: emps, error: e1 }, { data: marks, error: e2 }] = await Promise.all([
+      supabase
+        .from('employees')
+        .select('id, full_name, employee_code, designation, department')
+        .eq('school_code', schoolCode)
+        .eq('status', 'active')
+        .order('full_name'),
+      supabase
+        .from('staff_attendance')
+        .select('id, employee_id, status, in_time, out_time, late_minutes, half_day_slot, source, note')
+        .eq('school_code', schoolCode)
+        .eq('date', date),
+    ]);
+    if (e1) throw e1;
+    if (e2) throw e2;
+    const byEmp = new Map((marks || []).map((m) => [m.employee_id, m]));
+    return (emps || []).map((e) => ({ ...e, mark: byEmp.get(e.id) || null }));
+  },
+
+  /**
+   * Bulk upsert staff attendance for a single date. Each row in `marks` must include
+   * employee_id and status; in_time/out_time/late_minutes/half_day_slot/note optional.
+   * Source defaults to 'manual'. Uses (employee_id, date) unique key for upsert.
+   */
+  async upsertStaffAttendance({ schoolCode, date, marks, markedBy, source = 'manual', biometricImportId = null }) {
+    const ay = await this.getActiveAcademicYearId(schoolCode);
+    if (!ay?.id) throw new Error('No active academic year found for this school.');
+    const rows = marks.map((m) => ({
+      school_code: schoolCode,
+      employee_id: m.employee_id,
+      academic_year_id: ay.id,
+      date,
+      status: m.status,
+      in_time: m.in_time || null,
+      out_time: m.out_time || null,
+      late_minutes: m.late_minutes ?? 0,
+      half_day_slot: m.half_day_slot || null,
+      source,
+      biometric_import_id: biometricImportId,
+      note: m.note || null,
+      marked_by: markedBy || null,
+      updated_at: new Date().toISOString(),
+    }));
+    if (rows.length === 0) return [];
+    const { data, error } = await supabase
+      .from('staff_attendance')
+      .upsert(rows, { onConflict: 'employee_id,date' })
+      .select();
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  /**
+   * Lookup map of employee_code → id for resolving CSV rows.
+   */
+  async getEmployeeCodeMap(schoolCode) {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('id, employee_code, full_name')
+      .eq('school_code', schoolCode)
+      .eq('status', 'active');
+    if (error) throw error;
+    const byCode = new Map();
+    (data || []).forEach((e) => { byCode.set((e.employee_code || '').trim().toLowerCase(), e); });
+    return byCode;
+  },
+
   // ── academic year (helper, since web doesn't have a global academic-year context) ─
   async getActiveAcademicYearId(schoolCode) {
     const { data, error } = await supabase

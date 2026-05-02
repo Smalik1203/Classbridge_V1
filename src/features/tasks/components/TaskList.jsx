@@ -470,7 +470,7 @@ export default function TaskList({
           </div>
         ) : tasks.length === 0 ? (
           <EmptyState
-            icon={<BookOutlined />}
+            icon={BookOutlined}
             title="No Tasks Found"
             description="No tasks match your current filters. Try adjusting your search criteria or create a new task."
             action={
@@ -550,7 +550,7 @@ export default function TaskList({
           </div>
         ) : (
           <EmptyState
-            icon={<FileOutlined />}
+            icon={FileOutlined}
             title="No Attachments"
             description="This task has no attachments."
           />

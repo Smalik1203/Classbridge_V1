@@ -1,14 +1,13 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Typography, Tag } from 'antd';
+import { ArrowLeft } from 'lucide-react';
 import {
-  ArrowLeftOutlined, BarChartOutlined, CheckCircleOutlined, DollarCircleOutlined,
+  BarChartOutlined, CheckCircleOutlined, DollarCircleOutlined,
   CheckSquareOutlined, BookOutlined, ExperimentOutlined, TeamOutlined, UserOutlined,
 } from '@ant-design/icons';
 import AcademicYearPicker from '../components/AcademicYearPicker';
 import { useAcademicYear } from '../context/AcademicYearContext';
-
-const { Title, Text } = Typography;
+import { Badge } from '@/shared/ui/Badge';
 
 const SECTIONS = {
   '/analytics':            { title: 'Analytics',            subtitle: 'Cross-domain analytics. Pick a feature to drill in.',           accent: '#6366F1', icon: <BarChartOutlined /> },
@@ -33,69 +32,45 @@ export default function AnalyticsShell() {
   const inHub = pathname === '/analytics';
 
   return (
-    <div style={{
-      padding: '20px 24px 32px',
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #f8fafc 0%, #ffffff 320px)',
-    }}>
+    <div className="px-6 pt-5 pb-8 min-h-screen bg-[color:var(--bg)]">
       {/* HEADER — single horizontal bar: icon + title block on the left, AY picker on the right */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 16,
-        flexWrap: 'wrap',
-        background: '#fff',
-        border: '1px solid #eef2ff',
-        borderRadius: 14,
-        padding: '12px 16px',
-        marginBottom: 20,
-      }}>
-        {/* LEFT: icon + (back link · title · tags) + subtitle */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: `${meta.accent}15`,
-            color: meta.accent,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, flexShrink: 0,
-          }}>
+      <div className="flex items-center justify-between gap-4 flex-wrap bg-[color:var(--bg-elev)] border border-[color:var(--border)] rounded-[var(--radius-lg)] px-4 py-3 mb-5">
+        {/* LEFT: icon + (back link · title · badges) + subtitle */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div
+            className="w-10 h-10 rounded-[10px] flex items-center justify-center text-[20px] shrink-0"
+            style={{ background: `${meta.accent}15`, color: meta.accent }}
+          >
             {meta.icon}
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               {!inHub && (
-                <Link to="/analytics" style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  color: '#64748b', fontSize: 12, fontWeight: 500,
-                  padding: '2px 8px', borderRadius: 6,
-                  background: '#f1f5f9',
-                }}>
-                  <ArrowLeftOutlined style={{ fontSize: 11 }} /> Hub
+                <Link
+                  to="/analytics"
+                  className="inline-flex items-center gap-1 text-[12px] font-medium text-[color:var(--fg-muted)] bg-[color:var(--bg-subtle)] hover:bg-[color:var(--bg-muted)] px-2 py-0.5 rounded-md transition-colors"
+                >
+                  <ArrowLeft size={11} /> Hub
                 </Link>
               )}
-              <Title level={4} style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0f172a' }}>
+              <h2 className="m-0 text-[18px] font-bold tracking-[-0.01em] text-[color:var(--fg)]">
                 {meta.title}
-              </Title>
+              </h2>
               {selectedYear && (
-                <Tag color="default" style={{ borderRadius: 999, fontWeight: 500, margin: 0, fontSize: 11 }}>
-                  AY {formatYearLabel(selectedYear)}
-                </Tag>
+                <Badge variant="neutral">AY {formatYearLabel(selectedYear)}</Badge>
               )}
               {compareYear && (
-                <Tag color="purple" style={{ borderRadius: 999, fontWeight: 500, margin: 0, fontSize: 11 }}>
-                  vs {formatYearLabel(compareYear)}
-                </Tag>
+                <Badge variant="accent">vs {formatYearLabel(compareYear)}</Badge>
               )}
             </div>
-            <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.4 }}>
+            <p className="m-0 mt-0.5 text-[12px] leading-[1.4] text-[color:var(--fg-muted)]">
               {meta.subtitle}
-            </Text>
+            </p>
           </div>
         </div>
 
         {/* RIGHT: AY picker, compact */}
-        <div style={{ flexShrink: 0 }}>
+        <div className="shrink-0">
           <AcademicYearPicker compact />
         </div>
       </div>

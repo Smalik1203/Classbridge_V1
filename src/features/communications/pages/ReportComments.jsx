@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '@/AuthProvider';
 import { getSchoolCode } from '@/shared/utils/metadata';
+import { useAcademicYear } from '@/features/analytics/context/AcademicYearContext';
 import { reportCommentsService } from '../services/communicationsService';
 import ReportCommentEditor from '../components/ReportCommentEditor';
 
@@ -49,6 +50,7 @@ function exportCsv(rows, filename) {
 
 export default function ReportComments() {
   const { user } = useAuth();
+  const { selectedAyId } = useAcademicYear();
   const schoolCode = getSchoolCode(user);
   const { message, modal } = App.useApp();
 
@@ -74,12 +76,12 @@ export default function ReportComments() {
   useEffect(() => {
     if (!schoolCode) return;
     setLoadingClasses(true);
-    reportCommentsService.listClasses(schoolCode)
+    reportCommentsService.listClasses(schoolCode, selectedAyId)
       .then(setClasses)
       .catch((e) => message.error(e.message || 'Failed to load classes'))
       .finally(() => setLoadingClasses(false));
     // eslint-disable-next-line
-  }, [schoolCode]);
+  }, [schoolCode, selectedAyId]);
 
   // Load students when class changes
   useEffect(() => {

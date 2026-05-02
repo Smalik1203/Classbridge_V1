@@ -1,1946 +1,1048 @@
-
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, Button, Card, Divider, Input, List, Select,
-  Space, Typography, Popconfirm, Modal, Form, message, Skeleton,
-  Row, Col, Tag, Tooltip, Collapse, notification, Upload, Table, Progress, Statistic, Dropdown
-} from 'antd';
-import { 
-  PlusOutlined, DeleteOutlined, EditOutlined,
-  BookOutlined, FileTextOutlined, SettingOutlined,
-  InfoCircleOutlined, CopyOutlined, EyeOutlined,
-  UploadOutlined, DownloadOutlined, FileExcelOutlined,
-  CheckCircleOutlined, ClockCircleOutlined, TrophyOutlined,
-  MoreOutlined, QuestionCircleOutlined
-} from '@ant-design/icons';
+  BookOpen, CheckCircle, ChevronDown, Clock, Copy, Download,
+  Edit, FileSpreadsheet, FileText, MoreHorizontal, Plus, RefreshCw,
+  Trophy, Trash2, Upload, Eye, AlertCircle,
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
+
 import { supabase } from '@/config/supabaseClient';
 import { useAuth } from '@/AuthProvider';
-import { useTheme } from '@/contexts/ThemeContext';
 import { getSchoolCode, getUserRole } from '@/shared/utils/metadata';
-import * as XLSX from 'xlsx';
-import EmptyState from '@/shared/ui/EmptyState';
-import { useErrorHandler } from '@/shared/hooks/useErrorHandler';
 
-const { Title, Text } = Typography;
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
-
-const { TextArea } = Input;
-const { Panel } = Collapse;
+import { PageHeader } from '@/shared/ui/PageHeader';
+import { Card } from '@/shared/ui/Card';
+import { EmptyState } from '@/shared/ui/EmptyState';
+import { FormDialog } from '@/shared/ui/FormDialog';
+import { Field } from '@/shared/ui/Field';
 
 function byText(field) {
   return (a, b) => String(a[field]).localeCompare(String(b[field]));
 }
 
-export default function SyllabusPage() {
-  const [msg, ctx] = message.useMessage();
-  const { user } = useAuth();
-  const { isDarkMode, theme } = useTheme();
-  const { showError, showSuccess } = useErrorHandler();
+function MiniProgress({ percent }) {
+  const color =
+    percent === 100 ? 'var(--success)' :
+    percent >= 50   ? 'var(--brand)'   :
+    'var(--warning)';
+  return (
+    <div className="h-1.5 w-16 rounded-full overflow-hidden bg-[color:var(--bg-muted)]">
+      <div className="h-full rounded-full transition-all" style={{ width: `${percent}%`, background: color }} />
+    </div>
+  );
+}
 
-  // Use centralized metadata utilities
+function ChapterRow({
+  chapter, expanded, onToggle,
+  taughtTopics, canEdit,
+  onAddTopic, onEditChapter, onDeleteChapter, onDeleteTopic,
+}) {
+  const topics = chapter.syllabus_topics || [];
+  const taughtCount = topics.filter(t => taughtTopics.has(t.id)).length;
+  const progress = topics.length > 0 ? Math.round((taughtCount / topics.length) * 100) : 0;
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-3 px-5 py-3.5 cursor-pointer select-none hover:bg-[color:var(--bg-subtle)] transition-colors group"
+        onClick={() => onToggle(chapter.id)}
+      >
+        <ChevronDown
+          size={14}
+          className="text-[color:var(--fg-subtle)] transition-transform shrink-0"
+          style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        />
+
+        <span
+          className="text-[11.5px] font-semibold px-2 py-0.5 rounded-md shrink-0"
+          style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+        >
+          Ch {chapter.chapter_no}
+        </span>
+
+        <span className="text-[14px] font-semibold text-[color:var(--fg)] flex-1 truncate">
+          {chapter.title}
+        </span>
+
+        {chapter.ref_code && (
+          <span className="text-[11px] font-mono text-[color:var(--fg-muted)] shrink-0">
+            {chapter.ref_code}
+          </span>
+        )}
+
+        {topics.length > 0 && (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11.5px] text-[color:var(--fg-muted)] tabular-nums">
+              {taughtCount}/{topics.length}
+            </span>
+            <MiniProgress percent={progress} />
+            <span className="text-[11.5px] text-[color:var(--fg-muted)] tabular-nums w-[36px]">
+              {progress}%
+            </span>
+          </div>
+        )}
+
+        {canEdit && (
+          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onAddTopic(chapter.id)}
+            >
+              <Plus size={13} />
+              Add Topic
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreHorizontal size={14} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEditChapter(chapter)}>
+                  <Edit size={13} /> Edit chapter
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={() => onDeleteChapter(chapter)}>
+                  <Trash2 size={13} /> Delete chapter
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="px-5 pb-4 border-t border-[color:var(--border)]">
+          {chapter.description && (
+            <div className="mt-3 mb-3 px-3 py-2 rounded-[6px] bg-[color:var(--bg-subtle)] text-[13px] text-[color:var(--fg-muted)]">
+              {chapter.description}
+            </div>
+          )}
+
+          {topics.length === 0 ? (
+            <div className="py-6 text-center">
+              <p className="text-[13px] text-[color:var(--fg-muted)]">No topics yet</p>
+              {canEdit && (
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => onAddTopic(chapter.id)}>
+                  <Plus size={13} /> Add first topic
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 mt-3">
+              {topics.map(topic => (
+                <TopicRow
+                  key={topic.id}
+                  topic={topic}
+                  taught={taughtTopics.has(topic.id)}
+                  canEdit={canEdit}
+                  onEdit={() => onAddTopic(chapter.id, topic)}
+                  onDelete={() => onDeleteTopic(topic)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopicRow({ topic, taught, canEdit, onEdit, onDelete }) {
+  return (
+    <div
+      className="flex items-start gap-3 px-3.5 py-2.5 rounded-[8px] border transition-colors"
+      style={{
+        background: taught ? 'var(--success-soft)' : 'var(--bg-elev)',
+        borderColor: taught ? 'oklch(0.62 0.13 150 / 0.35)' : 'var(--border)',
+      }}
+    >
+      <span
+        className="text-[11px] font-semibold px-1.5 py-0.5 rounded mt-0.5 shrink-0"
+        style={{
+          background: taught ? 'var(--success)' : 'var(--bg-muted)',
+          color: taught ? 'white' : 'var(--fg-muted)',
+        }}
+      >
+        {topic.topic_no}
+      </span>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className="text-[13.5px] font-medium"
+            style={{ color: taught ? 'oklch(0.40 0.12 150)' : 'var(--fg)' }}
+          >
+            {topic.title}
+          </span>
+          {taught && <CheckCircle size={13} style={{ color: 'var(--success)', flexShrink: 0 }} />}
+          {topic.ref_code && (
+            <span className="text-[11px] font-mono text-[color:var(--fg-muted)]">
+              {topic.ref_code}
+            </span>
+          )}
+        </div>
+        {topic.description && (
+          <p className="text-[12px] text-[color:var(--fg-muted)] mt-0.5">{topic.description}</p>
+        )}
+      </div>
+
+      {canEdit && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm">
+              <MoreHorizontal size={13} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onEdit}>
+              <Edit size={13} /> Edit topic
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <Trash2 size={13} /> Delete topic
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
+
+export default function SyllabusPage() {
+  const { user } = useAuth();
   const school_code = getSchoolCode(user);
   const role = getUserRole(user);
+  const canEdit = role === 'admin' || role === 'superadmin';
 
-  // Query params
-  const params = new URLSearchParams(window.location.search);
-  const qpSubjectId = params.get('subjectId');
-  const qpClassInstanceId = params.get('classInstanceId');
-
-  // State
-  const [me, setMe] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
 
   const [subjects, setSubjects] = useState([]);
   const [classInstances, setClassInstances] = useState([]);
-  const [subjectId, setSubjectId] = useState(qpSubjectId || undefined);
-  const [classInstanceId, setClassInstanceId] = useState(qpClassInstanceId || undefined);
+  const [subjectId, setSubjectId] = useState(
+    () => new URLSearchParams(window.location.search).get('subjectId') || ''
+  );
+  const [classInstanceId, setClassInstanceId] = useState(
+    () => new URLSearchParams(window.location.search).get('classInstanceId') || ''
+  );
 
   const [syllabus, setSyllabus] = useState(null);
   const [chapters, setChapters] = useState([]);
-  const [expandedChapters, setExpandedChapters] = useState(new Set()); // Start empty - no chapters expanded by default
-  const [taughtChapters, setTaughtChapters] = useState(new Set());
+  const [expandedChapters, setExpandedChapters] = useState(new Set());
   const [taughtTopics, setTaughtTopics] = useState(new Set());
-  const [progressLoading, setProgressLoading] = useState(false);
-  const [lastLoadedTime, setLastLoadedTime] = useState(null);
+  const [taughtChapterIds, setTaughtChapterIds] = useState(new Set());
 
-  // Modal states
-  const [chapterModal, setChapterModal] = useState({ visible: false, editing: null });
-  const [topicModal, setTopicModal] = useState({ visible: false, editing: null, chapterId: null });
-  const [importModal, setImportModal] = useState({ visible: false, data: [], loading: false });
-  const [copyModal, setCopyModal] = useState({ visible: false, loading: false });
-  const [chapterForm] = Form.useForm();
-  const [topicForm] = Form.useForm();
-  const [copyForm] = Form.useForm();
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastLoaded, setLastLoaded] = useState(null);
 
-  const canEdit = role === 'admin' || role === 'superadmin';
+  const [chapterDialog, setChapterDialog] = useState({ open: false, editing: null });
+  const [chapterForm, setChapterForm] = useState({ title: '', description: '', ref_code: '' });
+  const [chapterErrors, setChapterErrors] = useState({});
 
-  // Calculate progress statistics
-  const progressStats = useMemo(() => {
-    const totalTopics = chapters.reduce((total, ch) => total + (ch.syllabus_topics?.length || 0), 0);
-    const taughtTopicsCount = Array.from(taughtTopics).length;
-    const taughtChaptersCount = Array.from(taughtChapters).length;
-    const totalChapters = chapters.length;
-    
-    const topicProgress = totalTopics > 0 ? Math.round((taughtTopicsCount / totalTopics) * 100) : 0;
-    const chapterProgress = totalChapters > 0 ? Math.round((taughtChaptersCount / totalChapters) * 100) : 0;
-    
-    return {
-      totalTopics,
-      taughtTopicsCount,
-      untaughtTopicsCount: totalTopics - taughtTopicsCount,
-      totalChapters,
-      taughtChaptersCount,
-      topicProgress,
-      chapterProgress,
-      overallProgress: topicProgress // Use topic progress as overall
-    };
-  }, [chapters, taughtTopics, taughtChapters]);
+  const [topicDialog, setTopicDialog] = useState({ open: false, editing: null, chapterId: null });
+  const [topicForm, setTopicForm] = useState({ title: '', description: '', ref_code: '' });
+  const [topicErrors, setTopicErrors] = useState({});
 
-  // Bootstrap
+  const [copyDialog, setCopyDialog] = useState(false);
+  const [copyForm, setCopyForm] = useState({ sourceSubjectId: '', sourceClassInstanceId: '' });
+  const [copyErrors, setCopyErrors] = useState({});
+
+  const [importDialog, setImportDialog] = useState({ open: false, data: [] });
+  const [createDialog, setCreateDialog] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, title: '', body: '', onConfirm: null });
+
   useEffect(() => {
+    if (!school_code) { setLoading(false); return; }
     (async () => {
       try {
-        setLoading(true);
-        
-        if (!user) {
-          throw new Error('Not signed in');
-        }
-
-        if (!school_code) {
-          throw new Error('School information not found. Please ensure you are properly logged in.');
-        }
-
-        // Set me object with extracted data
-        setMe({
-          id: user.id,
-          role: role,
-          school_code: school_code
-        });
-
-        const [{ data: subs, error: subErr }, { data: cis, error: ciErr }] = await Promise.all([
-          supabase
-            .from('subjects')
-            .select('id, subject_name')
-            .eq('school_code', school_code)
-            .order('subject_name', { ascending: true }),
-          supabase
-            .from('class_instances')
+        const [{ data: subs }, { data: cis }] = await Promise.all([
+          supabase.from('subjects').select('id, subject_name').eq('school_code', school_code).order('subject_name'),
+          supabase.from('class_instances')
             .select('id, grade, section, academic_years(year_start, year_end)')
-            .eq('school_code', school_code)
-            .order('grade', { ascending: true })
-            .order('section', { ascending: true }),
+            .eq('school_code', school_code).order('grade').order('section'),
         ]);
-        if (subErr) throw subErr;
-        if (ciErr) throw ciErr;
-
         setSubjects(subs || []);
         setClassInstances(cis || []);
-      } catch (e) {
-        showError(e, {
-          useNotification: true,
-          context: {
-            resource: 'syllabus data',
-            item: 'initialization'
-          }
-        });
+      } catch {
+        setError('Failed to load subjects and classes.');
       } finally {
         setLoading(false);
       }
     })();
-  }, [user, school_code, role]);
+  }, [school_code]);
 
-  // Reset syllabus when subject/class changes (but don't auto-load)
   useEffect(() => {
-    if (!school_code || !subjectId || !classInstanceId) {
-      setSyllabus(null); 
-      setChapters([]); 
-      setExpandedChapters(new Set());
-      return;
-    }
-    // Reset syllabus when subject/class changes - user must click "Load Syllabus" to load new one
     setSyllabus(null);
     setChapters([]);
     setExpandedChapters(new Set());
-  }, [subjectId, classInstanceId, school_code]);
+    setTaughtTopics(new Set());
+    setTaughtChapterIds(new Set());
+    setError(null);
+  }, [subjectId, classInstanceId]);
 
-  const loadSyllabusTree = async () => {
+  const subjectOptions = useMemo(
+    () => subjects.map(s => ({ label: s.subject_name, value: s.id })).sort(byText('label')),
+    [subjects]
+  );
+
+  const classOptions = useMemo(
+    () => classInstances.map(c => {
+      const yr = c.academic_years ? `${c.academic_years.year_start}-${c.academic_years.year_end}` : '';
+      return {
+        label: `Grade ${c.grade ?? ''}${c.section ? `-${c.section}` : ''}${yr ? ` (${yr})` : ''}`,
+        value: c.id,
+      };
+    }).sort(byText('label')),
+    [classInstances]
+  );
+
+  const subjectName = useMemo(
+    () => subjects.find(s => s.id === subjectId)?.subject_name || '',
+    [subjects, subjectId]
+  );
+
+  const selectedClassName = useMemo(
+    () => classOptions.find(o => o.value === classInstanceId)?.label || '',
+    [classOptions, classInstanceId]
+  );
+
+  const loadChapters = async (syllabusId) => {
+    const { data, error: e } = await supabase
+      .from('syllabus_chapters')
+      .select('id, chapter_no, title, description, ref_code, syllabus_topics(id, topic_no, title, description, ref_code)')
+      .eq('syllabus_id', syllabusId)
+      .order('chapter_no');
+    if (e) throw e;
+    return (data || []).map(ch => ({
+      ...ch,
+      syllabus_topics: (ch.syllabus_topics || []).sort((a, b) => a.topic_no - b.topic_no),
+    }));
+  };
+
+  const loadProgress = async (loadedChapters) => {
+    if (!loadedChapters.length) return;
+    const chapterIds = new Set(loadedChapters.map(c => c.id));
+    const topicIds = new Set(loadedChapters.flatMap(c => (c.syllabus_topics || []).map(t => t.id)));
+    const { data } = await supabase
+      .from('syllabus_progress')
+      .select('syllabus_chapter_id, syllabus_topic_id')
+      .eq('school_code', school_code)
+      .eq('class_instance_id', classInstanceId)
+      .eq('subject_id', subjectId);
+    const tch = new Set();
+    const ttp = new Set();
+    (data || []).forEach(r => {
+      if (r.syllabus_chapter_id && chapterIds.has(r.syllabus_chapter_id)) tch.add(r.syllabus_chapter_id);
+      if (r.syllabus_topic_id && topicIds.has(r.syllabus_topic_id)) ttp.add(r.syllabus_topic_id);
+    });
+    setTaughtChapterIds(tch);
+    setTaughtTopics(ttp);
+  };
+
+  const handleLoadClick = async () => {
+    if (!subjectId || !classInstanceId) return;
+    setBusy(true);
+    setError(null);
     try {
-      setBusy(true); 
-      setError(null);
-      
-      // Validate required parameters
-      if (!subjectId || !classInstanceId) {
-        throw new Error('Please select both subject and class before loading syllabus');
-      }
-      
-      // First check if syllabus exists
-      const { data: syl, error: se } = await supabase
+      const { data: syl, error: e } = await supabase
         .from('syllabi')
         .select('id, subject_id, class_instance_id')
         .eq('school_code', school_code)
         .eq('subject_id', subjectId)
         .eq('class_instance_id', classInstanceId)
         .maybeSingle();
-      
-      if (se) throw se;
-      
+      if (e) throw e;
       if (!syl) {
-        // Syllabus doesn't exist - show confirmation dialog
-        const subjectName = getSelectedSubjectName();
-        const className = getSelectedClassName();
-        
-        return new Promise((resolve) => {
-          Modal.confirm({
-            title: 'Syllabus Not Found',
-            content: (
-              <div>
-                <p>No syllabus exists for <strong>{subjectName}</strong> in <strong>{className}</strong>.</p>
-                <p>Would you like to create a new syllabus structure for this subject and class?</p>
-              </div>
-            ),
-            okText: 'Create Syllabus',
-            cancelText: 'Cancel',
-            onOk: async () => {
-              try {
-                // Create syllabus after user confirmation
-                const { data: newSyl, error: createErr } = await supabase
-                  .from('syllabi')
-                  .insert({
-                    school_code: school_code,
-                    subject_id: subjectId,
-                    class_instance_id: classInstanceId,
-                    created_by: user.id
-                  })
-                  .select('id, subject_id, class_instance_id')
-                  .single();
-                
-                if (createErr) {
-                  if (createErr.code === '23505') {
-                    // Race condition - reload
-                    const { data: existing } = await supabase
-                      .from('syllabi')
-                      .select('id, subject_id, class_instance_id')
-                      .eq('school_code', school_code)
-                      .eq('subject_id', subjectId)
-                      .eq('class_instance_id', classInstanceId)
-                      .single();
-                    setSyllabus(existing);
-                  } else throw createErr;
-                } else {
-                  setSyllabus(newSyl);
-                  notification.success({
-                    message: 'Syllabus Created',
-                    description: 'New syllabus structure created for this subject and class.',
-                    placement: 'topRight'
-                  });
-                }
-                
-                // Continue with loading chapters
-                await loadChaptersForSyllabus(newSyl?.id);
-                // Update last loaded timestamp
-                setLastLoadedTime(new Date());
-                resolve();
-              } catch (error) {
-                showError(error, {
-                  useNotification: true,
-                  context: {
-                    item: 'syllabus',
-                    resource: 'syllabus structure'
-                  }
-                });
-                setBusy(false);
-                resolve();
-              }
-            },
-            onCancel: () => {
-              setBusy(false);
-              resolve();
-            }
-          });
-        });
-      } else {
-        setSyllabus(syl);
-        // Load chapters for existing syllabus
-        await loadChaptersForSyllabus(syl.id);
-        // Load taught progress for this class/subject
-        await loadTaughtProgress();
-        // Update last loaded timestamp
-        setLastLoadedTime(new Date());
-        // Show success message
-        message.success({
-          content: 'Syllabus loaded successfully',
-          duration: 2
-        });
+        setCreateDialog(true);
+        return;
       }
+      setSyllabus(syl);
+      const chaps = await loadChapters(syl.id);
+      setChapters(chaps);
+      await loadProgress(chaps);
+      setLastLoaded(new Date());
     } catch (e) {
-      showError(e, {
-        useNotification: true,
-        context: {
-          item: 'syllabus',
-          resource: 'syllabus data'
-        }
-      });
+      setError(e?.message || 'Failed to load syllabus.');
     } finally {
       setBusy(false);
     }
   };
 
-  // Helper function to load chapters for a given syllabus ID
-  const loadChaptersForSyllabus = async (syllabusId) => {
+  const handleCreateSyllabus = async () => {
+    setBusy(true);
+    setError(null);
     try {
-      if (!syllabusId) {
-        throw new Error('Unable to determine syllabus ID');
+      let syl;
+      const { data: newSyl, error: ce } = await supabase
+        .from('syllabi')
+        .insert({ school_code, subject_id: subjectId, class_instance_id: classInstanceId, created_by: user.id })
+        .select('id, subject_id, class_instance_id')
+        .single();
+      if (ce) {
+        if (ce.code === '23505') {
+          const { data: ex } = await supabase
+            .from('syllabi').select('id, subject_id, class_instance_id')
+            .eq('school_code', school_code).eq('subject_id', subjectId).eq('class_instance_id', classInstanceId)
+            .single();
+          syl = ex;
+        } else throw ce;
+      } else {
+        syl = newSyl;
       }
-      
-      const { data: chaps, error: chErr } = await supabase
-        .from('syllabus_chapters')
-        .select(`
-          id, chapter_no, title, description, ref_code,
-          syllabus_topics(id, topic_no, title, description, ref_code)
-        `)
-        .eq('syllabus_id', syllabusId)
-        .order('chapter_no', { ascending: true });
-      
-      if (chErr) throw chErr;
-      
-      // Sort topics within each chapter
-      const sortedChapters = (chaps || []).map(chapter => ({
-        ...chapter,
-        syllabus_topics: (chapter.syllabus_topics || []).sort((a, b) => a.topic_no - b.topic_no)
-      }));
-      
-      setChapters(sortedChapters);
-      
-      // Keep chapters collapsed by default - users can expand as needed
+      setSyllabus(syl);
+      setChapters([]);
+      setLastLoaded(new Date());
+      setCreateDialog(false);
     } catch (e) {
-      showError(e, {
-        context: {
-          item: 'chapters',
-          resource: 'syllabus chapters'
-        }
-      });
-    }
-  };
-
-  // Load taught progress for selected class/subject
-  const loadTaughtProgress = async () => {
-    try {
-      if (!school_code || !classInstanceId || !subjectId || !syllabus?.id) return;
-      setProgressLoading(true);
-      
-      // Get all current chapter and topic IDs from the loaded syllabus
-      const currentChapterIds = new Set(chapters.map(ch => ch.id));
-      const currentTopicIds = new Set();
-      chapters.forEach(ch => {
-        if (ch.syllabus_topics) {
-          ch.syllabus_topics.forEach(topic => currentTopicIds.add(topic.id));
-        }
-      });
-      
-      // Only load progress for topics/chapters that exist in the current syllabus
-      if (currentChapterIds.size === 0 && currentTopicIds.size === 0) {
-        // No chapters/topics in current syllabus, so no progress to show
-        setTaughtChapters(new Set());
-        setTaughtTopics(new Set());
-        return;
-      }
-      
-      const { data, error } = await supabase
-        .from('syllabus_progress')
-        .select('syllabus_chapter_id, syllabus_topic_id')
-        .eq('school_code', school_code)
-        .eq('class_instance_id', classInstanceId)
-        .eq('subject_id', subjectId);
-      if (error) throw error;
-      
-      const tch = new Set();
-      const ttp = new Set();
-      (data || []).forEach(r => {
-        // Only count progress for chapters that exist in current syllabus
-        if (r.syllabus_chapter_id && currentChapterIds.has(r.syllabus_chapter_id)) {
-          tch.add(r.syllabus_chapter_id);
-        }
-        // Only count progress for topics that exist in current syllabus
-        if (r.syllabus_topic_id && currentTopicIds.has(r.syllabus_topic_id)) {
-          ttp.add(r.syllabus_topic_id);
-        }
-      });
-      setTaughtChapters(tch);
-      setTaughtTopics(ttp);
-    } catch (e) {
-      // non-blocking
-      setTaughtChapters(new Set());
-      setTaughtTopics(new Set());
+      setError(e?.message || 'Failed to create syllabus.');
     } finally {
-      setProgressLoading(false);
+      setBusy(false);
     }
   };
 
-  const subjectOptions = useMemo(
-    () => subjects.map(s => ({ label: s.subject_name, value: s.id })).sort(byText('label')),
-    [subjects]
-  );
-  
-  const classInstanceOptions = useMemo(
-    () => classInstances.map(c => {
-      const year = c.academic_years ? `${c.academic_years.year_start}-${c.academic_years.year_end}` : '';
-      return { 
-        label: `Grade ${c.grade ?? ''}${c.section ? '-' + c.section : ''}${year ? ` (${year})` : ''}`, 
-        value: c.id 
-      };
-    }).sort(byText('label')),
-    [classInstances]
-  );
-
-  // Validation helpers
-  const validateChapterTitle = (title, excludeId = null) => {
-    const existing = chapters.find(ch => 
-      ch.title.toLowerCase() === title.toLowerCase() && ch.id !== excludeId
-    );
-    return existing ? 'Chapter title already exists' : null;
-  };
-
-  const validateTopicTitle = (title, chapterId, excludeId = null) => {
-    const chapter = chapters.find(ch => ch.id === chapterId);
-    if (!chapter) return null;
-    
-    const existing = chapter.syllabus_topics?.find(topic => 
-      topic.title.toLowerCase() === title.toLowerCase() && topic.id !== excludeId
-    );
-    return existing ? 'Topic title already exists in this chapter' : null;
-  };
-
-  // Chapter CRUD
-  const openChapterModal = (chapter = null) => {
-    setChapterModal({ visible: true, editing: chapter });
-    if (chapter) {
-      chapterForm.setFieldsValue({
-        title: chapter.title,
-        description: chapter.description,
-        ref_code: chapter.ref_code
-      });
-    } else {
-      chapterForm.resetFields();
+  const reload = async () => {
+    if (!syllabus) return;
+    setBusy(true);
+    try {
+      const chaps = await loadChapters(syllabus.id);
+      setChapters(chaps);
+      await loadProgress(chaps);
+      setLastLoaded(new Date());
+    } catch (e) {
+      setError(e?.message || 'Failed to reload.');
+    } finally {
+      setBusy(false);
     }
+  };
+
+  const openChapterDialog = (ch = null) => {
+    setChapterDialog({ open: true, editing: ch });
+    setChapterForm({ title: ch?.title || '', description: ch?.description || '', ref_code: ch?.ref_code || '' });
+    setChapterErrors({});
   };
 
   const saveChapter = async () => {
-    try {
-      const values = await chapterForm.validateFields();
-      
-      // Validate unique title
-      const titleError = validateChapterTitle(values.title, chapterModal.editing?.id);
-      if (titleError) {
-        chapterForm.setFields([{ name: 'title', errors: [titleError] }]);
-        return;
-      }
-      
-      if (chapterModal.editing) {
-        // Update existing chapter
-        const { error } = await supabase
-          .from('syllabus_chapters')
-          .update({
-            title: values.title,
-            description: values.description || null,
-            ref_code: values.ref_code || null
-          })
-          .eq('id', chapterModal.editing.id);
-        
-        if (error) throw error;
-        
-        notification.success({
-          message: 'Chapter Updated',
-          description: `"${values.title}" has been updated successfully.`,
-          placement: 'topRight'
-        });
-      } else {
-        // Create new chapter
-        const nextChapterNo = Math.max(0, ...chapters.map(c => c.chapter_no)) + 1;
-        const { data, error } = await supabase
-          .from('syllabus_chapters')
-          .insert({
-            syllabus_id: syllabus.id,
-            chapter_no: nextChapterNo,
-            title: values.title,
-            description: values.description || null,
-            ref_code: values.ref_code || null,
-            created_by: user.id
-          })
-          .select('id, chapter_no, title, description, ref_code, syllabus_topics(*)')
-          .single();
-        
-        if (error) throw error;
-        
-        notification.success({
-          message: 'Chapter Created',
-          description: `"${values.title}" has been added to your syllabus.`,
-          placement: 'topRight'
-        });
-      }
-      
-      setChapterModal({ visible: false, editing: null });
-      chapterForm.resetFields();
-      loadSyllabusTree();
-    } catch (e) {
-      notification.error({
-        message: 'Error',
-        description: e?.message || 'Failed to save chapter',
-        placement: 'topRight'
-      });
+    if (busy) return;
+    const errs = {};
+    if (!chapterForm.title.trim()) errs.title = 'Title is required';
+    else if (chapterForm.title.length > 200) errs.title = 'Max 200 characters';
+    else {
+      const dup = chapters.find(c =>
+        c.title.toLowerCase() === chapterForm.title.trim().toLowerCase() &&
+        c.id !== chapterDialog.editing?.id
+      );
+      if (dup) errs.title = 'Chapter title already exists';
     }
-  };
+    if (Object.keys(errs).length) { setChapterErrors(errs); return; }
 
-  const deleteChapter = async (chapterId, chapterTitle) => {
-    try {
-      const { error } = await supabase
-        .from('syllabus_chapters')
-        .delete()
-        .eq('id', chapterId);
-      
-      if (error) throw error;
-      
-      notification.success({
-        message: 'Chapter Deleted',
-        description: `"${chapterTitle}" and all its topics have been removed.`,
-        placement: 'topRight'
-      });
-      
-      loadSyllabusTree();
-    } catch (e) {
-      notification.error({
-        message: 'Error',
-        description: e?.message || 'Failed to delete chapter',
-        placement: 'topRight'
-      });
-    }
-  };
-
-  // Topic CRUD
-  const openTopicModal = (chapterId, topic = null) => {
-    setTopicModal({ visible: true, editing: topic, chapterId });
-    if (topic) {
-      topicForm.setFieldsValue({
-        title: topic.title,
-        description: topic.description,
-        ref_code: topic.ref_code
-      });
+    if (chapterDialog.editing) {
+      const { error: e } = await supabase.from('syllabus_chapters').update({
+        title: chapterForm.title.trim(),
+        description: chapterForm.description.trim() || null,
+        ref_code: chapterForm.ref_code.trim() || null,
+      }).eq('id', chapterDialog.editing.id);
+      if (e) throw e;
     } else {
-      topicForm.resetFields();
+      const nextNo = Math.max(0, ...chapters.map(c => c.chapter_no)) + 1;
+      const { error: e } = await supabase.from('syllabus_chapters').insert({
+        syllabus_id: syllabus.id,
+        chapter_no: nextNo,
+        title: chapterForm.title.trim(),
+        description: chapterForm.description.trim() || null,
+        ref_code: chapterForm.ref_code.trim() || null,
+        created_by: user.id,
+      });
+      if (e) throw e;
     }
+    setChapterDialog({ open: false, editing: null });
+    await reload();
+  };
+
+  const confirmDeleteChapter = (ch) => {
+    setDeleteConfirm({
+      open: true,
+      title: 'Delete chapter',
+      body: `"${ch.title}" and all its topics will be permanently deleted. This cannot be undone.`,
+      onConfirm: async () => {
+        const { error: e } = await supabase.from('syllabus_chapters').delete().eq('id', ch.id);
+        if (e) throw e;
+        await reload();
+      },
+    });
+  };
+
+  const openTopicDialog = (chapterId, topic = null) => {
+    setTopicDialog({ open: true, editing: topic, chapterId });
+    setTopicForm({ title: topic?.title || '', description: topic?.description || '', ref_code: topic?.ref_code || '' });
+    setTopicErrors({});
   };
 
   const saveTopic = async () => {
-    try {
-      const values = await topicForm.validateFields();
-      
-      // Validate unique title
-      const titleError = validateTopicTitle(values.title, topicModal.chapterId, topicModal.editing?.id);
-      if (titleError) {
-        topicForm.setFields([{ name: 'title', errors: [titleError] }]);
-        return;
-      }
-      
-      if (topicModal.editing) {
-        // Update existing topic
-        const { error } = await supabase
-          .from('syllabus_topics')
-          .update({
-            title: values.title,
-            description: values.description || null,
-            ref_code: values.ref_code || null
-          })
-          .eq('id', topicModal.editing.id);
-        
-        if (error) throw error;
-        
-        notification.success({
-          message: 'Topic Updated',
-          description: `"${values.title}" has been updated successfully.`,
-          placement: 'topRight'
-        });
-      } else {
-        // Create new topic
-        const chapter = chapters.find(c => c.id === topicModal.chapterId);
-        const nextTopicNo = Math.max(0, ...(chapter?.syllabus_topics || []).map(t => t.topic_no)) + 1;
-        const { error } = await supabase
-          .from('syllabus_topics')
-          .insert({
-            chapter_id: topicModal.chapterId,
-            topic_no: nextTopicNo,
-            title: values.title,
-            description: values.description || null,
-            ref_code: values.ref_code || null,
-            created_by: user.id
-          });
-        
-        if (error) throw error;
-        
-        notification.success({
-          message: 'Topic Created',
-          description: `"${values.title}" has been added to the chapter.`,
-          placement: 'topRight'
-        });
-      }
-      
-      setTopicModal({ visible: false, editing: null, chapterId: null });
-      topicForm.resetFields();
-      loadSyllabusTree();
-    } catch (e) {
-      notification.error({
-        message: 'Error',
-        description: e?.message || 'Failed to save topic',
-        placement: 'topRight'
-      });
+    if (busy) return;
+    const errs = {};
+    if (!topicForm.title.trim()) errs.title = 'Title is required';
+    else if (topicForm.title.length > 200) errs.title = 'Max 200 characters';
+    else {
+      const ch = chapters.find(c => c.id === topicDialog.chapterId);
+      const dup = ch?.syllabus_topics?.find(t =>
+        t.title.toLowerCase() === topicForm.title.trim().toLowerCase() &&
+        t.id !== topicDialog.editing?.id
+      );
+      if (dup) errs.title = 'Topic title already exists in this chapter';
     }
-  };
+    if (Object.keys(errs).length) { setTopicErrors(errs); return; }
 
-  const deleteTopic = async (topicId, topicTitle) => {
-    try {
-      const { error } = await supabase
-        .from('syllabus_topics')
-        .delete()
-        .eq('id', topicId);
-      
-      if (error) throw error;
-      
-      notification.success({
-        message: 'Topic Deleted',
-        description: `"${topicTitle}" has been removed.`,
-        placement: 'topRight'
-      });
-      
-      loadSyllabusTree();
-    } catch (e) {
-      notification.error({
-        message: 'Error',
-        description: e?.message || 'Failed to delete topic',
-        placement: 'topRight'
-      });
-    }
-  };
-
-  const toggleChapterExpansion = (chapterId) => {
-    const newExpanded = new Set(expandedChapters);
-    if (newExpanded.has(chapterId)) {
-      newExpanded.delete(chapterId);
+    if (topicDialog.editing) {
+      const { error: e } = await supabase.from('syllabus_topics').update({
+        title: topicForm.title.trim(),
+        description: topicForm.description.trim() || null,
+        ref_code: topicForm.ref_code.trim() || null,
+      }).eq('id', topicDialog.editing.id);
+      if (e) throw e;
     } else {
-      newExpanded.add(chapterId);
-    }
-    setExpandedChapters(newExpanded);
-  };
-
-  // Download template
-  const downloadTemplate = () => {
-    const templateData = [
-      {
-        'Chapter Number': 1,
-        'Chapter Title': 'Introduction to Algebra',
-        'Chapter Description': 'Basic concepts of algebra including variables, expressions, and equations',
-        'Chapter Ref Code': 'CH01',
-        'Topic Number': 1,
-        'Topic Title': 'Variables and Expressions',
-        'Topic Description': 'Understanding variables, constants, and algebraic expressions',
-        'Topic Ref Code': 'T1.1'
-      },
-      {
-        'Chapter Number': 1,
-        'Chapter Title': 'Introduction to Algebra',
-        'Chapter Description': 'Basic concepts of algebra including variables, expressions, and equations',
-        'Chapter Ref Code': 'CH01',
-        'Topic Number': 2,
-        'Topic Title': 'Order of Operations',
-        'Topic Description': 'PEMDAS rules and evaluating expressions',
-        'Topic Ref Code': 'T1.2'
-      },
-      {
-        'Chapter Number': 2,
-        'Chapter Title': 'Linear Equations',
-        'Chapter Description': 'Solving linear equations in one and two variables',
-        'Chapter Ref Code': 'CH02',
-        'Topic Number': 1,
-        'Topic Title': 'One-Variable Linear Equations',
-        'Topic Description': 'Solving equations with one variable',
-        'Topic Ref Code': 'T2.1'
-      },
-      {
-        'Chapter Number': 2,
-        'Chapter Title': 'Linear Equations',
-        'Chapter Description': 'Solving linear equations in one and two variables',
-        'Chapter Ref Code': 'CH02',
-        'Topic Number': 2,
-        'Topic Title': 'Two-Variable Linear Equations',
-        'Topic Description': 'Systems of linear equations',
-        'Topic Ref Code': 'T2.2'
-      }
-    ];
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Syllabus Template');
-
-    XLSX.writeFile(wb, 'Syllabus_Import_Template.xlsx');
-
-    notification.success({
-      message: 'Template Downloaded',
-      description: 'Syllabus import template downloaded successfully.',
-      placement: 'topRight'
-    });
-  };
-
-  // Export functionality
-  const exportSyllabus = () => {
-    if (!syllabus || chapters.length === 0) {
-      notification.warning({
-        message: 'No Data to Export',
-        description: 'Please create some chapters and topics before exporting.',
-        placement: 'topRight'
+      const ch = chapters.find(c => c.id === topicDialog.chapterId);
+      const nextNo = Math.max(0, ...(ch?.syllabus_topics || []).map(t => t.topic_no)) + 1;
+      const { error: e } = await supabase.from('syllabus_topics').insert({
+        chapter_id: topicDialog.chapterId,
+        topic_no: nextNo,
+        title: topicForm.title.trim(),
+        description: topicForm.description.trim() || null,
+        ref_code: topicForm.ref_code.trim() || null,
+        created_by: user.id,
       });
-      return;
+      if (e) throw e;
     }
+    setTopicDialog({ open: false, editing: null, chapterId: null });
+    await reload();
+  };
 
-    const exportData = [];
-    
-    chapters.forEach(chapter => {
-      if (chapter.syllabus_topics && chapter.syllabus_topics.length > 0) {
-        chapter.syllabus_topics.forEach(topic => {
-          exportData.push({
-            'Chapter Number': chapter.chapter_no,
-            'Chapter Title': chapter.title,
-            'Chapter Description': chapter.description || '',
-            'Chapter Ref Code': chapter.ref_code || '',
-            'Topic Number': topic.topic_no,
-            'Topic Title': topic.title,
-            'Topic Description': topic.description || '',
-            'Topic Ref Code': topic.ref_code || ''
-          });
-        });
-      } else {
-        // Chapter without topics
-        exportData.push({
-          'Chapter Number': chapter.chapter_no,
-          'Chapter Title': chapter.title,
-          'Chapter Description': chapter.description || '',
-          'Chapter Ref Code': chapter.ref_code || '',
-          'Topic Number': '',
-          'Topic Title': '',
-          'Topic Description': '',
-          'Topic Ref Code': ''
-        });
-      }
-    });
-
-    // Create workbook and worksheet
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Syllabus');
-
-    // Generate filename
-    const subjectName = getSelectedSubjectName().replace(/[^a-zA-Z0-9]/g, '_');
-    const className = getSelectedClassName().replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `Syllabus_${subjectName}_${className}_${new Date().toISOString().split('T')[0]}.xlsx`;
-
-    // Download file
-    XLSX.writeFile(wb, filename);
-
-    notification.success({
-      message: 'Export Successful',
-      description: `Syllabus exported as ${filename}`,
-      placement: 'topRight'
+  const confirmDeleteTopic = (topic) => {
+    setDeleteConfirm({
+      open: true,
+      title: 'Delete topic',
+      body: `"${topic.title}" will be permanently deleted. This cannot be undone.`,
+      onConfirm: async () => {
+        const { error: e } = await supabase.from('syllabus_topics').delete().eq('id', topic.id);
+        if (e) throw e;
+        await reload();
+      },
     });
   };
 
-  // Import functionality
-  const handleFileUpload = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+  const toggleChapter = (id) => {
+    setExpandedChapters(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
-        // Validate and parse the data
-        const parsedData = parseImportData(jsonData);
-        setImportModal({ visible: true, data: parsedData, loading: false });
-      } catch (error) {
-        notification.error({
-          message: 'Import Error',
-          description: 'Failed to parse the file. Please check the format.',
-          placement: 'topRight'
+  const exportSyllabus = () => {
+    if (!chapters.length) return;
+    const rows = [];
+    chapters.forEach(ch => {
+      if (ch.syllabus_topics?.length) {
+        ch.syllabus_topics.forEach(t => rows.push({
+          'Chapter Number': ch.chapter_no, 'Chapter Title': ch.title,
+          'Chapter Description': ch.description || '', 'Chapter Ref Code': ch.ref_code || '',
+          'Topic Number': t.topic_no, 'Topic Title': t.title,
+          'Topic Description': t.description || '', 'Topic Ref Code': t.ref_code || '',
+        }));
+      } else {
+        rows.push({
+          'Chapter Number': ch.chapter_no, 'Chapter Title': ch.title,
+          'Chapter Description': ch.description || '', 'Chapter Ref Code': ch.ref_code || '',
+          'Topic Number': '', 'Topic Title': '', 'Topic Description': '', 'Topic Ref Code': '',
         });
+      }
+    });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Syllabus');
+    const name = `Syllabus_${subjectName.replace(/[^a-zA-Z0-9]/g, '_')}_${selectedClassName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, name);
+  };
+
+  const downloadTemplate = () => {
+    const rows = [
+      { 'Chapter Number': 1, 'Chapter Title': 'Introduction to Algebra', 'Chapter Description': 'Basic concepts', 'Chapter Ref Code': 'CH01', 'Topic Number': 1, 'Topic Title': 'Variables and Expressions', 'Topic Description': '', 'Topic Ref Code': 'T1.1' },
+      { 'Chapter Number': 1, 'Chapter Title': 'Introduction to Algebra', 'Chapter Description': 'Basic concepts', 'Chapter Ref Code': 'CH01', 'Topic Number': 2, 'Topic Title': 'Order of Operations', 'Topic Description': '', 'Topic Ref Code': 'T1.2' },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Syllabus Template');
+    XLSX.writeFile(wb, 'Syllabus_Import_Template.xlsx');
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(ws);
+        const chapMap = new Map();
+        json.forEach((row, i) => {
+          if (!row['Chapter Number'] || !row['Chapter Title']) throw new Error(`Row ${i + 2}: Chapter Number and Title required`);
+          const key = `${row['Chapter Number']}-${row['Chapter Title']}`;
+          if (!chapMap.has(key)) chapMap.set(key, { chapter_no: parseInt(row['Chapter Number']), title: row['Chapter Title'], description: row['Chapter Description'] || '', ref_code: row['Chapter Ref Code'] || '', topics: [] });
+          if (row['Topic Number'] && row['Topic Title']) {
+            chapMap.get(key).topics.push({ topic_no: parseInt(row['Topic Number']), title: row['Topic Title'], description: row['Topic Description'] || '', ref_code: row['Topic Ref Code'] || '' });
+          }
+        });
+        setImportDialog({ open: true, data: Array.from(chapMap.values()).sort((a, b) => a.chapter_no - b.chapter_no) });
+      } catch (err) {
+        setError(err?.message || 'Failed to parse file. Please check the format.');
       }
     };
     reader.readAsArrayBuffer(file);
-    return false; // Prevent default upload
-  };
-
-  const parseImportData = (jsonData) => {
-    const chaptersMap = new Map();
-    
-    jsonData.forEach((row, index) => {
-      // Validate required fields
-      if (!row['Chapter Number'] || !row['Chapter Title']) {
-        throw new Error(`Row ${index + 2}: Chapter Number and Chapter Title are required`);
-      }
-
-      const chapterKey = `${row['Chapter Number']}-${row['Chapter Title']}`;
-      
-      if (!chaptersMap.has(chapterKey)) {
-        chaptersMap.set(chapterKey, {
-          chapter_no: parseInt(row['Chapter Number']),
-          title: row['Chapter Title'],
-          description: row['Chapter Description'] || '',
-          ref_code: row['Chapter Ref Code'] || '',
-          topics: []
-        });
-      }
-
-      // Add topic if it exists
-      if (row['Topic Number'] && row['Topic Title']) {
-        chaptersMap.get(chapterKey).topics.push({
-          topic_no: parseInt(row['Topic Number']),
-          title: row['Topic Title'],
-          description: row['Topic Description'] || '',
-          ref_code: row['Topic Ref Code'] || ''
-        });
-      }
-    });
-
-    return Array.from(chaptersMap.values()).sort((a, b) => a.chapter_no - b.chapter_no);
   };
 
   const importSyllabus = async () => {
-    if (!syllabus || importModal.data.length === 0) return;
-
-    try {
-      setImportModal(prev => ({ ...prev, loading: true }));
-
-      // Delete existing chapters (cascade will delete topics)
-      await supabase
+    if (!syllabus || !importDialog.data.length) return;
+    await supabase.from('syllabus_chapters').delete().eq('syllabus_id', syllabus.id);
+    for (const ch of importDialog.data) {
+      const { data: newCh, error: ce } = await supabase
         .from('syllabus_chapters')
-        .delete()
-        .eq('syllabus_id', syllabus.id);
-
-      // Import new chapters and topics
-      for (const chapterData of importModal.data) {
-        // Create chapter
-        const { data: newChapter, error: chapterError } = await supabase
-          .from('syllabus_chapters')
-          .insert({
-            syllabus_id: syllabus.id,
-            chapter_no: chapterData.chapter_no,
-            title: chapterData.title,
-            description: chapterData.description || null,
-            ref_code: chapterData.ref_code || null,
-            created_by: user.id
-          })
-          .select('id')
-          .single();
-
-        if (chapterError) throw chapterError;
-
-        // Create topics for this chapter
-        if (chapterData.topics && chapterData.topics.length > 0) {
-          const topicsData = chapterData.topics.map(topic => ({
-            chapter_id: newChapter.id,
-            topic_no: topic.topic_no,
-            title: topic.title,
-            description: topic.description || null,
-            ref_code: topic.ref_code || null,
-            created_by: user.id
-          }));
-
-          const { error: topicsError } = await supabase
-            .from('syllabus_topics')
-            .insert(topicsData);
-
-          if (topicsError) throw topicsError;
-        }
+        .insert({ syllabus_id: syllabus.id, chapter_no: ch.chapter_no, title: ch.title, description: ch.description || null, ref_code: ch.ref_code || null, created_by: user.id })
+        .select('id').single();
+      if (ce) throw ce;
+      if (ch.topics?.length) {
+        const { error: te } = await supabase.from('syllabus_topics').insert(
+          ch.topics.map(t => ({ chapter_id: newCh.id, topic_no: t.topic_no, title: t.title, description: t.description || null, ref_code: t.ref_code || null, created_by: user.id }))
+        );
+        if (te) throw te;
       }
-
-      setImportModal({ visible: false, data: [], loading: false });
-      
-      notification.success({
-        message: 'Import Successful',
-        description: `Imported ${importModal.data.length} chapters with topics.`,
-        placement: 'topRight'
-      });
-
-      loadSyllabusTree();
-    } catch (error) {
-      setImportModal(prev => ({ ...prev, loading: false }));
-      notification.error({
-        message: 'Import Error',
-        description: error?.message || 'Failed to import syllabus data',
-        placement: 'topRight'
-      });
     }
-  };
-
-  // Copy syllabus functionality
-  const openCopyModal = () => {
-    setCopyModal({ visible: true, loading: false });
-    copyForm.resetFields();
+    setImportDialog({ open: false, data: [] });
+    await reload();
   };
 
   const copySyllabus = async () => {
-    try {
-      const values = await copyForm.validateFields();
-      setCopyModal(prev => ({ ...prev, loading: true }));
+    const errs = {};
+    if (!copyForm.sourceSubjectId) errs.subject = 'Select a source subject';
+    if (!copyForm.sourceClassInstanceId) errs.class = 'Select a source class';
+    if (Object.keys(errs).length) { setCopyErrors(errs); return; }
 
-      // Get the source syllabus
-      const { data: sourceSyllabus, error: sourceError } = await supabase
-        .from('syllabi')
-        .select('id')
-        .eq('school_code', school_code)
-        .eq('subject_id', values.sourceSubjectId)
-        .eq('class_instance_id', values.sourceClassInstanceId)
-        .single();
+    const { data: src, error: se } = await supabase
+      .from('syllabi').select('id')
+      .eq('school_code', school_code).eq('subject_id', copyForm.sourceSubjectId)
+      .eq('class_instance_id', copyForm.sourceClassInstanceId).single();
+    if (se || !src) throw new Error('Source syllabus not found');
 
-      if (sourceError || !sourceSyllabus) {
-        throw new Error('Source syllabus not found');
-      }
+    const { data: srcChaps } = await supabase
+      .from('syllabus_chapters')
+      .select('chapter_no, title, description, ref_code, syllabus_topics(topic_no, title, description, ref_code)')
+      .eq('syllabus_id', src.id).order('chapter_no');
 
-      // Get source chapters and topics
-      const { data: sourceChapters, error: chaptersError } = await supabase
+    await supabase.from('syllabus_chapters').delete().eq('syllabus_id', syllabus.id);
+
+    for (const ch of srcChaps || []) {
+      const { data: newCh, error: ce } = await supabase
         .from('syllabus_chapters')
-        .select(`
-          chapter_no,
-          title,
-          description,
-          ref_code,
-          syllabus_topics (
-            topic_no,
-            title,
-            description,
-            ref_code
-          )
-        `)
-        .eq('syllabus_id', sourceSyllabus.id)
-        .order('chapter_no');
-
-      if (chaptersError) throw chaptersError;
-
-      // Delete existing chapters in target syllabus (cascade will delete topics)
-      await supabase
-        .from('syllabus_chapters')
-        .delete()
-        .eq('syllabus_id', syllabus.id);
-
-      // Copy chapters and topics
-      for (const chapter of sourceChapters || []) {
-        // Create chapter
-        const { data: newChapter, error: chapterError } = await supabase
-          .from('syllabus_chapters')
-          .insert({
-            syllabus_id: syllabus.id,
-            chapter_no: chapter.chapter_no,
-            title: chapter.title,
-            description: chapter.description,
-            ref_code: chapter.ref_code,
-            created_by: user.id
-          })
-          .select('id')
-          .single();
-
-        if (chapterError) throw chapterError;
-
-        // Copy topics
-        if (chapter.syllabus_topics && chapter.syllabus_topics.length > 0) {
-          const topicsData = chapter.syllabus_topics.map(topic => ({
-            chapter_id: newChapter.id,
-            topic_no: topic.topic_no,
-            title: topic.title,
-            description: topic.description,
-            ref_code: topic.ref_code,
-            created_by: user.id
-          }));
-
-          const { error: topicsError } = await supabase
-            .from('syllabus_topics')
-            .insert(topicsData);
-
-          if (topicsError) throw topicsError;
-        }
+        .insert({ syllabus_id: syllabus.id, chapter_no: ch.chapter_no, title: ch.title, description: ch.description, ref_code: ch.ref_code, created_by: user.id })
+        .select('id').single();
+      if (ce) throw ce;
+      if (ch.syllabus_topics?.length) {
+        const { error: te } = await supabase.from('syllabus_topics').insert(
+          ch.syllabus_topics.map(t => ({ chapter_id: newCh.id, topic_no: t.topic_no, title: t.title, description: t.description, ref_code: t.ref_code, created_by: user.id }))
+        );
+        if (te) throw te;
       }
-
-      setCopyModal({ visible: false, loading: false });
-      
-      notification.success({
-        message: 'Syllabus Copied Successfully',
-        description: `Copied ${sourceChapters?.length || 0} chapters with topics from the selected class.`,
-        placement: 'topRight'
-      });
-
-      loadSyllabusTree();
-    } catch (error) {
-      setCopyModal(prev => ({ ...prev, loading: false }));
-      notification.error({
-        message: 'Copy Failed',
-        description: error?.message || 'Failed to copy syllabus',
-        placement: 'topRight'
-      });
     }
+    setCopyDialog(false);
+    await reload();
   };
 
-  const getSelectedSubjectName = () => {
-    return subjects.find(s => s.id === subjectId)?.subject_name || '';
-  };
+  const stats = useMemo(() => {
+    const totalTopics = chapters.reduce((s, c) => s + (c.syllabus_topics?.length || 0), 0);
+    const taught = taughtTopics.size;
+    const topicPct = totalTopics > 0 ? Math.round((taught / totalTopics) * 100) : 0;
+    const chapterPct = chapters.length > 0 ? Math.round((taughtChapterIds.size / chapters.length) * 100) : 0;
+    return {
+      totalTopics, taught, remaining: totalTopics - taught,
+      totalChapters: chapters.length, taughtChapters: taughtChapterIds.size,
+      topicPct, chapterPct,
+    };
+  }, [chapters, taughtTopics, taughtChapterIds]);
 
-  const getSelectedClassName = () => {
-    const selected = classInstances.find(c => c.id === classInstanceId);
-    if (!selected) return '';
-    const year = selected.academic_years ? `${selected.academic_years.year_start}-${selected.academic_years.year_end}` : '';
-    return `Grade ${selected.grade ?? ''}${selected.section ? '-' + selected.section : ''}${year ? ` (${year})` : ''}`;
-  };
+  const subtitle = syllabus
+    ? `${subjectName} · ${selectedClassName}${lastLoaded ? ` · loaded ${lastLoaded.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}`
+    : 'Select a subject and class to manage curriculum';
+
+  if (loading) {
+    return (
+      <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">
+        <div className="h-8 w-48 rounded bg-[color:var(--bg-muted)] animate-pulse mb-6" />
+        <div className="h-[120px] rounded-[var(--radius-lg)] bg-[color:var(--bg-muted)] animate-pulse" />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ 
-      padding: '24px', 
-      minHeight: '100vh',
-      background: isDarkMode ? theme.token.colorBgLayout : '#f8fafc'
-    }}>
-      <div style={{ 
-        maxWidth: '1400px', 
-        margin: '0 auto',
-        width: '100%'
-      }}>
-        {ctx}
-      
-      {/* Main Content Card */}
-      <Card style={{ 
-        marginBottom: 24,
-        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
-      }}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {error && (
-            <Alert 
-              type="error" 
-              showIcon 
-              message="Error" 
-              description={error} 
-              action={
-                <Button size="small" onClick={loadSyllabusTree}>
-                  Retry
-                </Button>
-              }
-            />
-          )}
-
-          {/* Subject and Class Selectors */}
-          <div>
-            <div style={{ marginBottom: 20 }}>
-              <Title level={4} style={{ 
-                margin: 0,
-                marginBottom: 6,
-                fontSize: '18px',
-                fontWeight: 600,
-                lineHeight: '1.3',
-                color: theme.token.colorText
-              }}>
-                📚 Select Syllabus Context
-              </Title>
-              <Text type="secondary" style={{ 
-                fontSize: '13px',
-                lineHeight: '1.5',
-                display: 'block'
-              }}>
-                Choose subject and class to view or manage syllabus structure
-              </Text>
-            </div>
-            
-            <Row gutter={16}>
-              <Col xs={24} sm={12}>
-                <div>
-                  <Text strong style={{ 
-                    display: 'block', 
-                    marginBottom: 8,
-                    fontSize: '14px'
-                  }}>Subject</Text>
-                  <Select 
-                    style={{ width: '100%' }} 
-                    showSearch 
-                    placeholder="Choose a subject"
-                    value={subjectId} 
-                    onChange={setSubjectId}
-                    options={subjectOptions} 
-                    optionFilterProp="label"
-                    size="large"
-                  />
-                </div>
-              </Col>
-              <Col xs={24} sm={12}>
-                <div>
-                  <Text strong style={{ 
-                    display: 'block', 
-                    marginBottom: 8,
-                    fontSize: '14px'
-                  }}>Class</Text>
-                  <Select 
-                    style={{ width: '100%' }} 
-                    showSearch 
-                    placeholder="Choose a class"
-                    value={classInstanceId} 
-                    onChange={setClassInstanceId}
-                    options={classInstanceOptions} 
-                    optionFilterProp="label"
-                    size="large"
-                  />
-                </div>
-              </Col>
-            </Row>
-
-            {/* Load Syllabus Button */}
-            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
-              <Button 
-                type={syllabus ? 'default' : 'primary'}
-                size="large"
-                disabled={!subjectId || !classInstanceId}
-                onClick={loadSyllabusTree}
-                loading={busy}
-                style={{ 
-                  fontWeight: 500
-                }}
-              >
-                {syllabus ? '↻ Reload Syllabus' : 'Load Syllabus'}
+    <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">
+      <PageHeader
+        title="Syllabus"
+        subtitle={subtitle}
+        actions={
+          syllabus && (
+            <>
+              <Button variant="outline" size="sm" onClick={exportSyllabus} disabled={!chapters.length}>
+                <Download size={14} /> Export
               </Button>
-            </div>
-
-            {/* Context Display */}
-            {syllabus && (
-              <div style={{ 
-                marginTop: 16, 
-                padding: 12, 
-                background: '#f6ffed', 
-                border: '1px solid #b7eb8f', 
-                borderRadius: 6 
-              }}>
-                <Space>
-                  <EyeOutlined style={{ color: '#52c41a' }} />
-                  <Text strong style={{ color: '#389e0d' }}>
-                    Viewing syllabus for: {getSelectedSubjectName()} • {getSelectedClassName()}
-                  </Text>
-                </Space>
-              </div>
-            )}
-          </div>
-        </Space>
-      </Card>
-
-      {/* Syllabus Content */}
-      {busy && <Skeleton active paragraph={{ rows: 6 }} />}
-
-      {syllabus && (
-        <Card style={{
-          boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
-        }}>
-          {/* Progress Overview Cards */}
-          {chapters.length > 0 && (
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-              <Col xs={24} sm={12} md={6}>
-                <Card 
-                  size="small" 
-                  hoverable
-                  style={{ 
-                    background: theme.token.colorPrimaryBg,
-                    border: `1px solid ${theme.token.colorPrimaryBorder}`,
-                    cursor: 'default',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  <Statistic
-                    title={
-                      <Space size={4}>
-                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Overall Progress</span>
-                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
-                      </Space>
-                    }
-                    value={progressStats.overallProgress}
-                    suffix="%"
-                    prefix={<TrophyOutlined />}
-                    valueStyle={{ 
-                      fontSize: '28px', 
-                      color: theme.token.colorPrimary,
-                      fontWeight: 600
-                    }}
-                  />
-                  <Progress
-                    percent={progressStats.overallProgress}
-                    strokeColor={theme.token.colorPrimary}
-                    showInfo={false}
-                    size="small"
-                    style={{ marginTop: 8 }}
-                  />
-                </Card>
-              </Col>
-
-              <Col xs={24} sm={12} md={6}>
-                <Card 
-                  size="small"
-                  hoverable
-                  style={{ 
-                    background: theme.token.colorSuccessBg,
-                    border: `1px solid ${theme.token.colorSuccessBorder}`,
-                    cursor: 'default',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  <Statistic
-                    title={
-                      <Space size={4}>
-                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Topics Completed</span>
-                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
-                      </Space>
-                    }
-                    value={progressStats.taughtTopicsCount}
-                    suffix={`/ ${progressStats.totalTopics}`}
-                    prefix={<CheckCircleOutlined />}
-                    valueStyle={{ 
-                      fontSize: '24px', 
-                      color: theme.token.colorSuccess,
-                      fontWeight: 600
-                    }}
-                  />
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {progressStats.topicProgress}% complete
-                  </Text>
-                </Card>
-              </Col>
-
-              <Col xs={24} sm={12} md={6}>
-                <Card 
-                  size="small"
-                  hoverable
-                  style={{ 
-                    background: theme.token.colorInfoBg,
-                    border: `1px solid ${theme.token.colorInfoBorder}`,
-                    cursor: 'default',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  <Statistic
-                    title={
-                      <Space size={4}>
-                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Chapters Started</span>
-                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
-                      </Space>
-                    }
-                    value={progressStats.taughtChaptersCount}
-                    suffix={`/ ${progressStats.totalChapters}`}
-                    prefix={<BookOutlined />}
-                    valueStyle={{ 
-                      fontSize: '24px', 
-                      color: theme.token.colorInfo,
-                      fontWeight: 600
-                    }}
-                  />
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {progressStats.chapterProgress}% of chapters
-                  </Text>
-                </Card>
-              </Col>
-
-              <Col xs={24} sm={12} md={6}>
-                <Card 
-                  size="small"
-                  hoverable
-                  style={{ 
-                    background: theme.token.colorWarningBg,
-                    border: `1px solid ${theme.token.colorWarningBorder}`,
-                    cursor: 'default',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  <Statistic
-                    title={
-                      <Space size={4}>
-                        <span style={{ fontSize: '13px', fontWeight: 500 }}>Remaining Topics</span>
-                        <QuestionCircleOutlined style={{ fontSize: '12px', color: theme.token.colorTextSecondary }} />
-                      </Space>
-                    }
-                    value={progressStats.untaughtTopicsCount}
-                    prefix={<ClockCircleOutlined />}
-                    valueStyle={{ 
-                      fontSize: '24px', 
-                      color: theme.token.colorWarning,
-                      fontWeight: 600
-                    }}
-                  />
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    Still to be covered
-                  </Text>
-                </Card>
-              </Col>
-            </Row>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <div>
-              <Title level={4} style={{ 
-                margin: 0,
-                fontSize: '22px',
-                fontWeight: 600,
-                lineHeight: '1.3',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                color: theme.token.colorText
-              }}>
-                <BookOutlined style={{ fontSize: '20px' }} />
-                Chapters & Topics
-              </Title>
-              <Text type="secondary" style={{
-                fontSize: '13px',
-                lineHeight: '1.5',
-                display: 'block',
-                marginTop: '6px'
-              }}>
-                {chapters.length} chapter{chapters.length !== 1 ? 's' : ''} • {' '}
-                {progressStats.totalTopics} topics • {' '}
-                <Text strong style={{ fontSize: '13px', color: theme.token.colorSuccess }}>
-                  {progressStats.taughtTopicsCount} taught
-                </Text>
-                {lastLoadedTime && (
-                  <Text type="secondary" style={{ fontSize: '12px', marginLeft: 8 }}>
-                    • <ClockCircleOutlined style={{ marginRight: 4 }} />
-                    Last loaded: {lastLoadedTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                )}
-              </Text>
-            </div>
-            {canEdit && (
-              <Space wrap size="middle">
-                {/* Primary action */}
-                <Button 
-                  type="primary" 
-                  icon={<PlusOutlined />} 
-                  onClick={() => openChapterModal()}
-                  size="large"
-                  style={{ 
-                    fontWeight: 500,
-                    boxShadow: '0 2px 0 rgba(5, 145, 255, 0.1)'
-                  }}
-                >
-                  Add Chapter
-                </Button>
-
-                {/* Secondary action */}
-                <Button 
-                  icon={<CopyOutlined />}
-                  onClick={openCopyModal}
-                  type="default"
-                  style={{ fontWeight: 500 }}
-                >
-                  Copy from Class
-                </Button>
-                
-                {/* Utility actions - ghost style */}
-                <Space size="small">
-                  <Tooltip title="Export syllabus to Excel">
-                    <Button 
-                      icon={<DownloadOutlined />} 
-                      onClick={exportSyllabus}
-                      type="text"
-                      style={{ color: theme.token.colorTextSecondary }}
-                    >
-                      Export
-                    </Button>
-                  </Tooltip>
-                  <Upload
-                    accept=".xlsx,.xls,.csv"
-                    beforeUpload={handleFileUpload}
-                    showUploadList={false}
-                  >
-                    <Tooltip title="Import syllabus from Excel">
-                      <Button 
-                        icon={<UploadOutlined />} 
-                        type="text"
-                        style={{ color: theme.token.colorTextSecondary }}
-                      >
-                        Import
-                      </Button>
-                    </Tooltip>
-                  </Upload>
-                  <Tooltip title="Download import template">
-                    <Button 
-                      icon={<FileExcelOutlined />} 
-                      onClick={downloadTemplate}
-                      type="text"
-                      style={{ color: theme.token.colorTextSecondary }}
-                    >
-                      Template
-                    </Button>
-                  </Tooltip>
-                </Space>
-              </Space>
-            )}
-          </div>
-
-          {chapters.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <EmptyState
-                type="syllabus"
-                onAction={() => openChapterModal()}
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Upload size={14} /> Import
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                <FileSpreadsheet size={14} /> Template
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleFileChange}
               />
-            </div>
-          ) : (
-            <Collapse 
-              activeKey={Array.from(expandedChapters)}
-              onChange={(keys) => setExpandedChapters(new Set(keys))}
-              style={{ background: 'white' }}
-            >
-                {chapters.map((chapter) => {
-                // Calculate chapter-level progress
-                const chapterTopics = chapter.syllabus_topics || [];
-                const chapterTaughtTopics = chapterTopics.filter(t => taughtTopics.has(t.id)).length;
-                const chapterProgress = chapterTopics.length > 0 
-                  ? Math.round((chapterTaughtTopics / chapterTopics.length) * 100) 
-                  : 0;
+            </>
+          )
+        }
+      />
 
-                return (
-                <Panel
-                  key={chapter.id}
-                  style={{
-                    marginBottom: 32,
-                    background: 'white',
-                    borderRadius: 8,
-                    border: expandedChapters.has(chapter.id) 
-                      ? `1px solid ${theme.token.colorPrimary}` 
-                      : '1px solid #e8e8e8',
-                    overflow: 'hidden',
-                    transition: 'all 0.3s ease'
-                  }}
-                  header={
-                    <div style={{ width: '100%' }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 24,
-                        flexWrap: 'wrap',
-                        minHeight: '44px'
-                      }}>
-                        {/* Left side: Chapter info */}
-                        <Space align="center" size="large" style={{ flex: 1, minWidth: 0 }}>
-                          <Tag color="blue" style={{ margin: 0, fontSize: '13px', fontWeight: 500, padding: '4px 10px' }}>
-                            Ch {chapter.chapter_no}
-                          </Tag>
-                          <Title level={5} style={{ 
-                            margin: 0, 
-                            fontWeight: 600,
-                            fontSize: '17px',
-                            lineHeight: '1.4',
-                            wordBreak: 'break-word',
-                            color: theme.token.colorText,
-                            cursor: 'pointer',
-                            transition: 'color 0.3s'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = theme.token.colorPrimary}
-                          onMouseLeave={(e) => e.currentTarget.style.color = theme.token.colorText}
-                          >
-                            {chapter.title}
-                          </Title>
-                          {chapter.ref_code && (
-                            <Tag color="geekblue" style={{ fontSize: '11px', padding: '2px 8px' }}>
-                              {chapter.ref_code}
-                            </Tag>
-                          )}
-                        </Space>
-                        
-                        {/* Right side: Progress indicator */}
-                        <Space align="center" size="large">
-                          {chapterTopics.length > 0 && (
-                            <>
-                              <div style={{ 
-                                minWidth: '140px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: 16 
-                              }}>
-                                <Progress
-                                  type="circle"
-                                  percent={chapterProgress}
-                                  strokeColor={
-                                    chapterProgress === 100 ? theme.token.colorSuccess : 
-                                    chapterProgress >= 50 ? theme.token.colorPrimary : 
-                                    theme.token.colorWarning
-                                  }
-                                  size={40}
-                                  format={() => `${chapterProgress}%`}
-                                  strokeWidth={7}
-                                />
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                  <Tag 
-                                    color={
-                                      chapterProgress === 100 ? 'success' : 
-                                      chapterProgress >= 50 ? 'processing' : 
-                                      'default'
-                                    } 
-                                    style={{ 
-                                      margin: 0, 
-                                      fontSize: '11px',
-                                      fontWeight: 500,
-                                      padding: '2px 8px'
-                                    }}
-                                  >
-                                    {chapterProgress === 100 ? 'Complete' : 
-                                     chapterProgress > 0 ? 'In Progress' : 
-                                     'Not Started'}
-                                  </Tag>
-                                  <Text type="secondary" style={{ fontSize: '11px', lineHeight: 1.2 }}>
-                                    {chapterTaughtTopics}/{chapterTopics.length} topics
-                                  </Text>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </Space>
-                      </div>
-                    </div>
-                  }
-                  extra={
-                    canEdit && (
-                      <Space onClick={(e) => e.stopPropagation()} size="large">
-                        <Button
-                          type="primary"
-                          icon={<PlusOutlined />}
-                          onClick={() => openTopicModal(chapter.id)}
-                        >
-                          Add Topic
-                        </Button>
-                        <Dropdown
-                          menu={{
-                            items: [
-                              {
-                                key: 'edit',
-                                label: 'Edit Chapter',
-                                icon: <EditOutlined />,
-                                onClick: () => openChapterModal(chapter)
-                              },
-                              {
-                                type: 'divider'
-                              },
-                              {
-                                key: 'delete',
-                                label: 'Delete Chapter',
-                                icon: <DeleteOutlined />,
-                                danger: true,
-                                onClick: () => {
-                                  Modal.confirm({
-                                    title: 'Delete this chapter and all its topics?',
-                                    content: 'This action cannot be undone. All topics in this chapter will also be deleted.',
-                                    okText: 'Delete',
-                                    okType: 'danger',
-                                    cancelText: 'Cancel',
-                                    onOk: () => deleteChapter(chapter.id, chapter.title)
-                                  });
-                                }
-                              }
-                            ]
-                          }}
-                          trigger={['click']}
-                        >
-                          <Button
-                            icon={<MoreOutlined />}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </Dropdown>
-                      </Space>
-                    )
-                  }
-                >
-                  {chapter.description && (
-                    <div style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 6 }}>
-                      <Text type="secondary">{chapter.description}</Text>
-                    </div>
-                  )}
-                  
-                  {chapter.syllabus_topics?.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-                      {chapter.syllabus_topics.map(topic => (
-                        <div 
-                          key={topic.id}
-                          style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center',
-                            padding: '14px 18px',
-                            background: taughtTopics.has(topic.id) ? '#f6ffed' : 'white',
-                            borderRadius: 6,
-                            border: taughtTopics.has(topic.id) ? '1px solid #b7eb8f' : '1px solid #f0f0f0',
-                            transition: 'all 0.3s ease'
-                          }}
-                        >
-                          
-                          <div style={{ flex: 1 }}>
-                            <Space align="baseline" size="middle">
-                              <Tag 
-                                color={taughtTopics.has(topic.id) ? 'success' : 'default'} 
-                                style={{ margin: 0, fontSize: '11px', fontWeight: 500, padding: '2px 8px' }}
-                              >
-                                {topic.topic_no}
-                              </Tag>
-                              <Text strong style={{ 
-                                fontSize: '14px',
-                                color: theme.token.colorText
-                              }}>
-                                {topic.title}
-                              </Text>
-                              {taughtTopics.has(topic.id) && (
-                                <CheckCircleOutlined style={{ 
-                                  color: theme.token.colorSuccess, 
-                                  fontSize: '15px' 
-                                }} />
-                              )}
-                              {topic.ref_code && (
-                                <Tag color="geekblue" style={{ fontSize: '11px', padding: '2px 8px' }}>
-                                  {topic.ref_code}
-                                </Tag>
-                              )}
-                            </Space>
-                            {topic.description && (
-                              <div style={{ marginTop: 8, marginLeft: 40 }}>
-                                <Text type="secondary" style={{ fontSize: '12px' }}>
-                                  {topic.description}
-                                </Text>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {canEdit && (
-                            <Dropdown
-                              menu={{
-                                items: [
-                                  {
-                                    key: 'edit',
-                                    label: 'Edit Topic',
-                                    icon: <EditOutlined />,
-                                    onClick: () => openTopicModal(chapter.id, topic)
-                                  },
-                                  {
-                                    type: 'divider'
-                                  },
-                                  {
-                                    key: 'delete',
-                                    label: 'Delete Topic',
-                                    icon: <DeleteOutlined />,
-                                    danger: true,
-                                    onClick: () => {
-                                      Modal.confirm({
-                                        title: 'Delete this topic?',
-                                        content: 'This action cannot be undone.',
-                                        okText: 'Delete',
-                                        okType: 'danger',
-                                        cancelText: 'Cancel',
-                                        onOk: () => deleteTopic(topic.id, topic.title)
-                                      });
-                                    }
-                                  }
-                                ]
-                              }}
-                              trigger={['click']}
-                            >
-                              <Button
-                                size="small"
-                                type="text"
-                                icon={<MoreOutlined />}
-                                style={{ 
-                                  color: theme.token.colorTextSecondary,
-                                  transition: 'all 0.3s'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = theme.token.colorBgTextHover;
-                                  e.currentTarget.style.color = theme.token.colorText;
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = 'transparent';
-                                  e.currentTarget.style.color = theme.token.colorTextSecondary;
-                                }}
-                              />
-                            </Dropdown>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      padding: '20px',
-                      background: '#fafafa',
-                      borderRadius: 6
-                    }}>
-                      <FileTextOutlined style={{ color: '#d9d9d9', marginBottom: 8 }} />
-                      <div>
-                        <Text type="secondary">No topics yet</Text>
-                        {canEdit && (
-                          <div style={{ marginTop: 8 }}>
-                            <Button
-                              size="small"
-                              type="dashed"
-                              icon={<PlusOutlined />}
-                              onClick={() => openTopicModal(chapter.id)}
-                            >
-                              Add First Topic
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </Panel>
-                );
-              })}
-            </Collapse>
-          )}
-        </Card>
+      {error && (
+        <div className="flex items-center gap-3 mb-5 px-4 py-3 rounded-[8px] border text-[13px]"
+          style={{ background: 'var(--danger-soft)', borderColor: 'oklch(0.58 0.20 25 / 0.3)', color: 'var(--danger)' }}>
+          <AlertCircle size={14} className="shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError(null)} className="text-[color:var(--fg-muted)] hover:text-[color:var(--fg)] transition-colors">×</button>
+        </div>
       )}
 
-      {/* Chapter Modal */}
-      <Modal
-        title={
-          <Space>
-            <BookOutlined />
-            {chapterModal.editing ? 'Edit Chapter' : 'Add Chapter'}
-          </Space>
-        }
-        open={chapterModal.visible}
-        onCancel={() => {
-          setChapterModal({ visible: false, editing: null });
-          chapterForm.resetFields();
-        }}
-        onOk={saveChapter}
-        okText="Save Chapter"
-        width={600}
-      >
-        <Form form={chapterForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item
-            name="title"
-            label="Chapter Title"
-            rules={[
-              { required: true, message: 'Please enter chapter title' },
-              { max: 200, message: 'Title must be less than 200 characters' }
-            ]}
-          >
-            <Input 
-              placeholder="e.g., Introduction to Algebra" 
-              maxLength={200}
-              size="large"
-            />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="Description (optional)"
-          >
-            <TextArea 
-              placeholder="Brief description of the chapter content"
-              rows={3}
-            />
-          </Form.Item>
-          <Form.Item
-            name="ref_code"
-            label="Reference Code (optional)"
-          >
-            <Input placeholder="e.g., CH01, TEXT-1.1" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Topic Modal */}
-      <Modal
-        title={
-          <Space>
-            <FileTextOutlined />
-            {topicModal.editing ? 'Edit Topic' : 'Add Topic'}
-          </Space>
-        }
-        open={topicModal.visible}
-        onCancel={() => {
-          setTopicModal({ visible: false, editing: null, chapterId: null });
-          topicForm.resetFields();
-        }}
-        onOk={saveTopic}
-        okText="Save Topic"
-        width={600}
-      >
-        <Form form={topicForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item
-            name="title"
-            label="Topic Title"
-            rules={[
-              { required: true, message: 'Please enter topic title' },
-              { max: 200, message: 'Title must be less than 200 characters' }
-            ]}
-          >
-            <Input 
-              placeholder="e.g., Linear Equations" 
-              maxLength={200}
-              size="large"
-            />
-          </Form.Item>
-          <Form.Item
-            name="description"
-            label="Description (optional)"
-          >
-            <TextArea 
-              placeholder="Brief description of the topic content"
-              rows={3}
-            />
-          </Form.Item>
-          <Form.Item
-            name="ref_code"
-            label="Reference Code (optional)"
-          >
-            <Input placeholder="e.g., T01, EX-1.1" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Import Preview Modal */}
-      <Modal
-        title={
-          <Space>
-            <FileExcelOutlined />
-            Import Syllabus Preview
-          </Space>
-        }
-        open={importModal.visible}
-        onCancel={() => setImportModal({ visible: false, data: [], loading: false })}
-        onOk={importSyllabus}
-        okText="Import Syllabus"
-        cancelText="Cancel"
-        width={800}
-        confirmLoading={importModal.loading}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <Alert
-            message="Import Preview"
-            description="Review the data below before importing. This will replace all existing chapters and topics."
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-          
-          <Text strong>
-            Found {importModal.data.length} chapters with{' '}
-            {importModal.data.reduce((total, ch) => total + (ch.topics?.length || 0), 0)} topics
-          </Text>
+      <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div className="flex flex-col gap-1">
+          <span className="text-[11.5px] font-medium text-[color:var(--fg-muted)]">Subject</span>
+          <Select value={subjectId || ''} onValueChange={setSubjectId}>
+            <SelectTrigger size="sm" className="w-[200px]">
+              <SelectValue placeholder="Choose subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {subjectOptions.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-          {importModal.data.map((chapter, index) => (
-            <Card key={index} size="small" style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <Tag color="blue">Chapter {chapter.chapter_no}</Tag>
-                <Text strong>{chapter.title}</Text>
-                {chapter.ref_code && <Tag color="geekblue">{chapter.ref_code}</Tag>}
-              </div>
-              
-              {chapter.description && (
-                <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                  {chapter.description}
-                </Text>
-              )}
+        <div className="flex flex-col gap-1">
+          <span className="text-[11.5px] font-medium text-[color:var(--fg-muted)]">Class</span>
+          <Select value={classInstanceId || ''} onValueChange={setClassInstanceId}>
+            <SelectTrigger size="sm" className="w-[220px]">
+              <SelectValue placeholder="Choose class" />
+            </SelectTrigger>
+            <SelectContent>
+              {classOptions.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-              {chapter.topics && chapter.topics.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    Topics ({chapter.topics.length}):
-                  </Text>
-                  <div style={{ marginTop: 4 }}>
-                    {chapter.topics.map((topic, topicIndex) => (
-                      <div key={topicIndex} style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 8, 
-                        marginBottom: 4,
-                        padding: '4px 8px',
-                        background: '#fafafa',
-                        borderRadius: 4
-                      }}>
-                        <Tag color="green" style={{ margin: 0 }}>
-                          Topic {topic.topic_no}
-                        </Tag>
-                        <Text style={{ fontSize: '12px' }}>{topic.title}</Text>
-                        {topic.ref_code && <Tag color="lime" style={{ margin: 0 }}>{topic.ref_code}</Tag>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
+        <Button
+          size="sm"
+          variant={syllabus ? 'outline' : 'default'}
+          disabled={!subjectId || !classInstanceId || busy}
+          onClick={handleLoadClick}
+          className="self-end"
+        >
+          {busy ? (
+            <RefreshCw size={13} className="animate-spin" />
+          ) : syllabus ? (
+            <><RefreshCw size={13} /> Reload</>
+          ) : (
+            'Load syllabus'
+          )}
+        </Button>
+
+        {syllabus && (
+          <div className="flex items-center gap-1.5 self-end px-3 py-1.5 rounded-md text-[12.5px] font-medium"
+            style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}>
+            <Eye size={12} />
+            {subjectName} · {selectedClassName}
+          </div>
+        )}
+      </div>
+
+      {syllabus && chapters.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+          {[
+            { label: 'Overall progress', value: `${stats.topicPct}%`, sub: `${stats.taught} of ${stats.totalTopics} topics`, icon: Trophy, color: '--brand' },
+            { label: 'Topics completed', value: `${stats.taught}/${stats.totalTopics}`, sub: `${stats.topicPct}% of curriculum`, icon: CheckCircle, color: '--success' },
+            { label: 'Chapters started', value: `${stats.taughtChapters}/${stats.totalChapters}`, sub: `${stats.chapterPct}% of chapters`, icon: BookOpen, color: '--brand' },
+            { label: 'Topics remaining', value: `${stats.remaining}`, sub: 'still to be covered', icon: Clock, color: '--warning' },
+          ].map(({ label, value, sub, icon: Icon, color }) => (
+            <div key={label}
+              className="rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--bg-elev)] px-4 py-3.5">
+              <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-[color:var(--fg-muted)] mb-2">
+                <Icon size={12} style={{ color: `var(${color})` }} />
+                {label}
+              </div>
+              <div className="text-[24px] font-semibold tracking-[-0.02em] tabular-nums text-[color:var(--fg)]">{value}</div>
+              <div className="text-[11.5px] text-[color:var(--fg-muted)] mt-0.5">{sub}</div>
+            </div>
           ))}
         </div>
-      </Modal>
+      )}
 
-      {/* Copy Syllabus Modal */}
-      <Modal
-        title={
-          <Space>
-            <CopyOutlined />
-            Copy Syllabus from Existing Class
-          </Space>
-        }
-        open={copyModal.visible}
-        onCancel={() => setCopyModal({ visible: false, loading: false })}
-        onOk={copySyllabus}
-        okText="Copy Syllabus"
-        cancelText="Cancel"
-        confirmLoading={copyModal.loading}
-        width={600}
+      {syllabus && (
+        busy && !chapters.length ? (
+          <Card>
+            <div className="p-10 text-center text-[13px] text-[color:var(--fg-subtle)]">Loading…</div>
+          </Card>
+        ) : (
+          <Card
+            padded={false}
+            title="Chapters & Topics"
+            sub={chapters.length > 0
+              ? `${chapters.length} chapter${chapters.length !== 1 ? 's' : ''} · ${stats.totalTopics} topics · ${stats.taught} taught`
+              : undefined}
+            actions={
+              canEdit && (
+                <div className="flex items-center gap-2">
+                  {syllabus && (
+                    <Button variant="outline" size="sm" onClick={() => { setCopyDialog(true); setCopyForm({ sourceSubjectId: '', sourceClassInstanceId: '' }); setCopyErrors({}); }}>
+                      <Copy size={13} /> Copy from class
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={() => openChapterDialog()}>
+                    <Plus size={13} /> Add chapter
+                  </Button>
+                </div>
+              )
+            }
+          >
+            {chapters.length === 0 ? (
+              <div className="py-2">
+                <EmptyState
+                  type="syllabus"
+                  action={canEdit && (
+                    <Button size="sm" className="mt-3" onClick={() => openChapterDialog()}>
+                      <Plus size={13} /> Add first chapter
+                    </Button>
+                  )}
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-[color:var(--border)]">
+                {chapters.map(ch => (
+                  <ChapterRow
+                    key={ch.id}
+                    chapter={ch}
+                    expanded={expandedChapters.has(ch.id)}
+                    onToggle={toggleChapter}
+                    taughtTopics={taughtTopics}
+                    canEdit={canEdit}
+                    onAddTopic={openTopicDialog}
+                    onEditChapter={openChapterDialog}
+                    onDeleteChapter={confirmDeleteChapter}
+                    onDeleteTopic={confirmDeleteTopic}
+                  />
+                ))}
+              </div>
+            )}
+          </Card>
+        )
+      )}
+
+      <FormDialog
+        open={createDialog}
+        onClose={() => setCreateDialog(false)}
+        title="Create syllabus"
+        onSubmit={handleCreateSyllabus}
+        submitLabel="Create syllabus"
+        submitting={busy}
+        width={460}
       >
-        <div style={{ marginBottom: 16 }}>
-          <Alert
-            message="Copy Syllabus Structure"
-            description="Select a subject and class to copy the complete syllabus structure (chapters and topics) to the current syllabus. This will replace all existing content."
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
+        <p className="text-[13.5px] text-[color:var(--fg-subtle)]">
+          No syllabus exists for <strong className="text-[color:var(--fg)]">{subjectName}</strong> in{' '}
+          <strong className="text-[color:var(--fg)]">{selectedClassName}</strong>. Create a new one to start adding chapters and topics.
+        </p>
+      </FormDialog>
+
+      <FormDialog
+        open={chapterDialog.open}
+        onClose={() => setChapterDialog({ open: false, editing: null })}
+        title={chapterDialog.editing ? 'Edit chapter' : 'Add chapter'}
+        onSubmit={saveChapter}
+        submitLabel={chapterDialog.editing ? 'Save changes' : 'Add chapter'}
+        submitting={busy}
+        width={520}
+      >
+        <Field label="Chapter title" required error={chapterErrors.title}>
+          <Input
+            placeholder="e.g. Introduction to Algebra"
+            maxLength={200}
+            value={chapterForm.title}
+            onChange={e => setChapterForm(f => ({ ...f, title: e.target.value }))}
           />
+        </Field>
+        <Field label="Description" hint="Optional">
+          <Textarea
+            placeholder="Brief description of the chapter content"
+            value={chapterForm.description}
+            onChange={e => setChapterForm(f => ({ ...f, description: e.target.value }))}
+            rows={3}
+          />
+        </Field>
+        <Field label="Reference code" hint="Optional — e.g. CH01, TEXT-1.1">
+          <Input
+            placeholder="CH01"
+            value={chapterForm.ref_code}
+            onChange={e => setChapterForm(f => ({ ...f, ref_code: e.target.value }))}
+          />
+        </Field>
+      </FormDialog>
+
+      <FormDialog
+        open={topicDialog.open}
+        onClose={() => setTopicDialog({ open: false, editing: null, chapterId: null })}
+        title={topicDialog.editing ? 'Edit topic' : 'Add topic'}
+        onSubmit={saveTopic}
+        submitLabel={topicDialog.editing ? 'Save changes' : 'Add topic'}
+        submitting={busy}
+        width={520}
+      >
+        <Field label="Topic title" required error={topicErrors.title}>
+          <Input
+            placeholder="e.g. Linear Equations"
+            maxLength={200}
+            value={topicForm.title}
+            onChange={e => setTopicForm(f => ({ ...f, title: e.target.value }))}
+          />
+        </Field>
+        <Field label="Description" hint="Optional">
+          <Textarea
+            placeholder="Brief description of the topic content"
+            value={topicForm.description}
+            onChange={e => setTopicForm(f => ({ ...f, description: e.target.value }))}
+            rows={3}
+          />
+        </Field>
+        <Field label="Reference code" hint="Optional — e.g. T01, EX-1.1">
+          <Input
+            placeholder="T01"
+            value={topicForm.ref_code}
+            onChange={e => setTopicForm(f => ({ ...f, ref_code: e.target.value }))}
+          />
+        </Field>
+      </FormDialog>
+
+      <FormDialog
+        open={importDialog.open}
+        onClose={() => setImportDialog({ open: false, data: [] })}
+        title="Import syllabus"
+        description={`${importDialog.data.length} chapter${importDialog.data.length !== 1 ? 's' : ''} · ${importDialog.data.reduce((s, c) => s + (c.topics?.length || 0), 0)} topics — this will replace all existing content`}
+        onSubmit={importSyllabus}
+        submitLabel="Import"
+        width={640}
+      >
+        <div
+          className="rounded-[8px] border border-[color:var(--border)] overflow-y-auto flex flex-col gap-px"
+          style={{ maxHeight: 340, background: 'var(--bg-subtle)' }}
+        >
+          {importDialog.data.map((ch, i) => (
+            <div key={i} className="bg-[color:var(--bg-elev)] px-4 py-3 border-b border-[color:var(--border)] last:border-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}>
+                  Ch {ch.chapter_no}
+                </span>
+                <span className="text-[13px] font-semibold text-[color:var(--fg)]">{ch.title}</span>
+                {ch.ref_code && <span className="text-[11px] font-mono text-[color:var(--fg-muted)]">{ch.ref_code}</span>}
+              </div>
+              {ch.topics?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pl-2">
+                  {ch.topics.map((t, j) => (
+                    <span key={j} className="text-[11.5px] px-2 py-0.5 rounded-md" style={{ background: 'var(--success-soft)', color: 'oklch(0.42 0.10 150)' }}>
+                      {t.topic_no}. {t.title}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
+      </FormDialog>
 
-        <Form form={copyForm} layout="vertical">
-          <Form.Item
-            name="sourceSubjectId"
-            label="Source Subject"
-            rules={[{ required: true, message: 'Please select a subject' }]}
-          >
-            <Select 
-              placeholder="Choose source subject"
-              options={subjectOptions}
-              optionFilterProp="label"
-              showSearch
-            />
-          </Form.Item>
+      <FormDialog
+        open={copyDialog}
+        onClose={() => setCopyDialog(false)}
+        title="Copy syllabus from class"
+        description="Copies all chapters and topics from the selected class. Existing content will be replaced."
+        onSubmit={copySyllabus}
+        submitLabel="Copy syllabus"
+        width={520}
+      >
+        <Field label="Source subject" required error={copyErrors.subject}>
+          <Select value={copyForm.sourceSubjectId || ''} onValueChange={v => setCopyForm(f => ({ ...f, sourceSubjectId: v }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Choose source subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {subjectOptions.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Source class" required error={copyErrors.class}>
+          <Select value={copyForm.sourceClassInstanceId || ''} onValueChange={v => setCopyForm(f => ({ ...f, sourceClassInstanceId: v }))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Choose source class" />
+            </SelectTrigger>
+            <SelectContent>
+              {classOptions.map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <p className="text-[12.5px] text-[color:var(--fg-muted)] px-3 py-2.5 rounded-[6px] bg-[color:var(--warning-soft)]">
+          This will permanently replace all current chapters and topics in this syllabus.
+        </p>
+      </FormDialog>
 
-          <Form.Item
-            name="sourceClassInstanceId"
-            label="Source Class"
-            rules={[{ required: true, message: 'Please select a class' }]}
-          >
-            <Select 
-              placeholder="Choose source class"
-              options={classInstanceOptions}
-              optionFilterProp="label"
-              showSearch
-            />
-          </Form.Item>
-        </Form>
-
-        <div style={{ 
-          marginTop: 16, 
-          padding: 12, 
-          background: '#fff7e6', 
-          border: '1px solid #ffd591', 
-          borderRadius: 6 
-        }}>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            <InfoCircleOutlined style={{ marginRight: 4 }} />
-            This will copy all chapters and topics from the selected class and replace the current syllabus content.
-          </Text>
-        </div>
-      </Modal>
-      </div>
+      <FormDialog
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm(d => ({ ...d, open: false }))}
+        title={deleteConfirm.title}
+        onSubmit={async () => {
+          await deleteConfirm.onConfirm();
+          setDeleteConfirm(d => ({ ...d, open: false }));
+        }}
+        submitLabel="Delete"
+        destructive
+        width={440}
+      >
+        <p className="text-[13.5px] text-[color:var(--fg-subtle)]">{deleteConfirm.body}</p>
+      </FormDialog>
     </div>
   );
 }

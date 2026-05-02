@@ -2,11 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Row, Col, Typography, Space, Tag } from 'antd';
 import {
-  CheckCircleOutlined, DollarOutlined, FileDoneOutlined, BookOutlined,
+  CheckCircleOutlined, MoneyCollectOutlined, FileDoneOutlined, BookOutlined,
   ExperimentOutlined, TeamOutlined, ArrowRightOutlined,
 } from '@ant-design/icons';
-import { useAcademicYear } from '../context/AcademicYearContext';
-import { HeroStat } from '../components/primitives';
 
 const { Text } = Typography;
 
@@ -23,7 +21,7 @@ const FEATURES = [
   {
     key: 'fees',
     to: '/analytics/fees',
-    icon: <DollarOutlined />,
+    icon: <MoneyCollectOutlined />,
     title: 'Fees',
     desc: 'Collection rate over time, aging buckets, top defaulters, category mix.',
     accent: '#f59e0b',
@@ -68,34 +66,8 @@ const FEATURES = [
 ];
 
 export default function AnalyticsHub() {
-  const { selectedYear, formatYearLabel } = useAcademicYear();
-  const ayLabel = selectedYear ? formatYearLabel(selectedYear) : '—';
-
   return (
     <Space direction="vertical" size={20} style={{ width: '100%' }}>
-      {/* Hero strip */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={14}>
-          <HeroStat
-            gradient="brand"
-            eyebrow={`Academic Year · ${ayLabel}`}
-            value={6}
-            suffix=" reports"
-            label="Pick a feature below — every chart is scoped to the AY at the top."
-            height={160}
-          />
-        </Col>
-        <Col xs={24} md={10}>
-          <HeroStat
-            gradient="midnight"
-            eyebrow="Tip"
-            value="↻"
-            label="Switch the AY at top to compare years. Toggle Compare to overlay two AYs side-by-side."
-            height={160}
-          />
-        </Col>
-      </Row>
-
       {/* Features */}
       <div>
         <Text style={{

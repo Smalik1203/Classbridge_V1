@@ -333,7 +333,7 @@ export default function AttendanceAnalytics() {
                     <StatTile
                       label="Present (student-days)"
                       value={fmt(kpis?.presentDays ?? 0)}
-                      accent="#8B5CF6"
+                      accent="#3B82F6"
                     />
                   </Col>
                 </Row>

@@ -291,7 +291,7 @@ const ResetPassword = () => {
               borderRadius: '12px',
               fontSize: '16px',
               fontWeight: '600',
-              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+              background: 'linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)',
               border: 'none',
               boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.3)',
               transition: 'all 0.2s ease',
