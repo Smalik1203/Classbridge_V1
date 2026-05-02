@@ -1,538 +1,364 @@
-import React from 'react';
+// Sidebar — Stripe/Supabase-style productivity nav, built on shadcn `Sidebar`
+// primitives. Collapsible section groups, left-border active state, monochrome
+// icons, profile dropdown at the bottom, rail-mode collapse via SidebarRail.
+
+import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/AuthProvider';
-import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/config/supabaseClient';
-import { Menu, Avatar, Typography, Button, Tooltip, Tag } from 'antd';
-import { Sparkles } from 'lucide-react';
-import { radius } from '@/shared/ui/theme';
 import {
-  HomeOutlined,
-  CalendarOutlined,
-  TrophyOutlined,
-  DollarOutlined,
-  SettingOutlined,
-  LogoutOutlined,
-  BankOutlined,
-  BarChartOutlined,
-  BookOutlined,
-  FileTextOutlined,
-  UserOutlined,
-  TeamOutlined,
-  ClockCircleOutlined,
-  ExperimentOutlined,
-  EditOutlined,
-  BookOutlined as TaskBookOutlined,
-  InboxOutlined,
-  RobotOutlined,
-  ThunderboltOutlined,
-  NotificationOutlined,
-  MessageOutlined,
-  CommentOutlined,
-  UsergroupAddOutlined,
-  AppstoreOutlined,
-  DashboardOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+  Home, Sparkles, Zap, Megaphone, Calendar, Clock, MessageSquare,
+  FileText, BookOpen, ClipboardCheck, Trophy, BarChart3, ListTodo,
+  CircleDollarSign, Banknote, Receipt, Wallet, AlertTriangle, FileBarChart,
+  Users, UserCircle, Settings, GraduationCap, FlaskConical, Boxes,
+  UserPlus, MessageCircle, LayoutGrid, Building2, ChevronDown, ChevronRight,
+  LogOut, Search,
+} from 'lucide-react';
 
-const { Text } = Typography;
+import { useAuth } from '@/AuthProvider';
+import { supabase } from '@/config/supabaseClient';
 
-const AppSidebar = ({
-  expanded,
-  railWidth = 64,
-  expandedWidth = 240,
-}) => {
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  SidebarSeparator,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+
+// ─── Role-aware nav definition ──────────────────────────────────────────────
+
+const NAV = [
+  // CB-Admin section (no header)
+  { section: null, items: [
+    { key: '/cb-admin-dashboard', icon: Building2, label: 'CB Admin Dashboard', roles: ['cb_admin'] },
+    { key: '/add-schools',        icon: Building2, label: 'Manage Schools',     roles: ['cb_admin'] },
+    { key: '/users',              icon: Users,     label: 'Users',              roles: ['cb_admin'] },
+  ]},
+  // Main
+  { section: 'Main', items: [
+    { key: '/',                            icon: Home,         label: 'Dashboard',         roles: ['cb_admin','superadmin','admin','student'] },
+    { key: '/chatbot',                     icon: Sparkles,     label: 'Ask Sage',          roles: ['superadmin','admin','student'] },
+    { key: '/ai-test-generator',           icon: Zap,          label: 'AI Test Generator', roles: ['superadmin','admin'] },
+    { key: '/academics/announcements',     icon: Megaphone,    label: 'Announcements',     roles: ['superadmin','admin','student'] },
+    { key: '/calendar',                    icon: Calendar,     label: 'Calendar',          roles: ['superadmin','admin'] },
+    { key: '/student/calendar',            icon: Calendar,     label: 'Calendar',          roles: ['student'] },
+    { key: '/timetable',                   icon: Clock,        label: 'Timetable',         roles: ['superadmin','admin'] },
+    { key: '/student/timetable',           icon: Clock,        label: 'Timetable',         roles: ['student'] },
+    { key: '/academics/communication-hub', icon: MessageSquare,label: 'Feedback',          roles: ['superadmin','admin','student'] },
+  ]},
+  // Learning
+  { section: 'Learning', items: [
+    { key: '/learning-resources', icon: FileText, label: 'Resources', roles: ['superadmin','admin'] },
+    { key: '/student/resources',  icon: FileText, label: 'Resources', roles: ['student'] },
+    { key: '/syllabus',           icon: BookOpen, label: 'Syllabus',  roles: ['superadmin','admin'] },
+    { key: '/student/syllabus',   icon: BookOpen, label: 'Syllabus',  roles: ['student'] },
+  ]},
+  // Academic
+  { section: 'Academic', items: [
+    { key: '/attendance',          icon: ClipboardCheck, label: 'Attendance',  roles: ['superadmin','admin'] },
+    { key: '/student/attendance',  icon: ClipboardCheck, label: 'Attendance',  roles: ['student'] },
+    { key: '/test-management',     icon: FileText,       label: 'Assessments', roles: ['superadmin','admin'] },
+    { key: '/gradebook',           icon: Trophy,         label: 'Gradebook',   roles: ['superadmin','admin'] },
+    { key: '/take-tests',          icon: FileText,       label: 'Assessments', roles: ['student'] },
+    { key: '/student/results',     icon: Trophy,         label: 'My Results',  roles: ['student'] },
+    { key: '/analytics',           icon: BarChart3,      label: 'Analytics',   roles: ['superadmin','admin'] },
+    { key: '/student/analytics',   icon: BarChart3,      label: 'My Analytics',roles: ['student'] },
+    { key: '/task-management',     icon: ListTodo,       label: 'Tasks',       roles: ['superadmin','admin','student'] },
+  ]},
+  // Finance
+  { section: 'Finance', items: [
+    { key: '/fees',                   icon: CircleDollarSign, label: 'Fees',                  roles: ['superadmin','admin'] },
+    { key: '/fees',                   icon: CircleDollarSign, label: 'My Fees',               roles: ['student'] },
+    { key: '/finance',                icon: LayoutGrid,       label: 'Finance Hub',           roles: ['superadmin','admin'] },
+    { key: '/finance/transactions',   icon: Receipt,          label: 'Transactions',          roles: ['superadmin','admin'] },
+    { key: '/finance/accounts',       icon: Banknote,         label: 'Accounts & Categories', roles: ['superadmin','admin'] },
+    { key: '/finance/reports',        icon: FileBarChart,     label: 'Reports',               roles: ['superadmin','admin'] },
+    { key: '/finance/inconsistencies',icon: AlertTriangle,    label: 'Inconsistencies',       roles: ['superadmin'] },
+  ]},
+  // HR
+  { section: 'HR', items: [
+    { key: '/hr',                   icon: LayoutGrid,    label: 'HR Dashboard',     roles: ['superadmin','admin'] },
+    { key: '/hr/staff',             icon: Users,         label: 'Staff',            roles: ['superadmin','admin'] },
+    { key: '/hr/payroll',           icon: Wallet,        label: 'Payroll',          roles: ['superadmin','admin'] },
+    { key: '/hr/leaves',            icon: Calendar,      label: 'Leaves',           roles: ['superadmin','admin'] },
+    { key: '/hr/attendance',        icon: ClipboardCheck,label: 'Staff Attendance', roles: ['superadmin','admin'] },
+    { key: '/hr/salary-components', icon: Wallet,        label: 'Salary Components',roles: ['superadmin','admin'] },
+    { key: '/hr/my',                icon: UserCircle,    label: 'My HR',            roles: ['superadmin','admin','student'] },
+  ]},
+  // Admin
+  { section: 'Admin', items: [
+    { key: '/school-setup',                 icon: Settings,      label: 'School Setup',    roles: ['superadmin'] },
+    { key: '/users',                        icon: Users,         label: 'Users',           roles: ['superadmin','admin'] },
+    { key: '/add-specific-class',           icon: GraduationCap, label: 'Classes',         roles: ['superadmin','admin'] },
+    { key: '/add-subjects',                 icon: FlaskConical,  label: 'Subjects',        roles: ['superadmin','admin'] },
+    { key: '/manage/inventory',             icon: Boxes,         label: 'Inventory',       roles: ['superadmin','admin'] },
+    { key: '/manage/admissions',            icon: UserPlus,      label: 'Admissions',      roles: ['superadmin','admin'] },
+    { key: '/academics/report-comments',    icon: MessageCircle, label: 'Report Comments', roles: ['superadmin','admin'] },
+  ]},
+];
+
+// Sections that start expanded. Others are collapsed by default (denser look).
+const DEFAULT_EXPANDED_SECTIONS = new Set(['Main', 'Academic']);
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
+export default function AppSidebar() {
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { theme: antdTheme } = useTheme();
+  const [search, setSearch] = useState('');
 
-  const userName = user?.user_metadata?.full_name || 'User';
   const isCbAdmin = user?.user_metadata?.cb_admin_code || user?.app_metadata?.role === 'cb_admin';
   const userRole = user?.app_metadata?.role || (isCbAdmin ? 'cb_admin' : user?.user_metadata?.role) || 'user';
+  const userName = user?.user_metadata?.full_name || 'User';
+  const userEmail = user?.email || '';
+  const initials = userName.trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || 'U';
+  const roleLabel =
+    userRole === 'cb_admin'  ? 'CB Admin' :
+    userRole === 'superadmin'? 'Super Admin' :
+    userRole === 'admin'     ? 'Admin' :
+    userRole === 'student'   ? 'Student' : userRole;
+
+  // Visible sections after role filter + search filter.
+  const sections = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return NAV
+      .map((sec) => ({
+        ...sec,
+        items: sec.items.filter((it) =>
+          it.roles.includes(userRole) &&
+          (q === '' || it.label.toLowerCase().includes(q))
+        ),
+      }))
+      .filter((sec) => sec.items.length > 0);
+  }, [userRole, search]);
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
       navigate('/login');
-    } catch (error) {
+    } catch (e) {
+      console.error('logout failed', e);
     }
   };
 
-  const getMenuItems = () => {
-    const allItems = [
-      {
-        key: '/cb-admin-dashboard',
-        icon: <BankOutlined />,
-        label: 'CB Admin Dashboard',
-        roles: ['cb_admin'],
-      },
-      {
-        key: '/add-schools',
-        icon: <TeamOutlined />,
-        label: 'Manage Schools',
-        roles: ['cb_admin'],
-      },
-      {
-        key: '/users',
-        icon: <TeamOutlined />,
-        label: 'Users',
-        roles: ['cb_admin'],
-      },
-
-      {
-        key: '/',
-        icon: <HomeOutlined />,
-        label: 'Dashboard',
-        roles: ['cb_admin', 'superadmin', 'admin', 'student'],
-      },
-      {
-        key: '/chatbot',
-        icon: <Sparkles size={16} />,
-        label: 'Ask Sage',
-        roles: ['superadmin', 'admin', 'student'],
-      },
-      {
-        key: '/ai-test-generator',
-        icon: <ThunderboltOutlined />,
-        label: 'AI Test Generator',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/academics/announcements',
-        icon: <NotificationOutlined />,
-        label: 'Announcements',
-        roles: ['superadmin', 'admin', 'student'],
-      },
-      {
-        key: '/calendar',
-        icon: <CalendarOutlined />,
-        label: 'Calendar',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/student/calendar',
-        icon: <CalendarOutlined />,
-        label: 'Calendar',
-        roles: ['student'],
-      },
-      {
-        key: '/timetable',
-        icon: <ClockCircleOutlined />,
-        label: 'Timetable',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/student/timetable',
-        icon: <ClockCircleOutlined />,
-        label: 'Timetable',
-        roles: ['student'],
-      },
-      {
-        key: '/academics/communication-hub',
-        icon: <MessageOutlined />,
-        label: 'Feedback',
-        roles: ['superadmin', 'admin', 'student'],
-      },
-
-      {
-        key: '/learning-resources',
-        icon: <FileTextOutlined />,
-        label: 'Resources',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/student/resources',
-        icon: <FileTextOutlined />,
-        label: 'Resources',
-        roles: ['student'],
-      },
-      {
-        key: '/syllabus',
-        icon: <BookOutlined />,
-        label: 'Syllabus',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/student/syllabus',
-        icon: <BookOutlined />,
-        label: 'Syllabus',
-        roles: ['student'],
-      },
-
-      {
-        key: '/attendance',
-        icon: <CalendarOutlined />,
-        label: 'Attendance',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/student/attendance',
-        icon: <CalendarOutlined />,
-        label: 'Attendance',
-        roles: ['student'],
-      },
-      {
-        key: '/test-management',
-        icon: <EditOutlined />,
-        label: 'Assessments',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/gradebook',
-        icon: <TrophyOutlined />,
-        label: 'Gradebook',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/take-tests',
-        icon: <EditOutlined />,
-        label: 'Assessments',
-        roles: ['student'],
-      },
-      {
-        key: '/student/results',
-        icon: <TrophyOutlined />,
-        label: 'My Results',
-        roles: ['student'],
-      },
-      {
-        key: '/analytics',
-        icon: <BarChartOutlined />,
-        label: 'Analytics',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/student/analytics',
-        icon: <BarChartOutlined />,
-        label: 'My Analytics',
-        roles: ['student'],
-      },
-      {
-        key: '/task-management',
-        icon: <TaskBookOutlined />,
-        label: 'Tasks',
-        roles: ['superadmin', 'admin', 'student'],
-      },
-
-      {
-        key: '/fees',
-        icon: <DollarOutlined />,
-        label: 'Fees',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/fees',
-        icon: <DollarOutlined />,
-        label: 'My Fees',
-        roles: ['student'],
-      },
-      {
-        key: '/finance',
-        icon: <DashboardOutlined />,
-        label: 'Finance Hub',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/finance/transactions',
-        icon: <FileTextOutlined />,
-        label: 'Transactions',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/finance/accounts',
-        icon: <BankOutlined />,
-        label: 'Accounts & Categories',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/finance/reports',
-        icon: <BarChartOutlined />,
-        label: 'Reports',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/finance/inconsistencies',
-        icon: <WarningOutlined />,
-        label: 'Inconsistencies',
-        roles: ['superadmin'],
-      },
-
-      {
-        key: '/hr',
-        icon: <DashboardOutlined />,
-        label: 'HR Dashboard',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/hr/staff',
-        icon: <TeamOutlined />,
-        label: 'Staff',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/hr/payroll',
-        icon: <DollarOutlined />,
-        label: 'Payroll',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/hr/leaves',
-        icon: <CalendarOutlined />,
-        label: 'Leaves',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/hr/attendance',
-        icon: <CalendarOutlined />,
-        label: 'Staff Attendance',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/hr/salary-components',
-        icon: <DollarOutlined />,
-        label: 'Salary Components',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/hr/my',
-        icon: <UserOutlined />,
-        label: 'My HR',
-        roles: ['superadmin', 'admin', 'student'],
-      },
-
-      {
-        key: '/school-setup',
-        icon: <SettingOutlined />,
-        label: 'School Setup',
-        roles: ['superadmin'],
-      },
-      {
-        key: '/users',
-        icon: <TeamOutlined />,
-        label: 'Users',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/add-specific-class',
-        icon: <AppstoreOutlined />,
-        label: 'Classes',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/add-subjects',
-        icon: <ExperimentOutlined />,
-        label: 'Subjects',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/manage/inventory',
-        icon: <InboxOutlined />,
-        label: 'Inventory',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/manage/admissions',
-        icon: <UsergroupAddOutlined />,
-        label: 'Admissions',
-        roles: ['superadmin', 'admin'],
-      },
-      {
-        key: '/academics/report-comments',
-        icon: <CommentOutlined />,
-        label: 'Report Comments',
-        roles: ['superadmin', 'admin'],
-      },
-    ];
-
-    const visible = allItems.filter((item) => item.roles.includes(userRole));
-
-    const SECTIONS = [
-      { name: null,           startKey: '/cb-admin-dashboard' },
-      { name: 'Main',         startKey: '/' },
-      { name: 'Learning',     startKey: '/learning-resources' },
-      { name: 'Academic',     startKey: '/attendance' },
-      { name: 'Finance',      startKey: '/fees' },
-      { name: 'HR',           startKey: '/hr' },
-      { name: 'Admin',        startKey: '/school-setup' },
-    ];
-
-    const out = [];
-    let currentSectionIdx = -1;
-    let currentGroupChildren = null;
-
-    const flushGroup = () => {
-      if (currentGroupChildren && currentGroupChildren.length > 0) {
-        const section = SECTIONS[currentSectionIdx];
-        if (section.name) {
-          out.push({
-            type: 'group',
-            key: `section-${section.name}`,
-            label: section.name,
-            children: currentGroupChildren,
-          });
-        } else {
-          out.push(...currentGroupChildren);
-        }
-      }
-      currentGroupChildren = [];
-    };
-
-    for (const item of visible) {
-      const matchedIdx = SECTIONS.findIndex((s) => s.startKey === item.key);
-      if (matchedIdx !== -1) {
-        flushGroup();
-        currentSectionIdx = matchedIdx;
-      }
-      if (currentSectionIdx === -1) continue;
-      currentGroupChildren.push({
-        key: item.key,
-        icon: item.icon,
-        label: item.label,
-        onClick: () => navigate(item.key),
-      });
-    }
-    flushGroup();
-
-    return out.filter((g) => g.type !== 'group' || (g.children && g.children.length > 0));
-  };
-
-  const initials = (userName.trim()[0] || 'U').toUpperCase();
-  const roleLabel = userRole === 'superadmin' ? 'Super Admin' : userRole === 'admin' ? 'Admin' : userRole;
-  const roleTagStyle = {
-    textTransform: 'capitalize',
-    fontWeight: 500,
-    borderRadius: 4,
-    padding: '0 4px',
-    fontSize: 10,
-    lineHeight: '14px',
-    margin: 0,
-    alignSelf: 'flex-start',
-    background: '#e0f2fe',
-    color: '#0369a1',
-    border: '1px solid #bae6fd',
-  };
-  const avatarBg = '#3a8fcf';
-  const avatarFontStyle = {
-    background: avatarBg,
-    color: '#ffffff',
-    fontWeight: 700,
-    fontFamily: 'Geist Sans, sans-serif',
-    letterSpacing: '0.5px',
+  const isActive = (key) => {
+    if (key === '/') return location.pathname === '/';
+    // Match exact or as a path prefix.
+    return location.pathname === key || location.pathname.startsWith(`${key}/`);
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 12,
-        left: 12,
-        bottom: 12,
-        width: expanded ? expandedWidth : railWidth,
-        background: antdTheme.token.colorBgContainer,
-        border: `1px solid ${antdTheme.token.colorBorder}`,
-        borderRadius: radius.xl,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        zIndex: 100,
-        transition: 'width 0.18s ease',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {/* Header: avatar + name (expanded) or just avatar (collapsed). */}
-      <div style={{
-        padding: expanded ? '16px' : '12px 8px',
-        borderBottom: `1px solid ${antdTheme.token.colorBorder}`,
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        background: antdTheme.token.colorBgContainer,
-      }}>
-        {expanded ? (
-          <>
-            <Avatar size={40} style={{ ...avatarFontStyle, fontSize: 15, flexShrink: 0 }}>{initials}</Avatar>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
-              <Text strong style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: antdTheme.token.colorText,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>
-                {userName}
-              </Text>
-              <Tag color="blue" style={roleTagStyle}>{roleLabel}</Tag>
-            </div>
-          </>
-        ) : (
-          <Tooltip
-            title={
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ marginBottom: 4, fontWeight: 600 }}>{userName}</div>
-                <Tag color="blue" style={roleTagStyle}>{roleLabel}</Tag>
-              </div>
-            }
-            placement="right"
-          >
-            <Avatar size={32} style={{ ...avatarFontStyle, fontSize: 12 }}>{initials}</Avatar>
-          </Tooltip>
+    <Sidebar collapsible="icon" className="border-r">
+      <SidebarHeader className="gap-2 p-2">
+        <div className="flex items-center gap-2 px-1.5 py-1">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--brand)] text-[var(--brand-fg)]">
+            <BookOpen className="h-4 w-4" />
+          </div>
+          <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-sm font-semibold">ClassBridge</span>
+            <span className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
+              {roleLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* Search — visible only when expanded */}
+        <div className="relative group-data-[collapsible=icon]:hidden">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search nav…"
+            className="h-8 pl-8 text-[13px]"
+            aria-label="Search navigation"
+          />
+        </div>
+      </SidebarHeader>
+
+      <SidebarSeparator />
+
+      <SidebarContent>
+        {sections.length === 0 && (
+          <div className="px-3 py-6 text-center text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+            No matches
+          </div>
         )}
-      </div>
 
-      {/* Navigation menu — Menu's `inlineCollapsed` trims to icons-only in rail mode and
-          shows tooltips on hover. */}
-      <div className="sidebar-scroll" style={{
-        flex: '1 1 auto',
-        minHeight: 0,
-        background: antdTheme.token.colorBgContainer,
-        padding: '8px 0',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-      }}>
-        <Menu
-          mode="inline"
-          inlineCollapsed={!expanded}
-          selectedKeys={[location.pathname]}
-          items={getMenuItems()}
-          style={{ border: 'none', background: antdTheme.token.colorBgContainer }}
-          theme="light"
-        />
-      </div>
+        {sections.map((sec, i) => (
+          <NavSection
+            key={sec.section || `__top-${i}`}
+            label={sec.section}
+            items={sec.items}
+            isActive={isActive}
+            onNavigate={navigate}
+            forceOpen={search.trim().length > 0}
+          />
+        ))}
+      </SidebarContent>
 
-      {/* Sign out */}
-      <div style={{
-        padding: expanded ? antdTheme.token.padding : '8px',
-        borderTop: `1px solid ${antdTheme.token.colorBorder}`,
-        background: antdTheme.token.colorBgContainer,
-        flexShrink: 0,
-      }}>
-        <Tooltip title="Sign Out" placement="right">
-          <Button
-            type="text"
-            icon={<LogoutOutlined />}
-            onClick={handleLogout}
-            style={{
-              width: '100%',
-              height: expanded ? 36 : 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: expanded ? 'flex-start' : 'center',
-              color: antdTheme.token.colorError,
-              fontWeight: 500,
-              background: 'transparent',
-              border: 'none',
-            }}
+      <SidebarFooter className="p-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+            >
+              <Avatar className="h-7 w-7 rounded-md">
+                <AvatarFallback className="rounded-md bg-[var(--brand)] text-[var(--brand-fg)] text-[11px] font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left leading-tight">
+                <span className="truncate text-[13px] font-medium">{userName}</span>
+                <span className="truncate text-[11px] text-muted-foreground">{userEmail || roleLabel}</span>
+              </div>
+              <ChevronDown className="ml-auto h-4 w-4 opacity-60" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="right"
+            align="end"
+            sideOffset={6}
+            className="w-56 rounded-lg"
           >
-            {expanded && 'Sign Out'}
-          </Button>
-        </Tooltip>
-      </div>
-    </div>
-  );
-};
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              Signed in as
+              <div className="mt-0.5 truncate text-sm font-medium text-foreground">{userName}</div>
+              {userEmail && <div className="truncate text-xs text-muted-foreground">{userEmail}</div>}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/hr/my')}>
+              <UserCircle className="h-4 w-4" />
+              My HR
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/school-setup')} disabled={userRole !== 'superadmin'}>
+              <Settings className="h-4 w-4" />
+              School Setup
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="text-[var(--danger)] focus:text-[var(--danger)]">
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarFooter>
 
-export default AppSidebar;
+      <SidebarRail />
+    </Sidebar>
+  );
+}
+
+// Section group with a collapsible header (Stripe-style).
+function NavSection({ label, items, isActive, onNavigate, forceOpen }) {
+  const { state } = useSidebar();
+  const [open, setOpen] = useState(() =>
+    label === null ? true : DEFAULT_EXPANDED_SECTIONS.has(label),
+  );
+
+  // When user types in the search input, force every section open so matches
+  // are visible without requiring extra clicks.
+  const isOpen = forceOpen || open;
+
+  // No header for the unlabelled top section — render flat.
+  if (label === null) {
+    return (
+      <SidebarGroup className="py-1">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {items.map((it) => (
+              <NavRow key={`${it.key}-${it.label}`} item={it} active={isActive(it.key)} onNavigate={onNavigate} />
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    );
+  }
+
+  // Collapsed rail mode → just render items, ignore section header.
+  if (state === 'collapsed') {
+    return (
+      <SidebarGroup className="py-0.5">
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {items.map((it) => (
+              <NavRow key={`${it.key}-${it.label}`} item={it} active={isActive(it.key)} onNavigate={onNavigate} />
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    );
+  }
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setOpen}>
+      <SidebarGroup className="py-0.5">
+        <SidebarGroupLabel asChild>
+          <CollapsibleTrigger className="group/label flex w-full items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+            {label}
+            <ChevronRight className="h-3.5 w-3.5 transition-transform duration-150 group-data-[state=open]/label:rotate-90" />
+          </CollapsibleTrigger>
+        </SidebarGroupLabel>
+        <CollapsibleContent>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {items.map((it) => (
+                <NavRow key={`${it.key}-${it.label}`} item={it} active={isActive(it.key)} onNavigate={onNavigate} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </CollapsibleContent>
+      </SidebarGroup>
+    </Collapsible>
+  );
+}
+
+// Single nav row. Uses left-border indicator (3px) for active state.
+function NavRow({ item, active, onNavigate }) {
+  const Icon = item.icon;
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        isActive={active}
+        tooltip={item.label}
+        onClick={() => onNavigate(item.key)}
+        className={[
+          'relative h-8 text-[13px] font-medium',
+          // Left-border active indicator
+          'data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-[var(--brand)]',
+          // Active bg is a soft tint, not the loud brand block
+          'data-[active=true]:bg-[var(--brand-soft)] data-[active=true]:text-foreground',
+          // Hover stays subtle
+          'hover:bg-[var(--bg-hover)]',
+        ].join(' ')}
+      >
+        <Icon className={`h-4 w-4 ${active ? 'text-[var(--brand)]' : 'text-muted-foreground'}`} />
+        <span className="truncate">{item.label}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}

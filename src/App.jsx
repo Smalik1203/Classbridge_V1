@@ -1,5 +1,5 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, lazy, Suspense } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Search, Moon, Sun, Bell, ChevronRight } from 'lucide-react';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
@@ -21,6 +21,8 @@ import Sidebar from '@/shared/components/layout/Sidebar';
 import { UnauthorizedPage } from '@/features/auth';
 import { routeAccess } from './routeAccess';
 import { AcademicYearProvider } from '@/features/analytics/context/AcademicYearContext';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
 
 dayjs.extend(weekday);
 dayjs.extend(localeData);
@@ -151,36 +153,41 @@ function getCrumbs(pathname) {
   return ['ClassBridge'];
 }
 
-function Topbar({ expanded }) {
+function Topbar() {
   const { pathname } = useLocation();
   const crumbs = getCrumbs(pathname);
 
   return (
-    <div className="cb-topbar">
-      <div className="cb-crumbs">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
+      <SidebarTrigger className="-ml-1" />
+      <Separator orientation="vertical" className="mr-1 h-4" />
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
         {crumbs.map((c, i) => (
-          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            {i > 0 && <ChevronRight size={13} style={{ color: 'var(--fg-faint)', flexShrink: 0 }} />}
-            <span className={i === crumbs.length - 1 ? 'current' : ''}>{c}</span>
+          <span key={i} className="flex items-center gap-1.5">
+            {i > 0 && <ChevronRight size={13} className="shrink-0 text-muted-foreground/60" />}
+            <span className={i === crumbs.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+              {c}
+            </span>
           </span>
         ))}
       </div>
 
-      <div className="cb-searchbox">
-        <Search size={14} className="cb-search-ico" />
-        <input placeholder="Search anything…" readOnly />
-        <kbd>⌘K</kbd>
+      <div className="hidden md:flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm text-muted-foreground min-w-[260px]">
+        <Search size={14} />
+        <span className="flex-1">Search anything…</span>
+        <kbd className="pointer-events-none ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
+          ⌘K
+        </kbd>
       </div>
 
-      <button className="cb-icon-btn" aria-label="Notifications" style={{ position: 'relative' }}>
+      <button
+        className="relative inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label="Notifications"
+      >
         <Bell size={15} />
-        <span style={{
-          position: 'absolute', top: 6, right: 6,
-          width: 6, height: 6, borderRadius: '50%',
-          background: 'var(--accent)',
-        }} />
+        <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[var(--brand)]" />
       </button>
-    </div>
+    </header>
   );
 }
 
@@ -196,27 +203,26 @@ function PageLoading() {
 }
 
 function AppLayout({ children }) {
-  const [expanded, setExpanded] = useState(() => {
-    const saved = localStorage.getItem('sidebarExpanded');
-    return saved ? JSON.parse(saved) : false;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('sidebarExpanded', JSON.stringify(expanded));
-  }, [expanded]);
+  // shadcn `SidebarProvider` persists the open/closed state in a cookie
+  // (sidebar_state) and exposes a Cmd/Ctrl+B keyboard shortcut.
+  const defaultOpen = (() => {
+    if (typeof document === 'undefined') return true;
+    const m = document.cookie.match(/(?:^|;\s*)sidebar_state=([^;]+)/);
+    return m ? m[1] !== 'false' : true;
+  })();
 
   return (
-    <div className="cb-app" data-collapsed={!expanded}>
-      <Sidebar expanded={expanded} onToggle={() => setExpanded(v => !v)} />
-      <div className="cb-main">
-        <Topbar expanded={expanded} />
-        <div className="cb-scroll">
-          <div className="cb-fade-in">
+    <SidebarProvider defaultOpen={defaultOpen}>
+      <Sidebar />
+      <SidebarInset className="bg-background">
+        <Topbar />
+        <div className="flex-1 overflow-y-auto">
+          <div className="cb-fade-in p-4 md:p-6">
             {children}
           </div>
         </div>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
