@@ -518,13 +518,17 @@ export default function ReportCardPreview({ data, loading = false }) {
       const token = session?.access_token;
       if (!token) throw new Error('Not signed in');
 
+      // Send the right ID field based on report kind. Server auto-detects
+      // template from the exam_groups row, but using the matching field name
+      // makes the request log self-describing.
+      const idField = group?.kind === 'term_report' ? 'termReportId' : 'examGroupId';
       const res = await fetch(`${serviceUrl.replace(/\/+$/, '')}/render-report-card`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ termReportId: group.id, studentId: student.id }),
+        body: JSON.stringify({ [idField]: group.id, studentId: student.id }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

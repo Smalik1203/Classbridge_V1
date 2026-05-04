@@ -1,8 +1,8 @@
 import puppeteer, { type Browser } from 'puppeteer';
 import Handlebars from 'handlebars';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchTermReportData, fetchAnnualReportData } from './data.js';
-import { TERM_TEMPLATE, ANNUAL_TEMPLATE } from './templates/registry.js';
+import { fetchTermReportData, fetchAnnualReportData, fetchExamReportData } from './data.js';
+import { TERM_TEMPLATE, ANNUAL_TEMPLATE, EXAM_TEMPLATE } from './templates/registry.js';
 
 // ── Shared Puppeteer browser ────────────────────────────────────────────────
 //
@@ -49,6 +49,7 @@ Handlebars.registerHelper('or', (...args) => {
 // Compile templates once at module load
 const termTemplate = Handlebars.compile(TERM_TEMPLATE);
 const annualTemplate = Handlebars.compile(ANNUAL_TEMPLATE);
+const examTemplate = Handlebars.compile(EXAM_TEMPLATE);
 
 // ── Render helpers ──────────────────────────────────────────────────────────
 
@@ -116,5 +117,17 @@ export const renderTermReportPdf = async (args: RenderArgs): Promise<Buffer> => 
 export const renderAnnualReportPdf = async (args: RenderArgs): Promise<Buffer> => {
   const data = await fetchAnnualReportData(args);
   const html = annualTemplate(data);
+  return htmlToPdf(html);
+};
+
+export interface RenderExamArgs {
+  supabase: SupabaseClient;
+  examGroupId: string;
+  studentId: string;
+}
+
+export const renderExamReportPdf = async (args: RenderExamArgs): Promise<Buffer> => {
+  const data = await fetchExamReportData(args);
+  const html = examTemplate(data);
   return htmlToPdf(html);
 };

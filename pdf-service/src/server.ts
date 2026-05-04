@@ -1,6 +1,6 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { renderTermReportPdf, renderAnnualReportPdf } from './render.js';
+import { renderTermReportPdf, renderAnnualReportPdf, renderExamReportPdf } from './render.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -61,48 +61,59 @@ const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
 
 // ── POST /render-report-card ──────────────────────────────────────────────
 //
-// Body shapes:
-//   { kind: 'term', termReportId: uuid, studentId: uuid }
-//   { kind: 'annual', annualReportId: uuid, studentId: uuid }
+// Body shapes (any of the following):
+//   { termReportId: uuid, studentId: uuid }       — legacy: term/annual report
+//   { examGroupId: uuid, studentId: uuid }        — single-exam report
 //
-// Annual reports are still term_reports rows (kind='term_report' in DB) but
-// whose sources are themselves term_reports. The /render endpoint detects
-// which template to use from the row.
+// Routing logic (auto-detects template from the exam_groups row):
+//   - kind='term_report' with source_group_ids that are themselves term_reports
+//       → ANNUAL template
+//   - kind='term_report' otherwise
+//       → TERM template (PA + Term layout)
+//   - any other kind (e.g. assessment / unit_test / exam)
+//       → EXAM template (single marks column)
 
 app.post('/render-report-card', requireAuth, async (req, res) => {
-  const { termReportId, studentId } = req.body || {};
-  if (!termReportId || !studentId) {
-    return res.status(400).json({ error: 'termReportId + studentId required' });
+  const { termReportId, examGroupId, studentId } = req.body || {};
+  const groupId = termReportId || examGroupId;
+  if (!groupId || !studentId) {
+    return res.status(400).json({ error: 'examGroupId (or termReportId) + studentId required' });
   }
 
   const supabase = (req as AuthedRequest).supabase;
 
   try {
-    // Resolve the term_report row to decide which template to render
-    const { data: tr, error: trErr } = await supabase
+    // Resolve the exam_group row to decide which template to render.
+    // No `kind` filter — we accept any exam group and route based on what we find.
+    const { data: eg, error: egErr } = await supabase
       .from('exam_groups')
       .select('id, kind, name, source_group_ids, school_code')
-      .eq('id', termReportId)
-      .eq('kind', 'term_report')
+      .eq('id', groupId)
       .maybeSingle();
 
-    if (trErr) throw trErr;
-    if (!tr) return res.status(404).json({ error: 'Term report not found' });
+    if (egErr) throw egErr;
+    if (!eg) return res.status(404).json({ error: 'Exam group not found' });
 
-    // Annual mode: sources are themselves term_reports
-    let isAnnual = false;
-    if (Array.isArray(tr.source_group_ids) && tr.source_group_ids.length > 0) {
-      const { data: srcs, error: sErr } = await supabase
-        .from('exam_groups')
-        .select('id, kind')
-        .in('id', tr.source_group_ids);
-      if (sErr) throw sErr;
-      isAnnual = (srcs || []).length > 0 && srcs!.every((s: any) => s.kind === 'term_report');
+    let pdfBuffer: Buffer;
+
+    if (eg.kind === 'term_report') {
+      // Annual mode: sources are themselves term_reports
+      let isAnnual = false;
+      if (Array.isArray(eg.source_group_ids) && eg.source_group_ids.length > 0) {
+        const { data: srcs, error: sErr } = await supabase
+          .from('exam_groups')
+          .select('id, kind')
+          .in('id', eg.source_group_ids);
+        if (sErr) throw sErr;
+        isAnnual = (srcs || []).length > 0 && srcs!.every((s: any) => s.kind === 'term_report');
+      }
+      pdfBuffer = isAnnual
+        ? await renderAnnualReportPdf({ supabase, termReportId: groupId, studentId })
+        : await renderTermReportPdf({ supabase, termReportId: groupId, studentId });
+    } else {
+      // Single-exam (assessment / unit test / etc.)
+      pdfBuffer = await renderExamReportPdf({ supabase, examGroupId: groupId, studentId });
     }
-
-    const pdfBuffer = isAnnual
-      ? await renderAnnualReportPdf({ supabase, termReportId, studentId })
-      : await renderTermReportPdf({ supabase, termReportId, studentId });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="report-card-${studentId.slice(0, 8)}.pdf"`);

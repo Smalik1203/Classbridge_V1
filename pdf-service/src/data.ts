@@ -69,6 +69,28 @@ export interface AnnualReportContext {
   cca_areas: string[];
 }
 
+// Exam (single assessment) report — used for ad-hoc tests like "Unit Test"
+// where the exam group has direct test attachments rather than being a
+// term_report aggregator. One mark per subject, no PA/Term split.
+export interface ExamReportContext {
+  group: { name: string; academic_year_label?: string };
+  student: StudentShape;
+  branding: BrandingShape;
+  primary_color: string;
+  accent_color: string;
+  examination_label: string;
+  subjects: Array<{
+    subject_name: string;
+    marks_obtained: number | null;
+    max_marks: number;
+    percentage: number | null;
+    remarks: string | null;
+  }>;
+  totals: { obtained: number; max: number; percentage: number | null };
+  overall_grade?: string | null;
+  result?: 'PASS' | 'FAIL' | null;
+}
+
 export const CCA_AREAS = [
   'Physical & Health Education',
   'Art & Cultural Education',
@@ -207,6 +229,100 @@ export const fetchTermReportData = async ({
     pa_max_per_subject,
     term_max_per_subject,
     total_per_subject,
+    totals: { obtained, max, percentage },
+    overall_grade,
+    result,
+  };
+};
+
+// ── Exam Report data (single assessment / Unit Test layout) ────────────────
+//
+// Reads tests attached to the exam group, then per-student test_marks.
+// Mirrors gradebookService.buildReportCardData but server-side via JWT.
+
+export const fetchExamReportData = async ({
+  supabase, examGroupId, studentId,
+}: {
+  supabase: SupabaseClient; examGroupId: string; studentId: string;
+}): Promise<ExamReportContext> => {
+  // Exam group row — note we accept any kind here (not just term_report)
+  const { data: eg, error: egErr } = await supabase
+    .from('exam_groups')
+    .select('id, name, kind, academic_year_id, grading_scale_id, school_code')
+    .eq('id', examGroupId)
+    .single();
+  if (egErr) throw egErr;
+
+  const [ayLabel, branding, student] = await Promise.all([
+    fetchAcademicYearLabel(supabase, eg.academic_year_id),
+    fetchBranding(supabase, eg.school_code),
+    fetchStudent(supabase, studentId),
+  ]);
+
+  // Tests attached to this exam group, scoped to student's class
+  const { data: groupTests, error: gtErr } = await supabase
+    .from('exam_group_tests')
+    .select('test_id, sequence, tests:test_id(id, title, max_marks, class_instance_id, subjects:subject_id(subject_name))')
+    .eq('exam_group_id', examGroupId);
+  if (gtErr) throw gtErr;
+
+  // Filter to this student's class (multi-class exam groups attach tests for many classes)
+  const myTests = (groupTests || []).filter(
+    (gt: any) => !gt.tests?.class_instance_id || gt.tests.class_instance_id === student.class_instance_id
+  );
+  const testIds = myTests.map((gt: any) => gt.test_id);
+
+  let marks: any[] = [];
+  if (testIds.length > 0) {
+    const { data: m, error: mErr } = await supabase
+      .from('test_marks')
+      .select('test_id, marks_obtained, max_marks, remarks')
+      .eq('student_id', studentId)
+      .in('test_id', testIds);
+    if (mErr) throw mErr;
+    marks = m || [];
+  }
+
+  const subjects = myTests.map((gt: any) => {
+    const t = gt.tests || {};
+    const m = marks.find((x: any) => x.test_id === gt.test_id);
+    const obtained = m?.marks_obtained ?? null;
+    const max = m?.max_marks ?? t.max_marks ?? 100;
+    const pct = obtained != null && max ? Number(((obtained / max) * 100).toFixed(2)) : null;
+    return {
+      subject_name: t.subjects?.subject_name || t.title || 'Subject',
+      marks_obtained: obtained,
+      max_marks: Number(max),
+      percentage: pct,
+      remarks: m?.remarks || null,
+    };
+  }).sort((a, b) => a.subject_name.localeCompare(b.subject_name));
+
+  const obtained = subjects.reduce((a, s) => a + Number(s.marks_obtained || 0), 0);
+  const max = subjects.reduce((a, s) => a + s.max_marks, 0);
+  const percentage = max > 0 ? Number(((obtained / max) * 100).toFixed(2)) : null;
+
+  // Grade scale resolution mirrors term/annual fetchers
+  let scale: any[] = [];
+  if (eg.grading_scale_id) {
+    const { data: gs } = await supabase.from('grading_scales').select('scale').eq('id', eg.grading_scale_id).maybeSingle();
+    if (gs) scale = gs.scale;
+  }
+  if (!scale.length) {
+    const { data: gs } = await supabase.from('grading_scales').select('scale').eq('school_code', eg.school_code).eq('is_default', true).maybeSingle();
+    if (gs) scale = gs.scale;
+  }
+  const overall_grade = lookupGrade(percentage, scale);
+  const result = percentage == null ? null : (percentage >= 33 ? 'PASS' : 'FAIL');
+
+  return {
+    group: { name: eg.name, academic_year_label: ayLabel },
+    student,
+    branding,
+    primary_color: branding.primary_color || '#6B3FA0',
+    accent_color: branding.accent_color || '#F59E0B',
+    examination_label: eg.name,
+    subjects,
     totals: { obtained, max, percentage },
     overall_grade,
     result,

@@ -190,6 +190,89 @@ export const TERM_TEMPLATE = `<!doctype html>
 </div>
 </body></html>`;
 
+// ── Single-Exam Report (Unit Test, ad-hoc assessment) ──────────────────────
+// Simpler than TERM_TEMPLATE: one marks column, no PA/Term split.
+export const EXAM_TEMPLATE = `<!doctype html>
+<html><head><meta charset="utf-8"/><title>{{group.name}}</title>
+<style>:root { --primary: {{primary_color}}; --accent: {{accent_color}}; }${SHARED_CSS}</style>
+</head><body>
+<div class="page">
+  <div class="header">
+    <div class="logo-wrap">
+      {{#if branding.logo_url}}<img src="{{branding.logo_url}}" alt="logo"/>{{else}}
+        <div class="logo-fallback">{{upper (or branding.school_name 'S')}}</div>
+      {{/if}}
+    </div>
+    <div class="school-block">
+      <div class="school-name">{{upper (or branding.school_name 'School')}}</div>
+      {{#if branding.tagline}}<div class="school-tagline">{{branding.tagline}}</div>{{/if}}
+      {{#if branding.school_address}}<div class="school-meta">{{branding.school_address}}</div>{{/if}}
+      {{#if branding.school_phone}}<div class="school-meta">Phone: {{branding.school_phone}}</div>{{/if}}
+    </div>
+    <div class="cardtype">
+      <div class="cardtype-label">PROGRESS CARD</div>
+      <div class="cardtype-year">{{group.academic_year_label}}</div>
+    </div>
+  </div>
+
+  <div class="title-bar">{{upper group.name}}</div>
+
+  <div class="meta-grid">
+    <div class="meta-row"><span class="meta-label">Student Name</span><span class="meta-value">{{student.full_name}}</span></div>
+    <div class="meta-row"><span class="meta-label">Roll No.</span><span class="meta-value">{{student.student_code}}</span></div>
+    <div class="meta-row"><span class="meta-label">Examination</span><span class="meta-value">{{examination_label}}</span></div>
+    <div class="meta-row"><span class="meta-label">Class</span><span class="meta-value">Grade {{student.grade}}-{{student.section}}</span></div>
+  </div>
+
+  <div class="summary">
+    <div class="stat stat--hero"><div class="label">Percentage</div><div class="value">{{#if totals.percentage}}{{totals.percentage}}%{{else}}—{{/if}}</div></div>
+    <div class="stat"><div class="label">Total</div><div class="value">{{toFixed totals.obtained 1}}/{{toFixed totals.max 0}}</div></div>
+    <div class="stat"><div class="label">Grade</div><div class="value">{{#if overall_grade}}{{overall_grade}}{{else}}—{{/if}}</div></div>
+    <div class="stat {{#if (eq result 'PASS')}}stat--pass{{/if}}{{#if (eq result 'FAIL')}}stat--fail{{/if}}"><div class="label">Result</div><div class="value">{{#if result}}{{result}}{{else}}—{{/if}}</div></div>
+  </div>
+
+  <table class="marks">
+    <thead>
+      <tr>
+        <th style="width:36px">#</th>
+        <th>Subject</th>
+        <th class="num" style="width:130px">Marks Obtained</th>
+        <th class="num" style="width:80px">Max</th>
+        <th class="num" style="width:60px">%</th>
+        <th>Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each subjects}}
+      <tr>
+        <td>{{inc @index}}</td>
+        <td class="subject-name">{{subject_name}}</td>
+        <td class="num">{{#if marks_obtained}}{{marks_obtained}}{{else}}—{{/if}}</td>
+        <td class="num">{{max_marks}}</td>
+        <td class="num">{{#if percentage}}{{percentage}}%{{else}}—{{/if}}</td>
+        <td>{{#if remarks}}{{remarks}}{{/if}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">TOTAL</td>
+        <td class="num">{{toFixed totals.obtained 1}}</td>
+        <td class="num">{{toFixed totals.max 0}}</td>
+        <td class="num">{{#if totals.percentage}}{{totals.percentage}}%{{else}}—{{/if}}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="signatures">
+    <div class="sig"><div class="line">Class Teacher</div></div>
+    <div class="sig"><div class="line">Principal</div></div>
+    <div class="sig"><div class="line">Parent / Guardian</div></div>
+  </div>
+</div>
+</body></html>`;
+
 // ── Annual Term-End Report (St George layout: Term I/II + CCA + footer) ────
 export const ANNUAL_TEMPLATE = `<!doctype html>
 <html><head><meta charset="utf-8"/><title>Term End Report</title>
