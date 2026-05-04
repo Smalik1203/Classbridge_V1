@@ -1,0 +1,118 @@
+import express, { type Request, type Response, type NextFunction } from 'express';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { renderTermReportPdf, renderAnnualReportPdf } from './render.js';
+
+const PORT = Number(process.env.PORT) || 3000;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*'; // CORS
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('Missing required env: SUPABASE_URL, SUPABASE_ANON_KEY');
+  process.exit(1);
+}
+
+const app = express();
+app.use(express.json({ limit: '256kb' }));
+
+// CORS — frontend lives on a different origin
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+// Health check (Railway uses /health for readiness)
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+// ── Auth middleware ────────────────────────────────────────────────────────
+//
+// Pulls Supabase JWT from Authorization: Bearer <token>, attaches a
+// supabase client (bound to that JWT, so RLS uses the user's identity)
+// and the resolved user record onto req.
+
+interface AuthedRequest extends Request {
+  supabase: SupabaseClient;
+  user: { id: string; email?: string };
+}
+
+const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return res.status(401).json({ error: 'Missing Authorization header' });
+
+  // Per-request Supabase client bound to this JWT
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) return res.status(401).json({ error: 'Invalid token' });
+
+  (req as AuthedRequest).supabase = supabase;
+  (req as AuthedRequest).user = { id: user.id, email: user.email };
+  next();
+};
+
+// ── POST /render-report-card ──────────────────────────────────────────────
+//
+// Body shapes:
+//   { kind: 'term', termReportId: uuid, studentId: uuid }
+//   { kind: 'annual', annualReportId: uuid, studentId: uuid }
+//
+// Annual reports are still term_reports rows (kind='term_report' in DB) but
+// whose sources are themselves term_reports. The /render endpoint detects
+// which template to use from the row.
+
+app.post('/render-report-card', requireAuth, async (req, res) => {
+  const { termReportId, studentId } = req.body || {};
+  if (!termReportId || !studentId) {
+    return res.status(400).json({ error: 'termReportId + studentId required' });
+  }
+
+  const supabase = (req as AuthedRequest).supabase;
+
+  try {
+    // Resolve the term_report row to decide which template to render
+    const { data: tr, error: trErr } = await supabase
+      .from('exam_groups')
+      .select('id, kind, name, source_group_ids, school_code')
+      .eq('id', termReportId)
+      .eq('kind', 'term_report')
+      .maybeSingle();
+
+    if (trErr) throw trErr;
+    if (!tr) return res.status(404).json({ error: 'Term report not found' });
+
+    // Annual mode: sources are themselves term_reports
+    let isAnnual = false;
+    if (Array.isArray(tr.source_group_ids) && tr.source_group_ids.length > 0) {
+      const { data: srcs, error: sErr } = await supabase
+        .from('exam_groups')
+        .select('id, kind')
+        .in('id', tr.source_group_ids);
+      if (sErr) throw sErr;
+      isAnnual = (srcs || []).length > 0 && srcs!.every((s: any) => s.kind === 'term_report');
+    }
+
+    const pdfBuffer = isAnnual
+      ? await renderAnnualReportPdf({ supabase, termReportId, studentId })
+      : await renderTermReportPdf({ supabase, termReportId, studentId });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="report-card-${studentId.slice(0, 8)}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err: any) {
+    console.error('render error', err);
+    res.status(500).json({ error: err.message || 'Render failed' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`PDF service listening on :${PORT}`);
+});

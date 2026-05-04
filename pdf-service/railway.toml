@@ -1,0 +1,15 @@
+# Railway service config. Place this in pdf-service/ and Railway will pick it up
+# when you point the service at this folder.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node dist/server.js"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Healthcheck so Railway knows when the container is ready
+healthcheckPath = "/health"
+healthcheckTimeout = 30
