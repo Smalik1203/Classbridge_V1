@@ -6,22 +6,22 @@ const SHARED_CSS = `
   body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;
          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Times New Roman", serif;
          color: #1f1f1f; }
-  @page { size: A4 portrait; margin: 10mm; }
+  @page { size: A4 portrait; margin: 8mm; }
 
-  .page { padding: 20px 24px 24px; }
+  .page { padding: 14px 18px 16px; }
 
   /* HEADER — coloured band that bleeds to the page edges */
   .header { display: grid; grid-template-columns: auto 1fr auto; align-items: center;
-            gap: 18px; padding: 22px 28px; margin: -20px -24px 0;
+            gap: 16px; padding: 14px 22px; margin: -14px -18px 0;
             background: var(--primary); color: #fff; position: relative; }
   .header::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0;
                    height: 5px; background: var(--accent); }
-  .logo-wrap { width: 96px; height: 96px; border-radius: 50%; background: #fff;
-               border: 3px solid #fff; display: flex; align-items: center; justify-content: center;
-               overflow: hidden; flex-shrink: 0; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
-  .logo-wrap img { width: 90px; height: 90px; object-fit: contain; }
-  .logo-fallback { width: 90px; height: 90px; display: flex; align-items: center; justify-content: center;
-                   background: #f5f5f5; color: #555; font-weight: 800; font-size: 36px; }
+  .logo-wrap { width: 70px; height: 70px; border-radius: 50%; background: #fff;
+               border: 2px solid #fff; display: flex; align-items: center; justify-content: center;
+               overflow: hidden; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .logo-wrap img { width: 64px; height: 64px; object-fit: contain; }
+  .logo-fallback { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center;
+                   background: #f5f5f5; color: #555; font-weight: 800; font-size: 26px; }
   .school-block { text-align: center; }
   .school-name { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; margin: 0 0 4px; }
   .school-tagline { font-size: 11px; opacity: 0.9; margin-bottom: 4px; }
@@ -33,9 +33,9 @@ const SHARED_CSS = `
   .cardtype-year { font-size: 16px; font-weight: 800; margin-top: 2px; }
 
   /* Title bar */
-  .title-bar { text-align: center; font-size: 16px; font-weight: 700; letter-spacing: 2px;
-               text-transform: uppercase; padding: 12px 0; border-bottom: 2px solid var(--primary);
-               margin: 18px 0 14px; color: var(--primary); }
+  .title-bar { text-align: center; font-size: 14px; font-weight: 700; letter-spacing: 2px;
+               text-transform: uppercase; padding: 8px 0; border-bottom: 2px solid var(--primary);
+               margin: 12px 0 10px; color: var(--primary); }
 
   /* Student details */
   .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px;
@@ -45,12 +45,12 @@ const SHARED_CSS = `
   .meta-value { color: #1f1f1f; font-weight: 600; }
 
   /* Stat tiles (kept minimal vs ReportCardPreview to save space) */
-  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-             margin-top: 14px; }
-  .stat { border: 1.5px solid #1f1f1f; padding: 10px; text-align: center; }
-  .stat .label { font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+  .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+             margin-top: 10px; }
+  .stat { border: 1.5px solid #1f1f1f; padding: 7px; text-align: center; }
+  .stat .label { font-size: 9px; font-weight: 700; text-transform: uppercase;
                  letter-spacing: 0.6px; color: #555; }
-  .stat .value { font-size: 18px; font-weight: 800; margin-top: 4px; }
+  .stat .value { font-size: 16px; font-weight: 800; margin-top: 3px; }
   .stat--hero { background: var(--primary); color: #fff; border-color: var(--primary); }
   .stat--hero .label, .stat--hero .value { color: #fff; }
   .stat--pass { background: #ecfdf5; border-color: #10b981; color: #047857; }
@@ -58,20 +58,20 @@ const SHARED_CSS = `
   .stat--fail { background: #fef2f2; border-color: #b91c1c; color: #991b1b; }
 
   /* Marks table */
-  table.marks { width: 100%; border-collapse: collapse; margin-top: 16px;
-                border: 1.5px solid #1f1f1f; font-size: 12px; }
-  table.marks thead th { background: var(--primary); color: #fff; padding: 8px 10px;
-                         font-size: 10px; font-weight: 700; letter-spacing: 0.7px;
+  table.marks { width: 100%; border-collapse: collapse; margin-top: 10px;
+                border: 1.5px solid #1f1f1f; font-size: 11px; }
+  table.marks thead th { background: var(--primary); color: #fff; padding: 6px 8px;
+                         font-size: 9.5px; font-weight: 700; letter-spacing: 0.7px;
                          text-transform: uppercase; border: 1px solid var(--primary-dark, #4a2a70);
                          text-align: left; vertical-align: middle; }
-  table.marks tbody td { padding: 8px 10px; border: 1px solid #1f1f1f; background: #fff; }
+  table.marks tbody td { padding: 5px 8px; border: 1px solid #1f1f1f; background: #fff; }
   table.marks tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
   table.marks tbody td.subject-name { color: var(--primary); font-weight: 700;
                                       text-transform: uppercase; letter-spacing: 0.4px; }
-  table.marks tfoot td { font-weight: 700; padding: 10px;
+  table.marks tfoot td { font-weight: 700; padding: 6px 8px;
                          background: color-mix(in srgb, var(--primary) 10%, #fff);
                          color: var(--primary); border: 1.5px solid var(--primary);
-                         font-size: 13px; }
+                         font-size: 12px; }
   table.marks tfoot td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   /* Avoid splitting blocks */
@@ -79,28 +79,33 @@ const SHARED_CSS = `
   tr { page-break-inside: avoid; break-inside: avoid; }
 
   /* CCA + footer */
-  .section-title { margin: 18px 0 6px; color: var(--primary); font-size: 12px;
+  .section-title { margin: 10px 0 4px; color: var(--primary); font-size: 11px;
                    font-weight: 800; text-transform: uppercase; letter-spacing: 0.7px; }
   table.cca { width: 100%; border-collapse: collapse; border: 1.5px solid #1f1f1f;
-              font-size: 12px; }
-  table.cca th { background: var(--primary); color: #fff; padding: 7px 10px;
-                 font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px;
+              font-size: 11px; }
+  table.cca th { background: var(--primary); color: #fff; padding: 5px 8px;
+                 font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.6px;
                  border: 1px solid var(--primary-dark, #4a2a70); text-align: left; }
-  table.cca td { padding: 6px 10px; border: 1px solid #1f1f1f; background: #fff; }
-  table.cca td.grade-cell { width: 140px; height: 22px; }
+  table.cca td { padding: 3px 8px; border: 1px solid #1f1f1f; background: #fff; }
+  table.cca td.grade-cell { width: 140px; height: 16px; }
 
-  .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .footer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
   table.mini { width: 100%; border-collapse: collapse; border: 1.5px solid #1f1f1f;
-               font-size: 12px; }
-  table.mini td { padding: 7px 10px; border: 1px solid #1f1f1f; }
+               font-size: 11px; }
+  table.mini td { padding: 4px 8px; border: 1px solid #1f1f1f; }
   table.mini .label-cell { font-weight: 700; background: #f5f5f5; width: 50%; }
-  .remarks-line, .result-line { margin-top: 12px; font-size: 12px; }
+  .remarks-line, .result-line { margin-top: 8px; font-size: 11px; }
   .result-fill { display: inline-block; min-width: 36px; padding: 0 6px;
                  border-bottom: 1px solid #1f1f1f; font-weight: 700; }
 
-  .signatures { display: flex; justify-content: space-between; margin-top: 36px; font-size: 11px; color: #555; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 18px; font-size: 10px; color: #555; }
   .signatures .sig { text-align: center; }
-  .signatures .line { border-top: 1px solid #999; padding-top: 4px; min-width: 140px; display: inline-block; }
+  .signatures .line { border-top: 1px solid #999; padding-top: 3px; min-width: 130px; display: inline-block; }
+
+  /* Meta-grid tighter */
+  .meta-grid { padding: 7px 10px; }
+  .meta-row { font-size: 11px; }
+  .meta-label { min-width: 110px; }
 `;
 
 // ── Term Report (mid-term: PA + Term layout) ────────────────────────────────

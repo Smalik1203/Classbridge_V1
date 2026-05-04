@@ -52,16 +52,48 @@ const annualTemplate = Handlebars.compile(ANNUAL_TEMPLATE);
 
 // ── Render helpers ──────────────────────────────────────────────────────────
 
+// A4 portrait at 96dpi = 794×1123 px. We render the .page div at its natural
+// height, then if it overflows the printable area we scale the whole page
+// down (uniform, top-left origin) so the report ALWAYS fits on one A4 page.
+// Scale-down ratio is bounded by MIN_SCALE so type never becomes illegible —
+// if a report has so many subjects it can't fit at MIN_SCALE, it'll still be
+// one page but with content slightly clipped (acceptable degradation).
+const A4_HEIGHT_PX = 1123;
+const MIN_SCALE = 0.65;
+
 const htmlToPdf = async (html: string): Promise<Buffer> => {
   const browser = await getBrowser();
   const page = await browser.newPage();
+  // Set viewport to A4 width so element measurements match the print width
+  await page.setViewport({ width: 794, height: A4_HEIGHT_PX, deviceScaleFactor: 1 });
   try {
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+
+    // Measure content + compute scale ratio if it overflows
+    const naturalHeight = await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.page');
+      return el ? el.scrollHeight : document.body.scrollHeight;
+    });
+
+    if (naturalHeight > A4_HEIGHT_PX) {
+      const scale = Math.max(MIN_SCALE, A4_HEIGHT_PX / naturalHeight);
+      await page.evaluate((s) => {
+        const el = document.querySelector<HTMLElement>('.page');
+        if (el) {
+          el.style.transformOrigin = 'top left';
+          el.style.transform = `scale(${s})`;
+          // Compensate width so scaled content still fills the page edge-to-edge
+          el.style.width = `${100 / s}%`;
+        }
+      }, scale);
+    }
+
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
       preferCSSPageSize: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' }, // page CSS owns margins
+      pageRanges: '1', // hard guarantee: never emit a 2nd page
     });
     return Buffer.from(pdf);
   } finally {
