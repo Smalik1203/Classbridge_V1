@@ -152,7 +152,7 @@ function writePersistedSectionState(state) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function AppSidebar() {
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, state } = useSidebar();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -269,16 +269,17 @@ export default function AppSidebar() {
 
   const isActive = (key) => key === activeKey;
 
-  // Whenever the active route changes (including clicks made while the
-  // sidebar is collapsed/minimized), make sure the section it belongs to is
-  // expanded — that way when the user re-opens the sidebar the selected
-  // item is already in view, no extra click required.
+  // Auto-expand only while the sidebar is in collapsed/icon mode. This keeps
+  // first-load defaults stable (Main open, others closed) and preserves saved
+  // user state across reloads, while still supporting the icon-rail flow:
+  // click an item in collapsed mode -> open sidebar -> section is expanded.
   useEffect(() => {
+    if (state !== 'collapsed') return;
     if (!activeKey) return;
     const section = sectionForKey[activeKey];
     if (!section) return;
     setOpenSections((prev) => (prev[section] ? prev : { ...prev, [section]: true }));
-  }, [activeKey, sectionForKey]);
+  }, [activeKey, sectionForKey, state]);
 
   return (
     <Sidebar collapsible="icon" variant="floating" className="border-0">
