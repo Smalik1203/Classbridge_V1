@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Edit, Eye, FileSpreadsheet, MoreHorizontal, PlayCircle,
   Plus, RefreshCw, Trash2, Trophy, Upload, Zap,
@@ -53,6 +53,7 @@ const EMPTY_FORM = {
 export default function UnifiedTestManagement() {
   const { user } = useAuth();
   const { showError } = useErrorHandler();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(false);
@@ -204,6 +205,11 @@ export default function UnifiedTestManagement() {
   };
 
   const classLabel = (c) => `Grade ${c.grade ?? ''}${c.section ? ` ${c.section}` : ''}`;
+  const handleAiSaved = () => {
+    closeAiWizard();
+    fetchData();
+    navigate('/test-management');
+  };
 
   if (isAiRoute) {
     return (
@@ -215,7 +221,7 @@ export default function UnifiedTestManagement() {
         <Card>
           <AITestGeneratorWizard
             onCancel={closeAiWizard}
-            onSaved={() => { closeAiWizard(); fetchData(); }}
+            onSaved={handleAiSaved}
           />
         </Card>
       </div>
@@ -510,7 +516,7 @@ export default function UnifiedTestManagement() {
           <div className="p-6 pt-4">
             <AITestGeneratorWizard
               onCancel={closeAiWizard}
-              onSaved={() => { closeAiWizard(); fetchData(); }}
+              onSaved={handleAiSaved}
             />
           </div>
         </DialogContent>
