@@ -2,7 +2,7 @@
 // primitives. Collapsible section groups, left-border active state, monochrome
 // icons, profile dropdown at the bottom, rail-mode collapse via SidebarRail.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Sparkles, Zap, Megaphone, Calendar, Clock, MessageSquare,
@@ -149,10 +149,34 @@ function writePersistedSectionState(state) {
   }
 }
 
+function matchesNavKey(location, navKey) {
+  const [keyPath, keyQuery = ''] = navKey.split('?');
+
+  if (keyPath === '/') {
+    if (location.pathname !== '/') return false;
+  } else {
+    const pathMatch =
+      location.pathname === keyPath || location.pathname.startsWith(`${keyPath}/`);
+    if (!pathMatch) return false;
+  }
+
+  // If navKey encodes query constraints (e.g. /test-management?mode=ai),
+  // all those params must match. Extra URL params are allowed.
+  if (keyQuery) {
+    const required = new URLSearchParams(keyQuery);
+    const current = new URLSearchParams(location.search);
+    for (const [k, v] of required.entries()) {
+      if (current.get(k) !== v) return false;
+    }
+  }
+
+  return true;
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function AppSidebar() {
-  const { toggleSidebar, state } = useSidebar();
+  const { toggleSidebar } = useSidebar();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -235,30 +259,14 @@ export default function AppSidebar() {
   // when on `/hr/staff` we don't also light up `/hr` (the HR Dashboard) just
   // because it's a prefix. We mark only the longest matching nav entry.
   const activeKey = useMemo(() => {
-    const currentPathWithQuery = `${location.pathname}${location.search}`;
     let best = null;
     let bestLen = -1;
     for (const sec of NAV) {
       for (const item of sec.items) {
         if (!item.roles.includes(userRole)) continue;
         const k = item.key;
-        if (k.includes('?')) {
-          if (currentPathWithQuery === k && k.length > bestLen) {
-            best = k;
-            bestLen = k.length;
-          }
-          continue;
-        }
-        if (k === '/') {
-          if (location.pathname === '/' && k.length > bestLen) {
-            best = k;
-            bestLen = k.length;
-          }
-          continue;
-        }
-        const matches =
-          location.pathname === k || location.pathname.startsWith(`${k}/`);
-        if (matches && k.length > bestLen) {
+        if (!matchesNavKey(location, k)) continue;
+        if (k.length > bestLen) {
           best = k;
           bestLen = k.length;
         }
@@ -269,17 +277,20 @@ export default function AppSidebar() {
 
   const isActive = (key) => key === activeKey;
 
-  // Auto-expand only while the sidebar is in collapsed/icon mode. This keeps
-  // first-load defaults stable (Main open, others closed) and preserves saved
-  // user state across reloads, while still supporting the icon-rail flow:
-  // click an item in collapsed mode -> open sidebar -> section is expanded.
+  // Skip only the very first render so first-load defaults remain stable.
+  // After that, whenever route changes (e.g. via in-page links like
+  // "Open analytics"), expand the containing section so selection is visible.
+  const didInitRouteSync = useRef(false);
   useEffect(() => {
-    if (state !== 'collapsed') return;
     if (!activeKey) return;
+    if (!didInitRouteSync.current) {
+      didInitRouteSync.current = true;
+      return;
+    }
     const section = sectionForKey[activeKey];
     if (!section) return;
     setOpenSections((prev) => (prev[section] ? prev : { ...prev, [section]: true }));
-  }, [activeKey, sectionForKey, state]);
+  }, [activeKey, sectionForKey]);
 
   return (
     <Sidebar collapsible="icon" variant="floating" className="border-0">

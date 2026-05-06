@@ -798,7 +798,8 @@ function RecentActivity({ payments, enquiries, navigate }) {
       icon: GraduationCap,
       onClick: () => navigate('/manage/admissions'),
     })),
-  ].sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0)).slice(0, 8);
+  ].sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
+  const visibleFeed = feed.slice(0, 5);
 
   if (!feed.length) {
     return (
@@ -810,7 +811,7 @@ function RecentActivity({ payments, enquiries, navigate }) {
 
   return (
     <div className="flex flex-col">
-      {feed.map((it, i) => (
+      {visibleFeed.map((it, i) => (
         <button
           key={i}
           onClick={it.onClick}
@@ -840,6 +841,19 @@ function RecentActivity({ payments, enquiries, navigate }) {
           </div>
         </button>
       ))}
+      {feed.length > 5 && (
+        <div className="mt-1 flex justify-end">
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => navigate('/fees')}
+            className="h-7 px-2.5 text-[11px] text-[color:var(--fg-muted)] hover:text-[color:var(--fg)]"
+          >
+            View more
+            <ChevronRight size={12} />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
