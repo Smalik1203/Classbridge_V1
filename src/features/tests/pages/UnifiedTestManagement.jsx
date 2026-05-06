@@ -75,12 +75,13 @@ export default function UnifiedTestManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState({});
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null });
+  const isAiRoute = searchParams.get('mode') === 'ai';
 
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-    if (searchParams.get('mode') === 'ai') setAiWizardOpen(true);
-  }, [searchParams]);
+    if (!isAiRoute && searchParams.get('mode') === 'ai') setAiWizardOpen(true);
+  }, [isAiRoute, searchParams]);
 
   const fetchData = async () => {
     try {
@@ -203,6 +204,23 @@ export default function UnifiedTestManagement() {
   };
 
   const classLabel = (c) => `Grade ${c.grade ?? ''}${c.section ? ` ${c.section}` : ''}`;
+
+  if (isAiRoute) {
+    return (
+      <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">
+        <PageHeader
+          title="AI Test Generator"
+          subtitle="Create a test with Sage from text, PDF, or images."
+        />
+        <Card>
+          <AITestGeneratorWizard
+            onCancel={closeAiWizard}
+            onSaved={() => { closeAiWizard(); fetchData(); }}
+          />
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">

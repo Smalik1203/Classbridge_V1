@@ -61,7 +61,7 @@ const NAV = [
   { section: 'Main', items: [
     { key: '/',                            icon: Home,         label: 'Dashboard',         roles: ['cb_admin','superadmin','admin','student'] },
     { key: '/chatbot',                     icon: Sparkles,     label: 'Ask Sage',          roles: ['superadmin','admin','student'] },
-    { key: '/ai-test-generator',           icon: Zap,          label: 'AI Test Generator', roles: ['superadmin','admin'] },
+    { key: '/test-management?mode=ai',     icon: Zap,          label: 'AI Test Generator', roles: ['superadmin','admin'] },
     { key: '/academics/announcements',     icon: Megaphone,    label: 'Announcements',     roles: ['superadmin','admin','student'] },
     { key: '/calendar',                    icon: Calendar,     label: 'Calendar',          roles: ['superadmin','admin'] },
     { key: '/student/calendar',            icon: Calendar,     label: 'Calendar',          roles: ['student'] },
@@ -235,12 +235,20 @@ export default function AppSidebar() {
   // when on `/hr/staff` we don't also light up `/hr` (the HR Dashboard) just
   // because it's a prefix. We mark only the longest matching nav entry.
   const activeKey = useMemo(() => {
+    const currentPathWithQuery = `${location.pathname}${location.search}`;
     let best = null;
     let bestLen = -1;
     for (const sec of NAV) {
       for (const item of sec.items) {
         if (!item.roles.includes(userRole)) continue;
         const k = item.key;
+        if (k.includes('?')) {
+          if (currentPathWithQuery === k && k.length > bestLen) {
+            best = k;
+            bestLen = k.length;
+          }
+          continue;
+        }
         if (k === '/') {
           if (location.pathname === '/' && k.length > bestLen) {
             best = k;
@@ -257,7 +265,7 @@ export default function AppSidebar() {
       }
     }
     return best;
-  }, [userRole, location.pathname]);
+  }, [userRole, location.pathname, location.search]);
 
   const isActive = (key) => key === activeKey;
 

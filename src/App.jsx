@@ -232,7 +232,7 @@ function AppContent() {
                   <Route path="/finance/inconsistencies" element={<PrivateRoute allowedRoles={['superadmin']}><FinanceInconsistencies /></PrivateRoute>} />
 
                   <Route path="/chatbot"               element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><Chatbot /></PrivateRoute>} />
-                  <Route path="/ai-test-generator"     element={<Navigate to="/test-management" replace />} />
+                  <Route path="/ai-test-generator"     element={<Navigate to="/test-management?mode=ai" replace />} />
 
                   <Route path="/academics/announcements"     element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><Announcements /></PrivateRoute>} />
                   <Route path="/academics/communication-hub" element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><CommunicationHub /></PrivateRoute>} />
