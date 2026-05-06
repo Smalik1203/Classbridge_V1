@@ -273,7 +273,7 @@ export const EXAM_TEMPLATE = `<!doctype html>
 </div>
 </body></html>`;
 
-// ── Annual Term-End Report (St George layout: Term I/II + CCA + footer) ────
+// ── Annual Term-End Report (generic layout: Term I/II + CCA + footer) ─────
 export const ANNUAL_TEMPLATE = `<!doctype html>
 <html><head><meta charset="utf-8"/><title>Term End Report</title>
 <style>:root { --primary: {{primary_color}}; --accent: {{accent_color}}; }${SHARED_CSS}</style>
@@ -382,5 +382,322 @@ export const ANNUAL_TEMPLATE = `<!doctype html>
     <div class="sig"><div class="line">Class Teacher</div></div>
     <div class="sig"><div class="line">Principal</div></div>
   </div>
+</div>
+</body></html>`;
+
+// ── St. George International School — pixel-accurate annual report ─────────
+// Self-contained CSS (no SHARED_CSS) so the look can diverge freely from the
+// generic templates. All measurements in mm to match the printed A4 output.
+//
+// Assets still pending from school: original logo (SVG/high-res PNG) and the
+// watermark seal. Until those land, the template falls back to the generic
+// branding.logo_url and a CSS-text watermark.
+const ST_GEORGE_CSS = `
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;
+    font-family: "Times New Roman", Times, serif; color: #000; }
+  @page { size: A4 portrait; margin: 0; }
+
+  /* The page is a flex column: the body content flows naturally and the
+     footer (signatures) gets margin-top: auto so it always sits flush at
+     the bottom of the printable area, just like the reference.
+
+     Watermark is rendered as a background-image on the page itself —
+     simplest, most robust approach. Faded with the linear-gradient
+     overlay (white at high opacity) so the seal shows but content
+     above it stays readable. No flex/stacking quirks. */
+  .page { position: relative; width: 210mm; min-height: 297mm;
+          padding: 4mm 6mm 5mm; border: 1.2mm solid #000;
+          display: flex; flex-direction: column;
+          overflow: hidden;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.78), rgba(255,255,255,0.78)),
+            var(--watermark-url, none);
+          background-repeat: no-repeat, no-repeat;
+          background-position: center, center;
+          background-size: 135mm 135mm, 135mm 135mm; }
+
+  /* Legacy .watermark div is no longer used — hide it. */
+  .watermark { display: none; }
+
+  /* HEADER — 2 columns: logo block left, school info right.
+     Anchored at the top, never reflows or overlaps. */
+  .sg-header { display: grid; grid-template-columns: 1fr auto;
+               align-items: center; column-gap: 6mm;
+               padding: 1mm 1mm 3mm; }
+  .sg-logo { display: flex; align-items: center; gap: 3mm;
+             min-height: 30mm; }
+  .sg-logo > img { width: 30mm; height: 30mm; object-fit: contain;
+                   flex-shrink: 0; }
+  .sg-logo-textwrap { display: flex; flex-direction: column;
+                      justify-content: center; line-height: 1; }
+  .sg-logo-fallback { font-family: Arial, "Helvetica Neue", sans-serif;
+                      font-weight: 900; font-size: 14mm; line-height: 1;
+                      color: #d40000; letter-spacing: 0.3mm;
+                      white-space: nowrap; }
+  .sg-logo-sub { font-family: Arial, "Helvetica Neue", sans-serif;
+                 font-weight: 700; font-size: 3.4mm; letter-spacing: 2.1mm;
+                 color: #003a99; margin-top: 1.5mm;
+                 white-space: nowrap; }
+
+  .sg-affil { font-family: Arial, "Helvetica Neue", sans-serif;
+              font-size: 3.2mm; line-height: 1.45; color: #000;
+              text-align: left; min-width: 75mm; }
+  .sg-affil .affil-line { font-weight: 700; }
+  .sg-affil .red { color: #d40000; font-weight: 800; }
+  .sg-affil .blue { color: #003a99; font-weight: 800; }
+
+  /* TITLE */
+  .sg-title { text-align: center; font-weight: 800; font-size: 6mm;
+              text-decoration: underline; margin: 4mm 0 1mm; }
+  .sg-year { text-align: center; font-weight: 700; font-size: 4.4mm;
+             margin-bottom: 4mm; }
+
+  /* SECTION HEADINGS — red, uppercase, like the reference.
+     Generous top margin separates each section visually. */
+  .sg-section { color: #d40000; font-weight: 800; font-size: 4mm;
+                letter-spacing: 0.2mm; margin: 5mm 0 1.5mm; }
+
+  /* STUDENT PROFILE — labels readable, values bolder so name / DOB /
+     father / contact stand out at a glance. */
+  .sg-profile { display: grid; grid-template-columns: 50mm 4mm 1fr;
+                row-gap: 2.4mm; column-gap: 0;
+                font-size: 4mm; padding-left: 1mm;
+                margin-bottom: 2mm; }
+  .sg-profile .lbl   { font-weight: 600; }
+  .sg-profile .colon { text-align: center; font-weight: 600; }
+  .sg-profile .val   { border-bottom: 0; min-height: 4.2mm;
+                       font-weight: 700; color: #000; }
+
+  /* TABLES — shared base. Cells are transparent so the watermark
+     shows through; only the subject cell has its own pink tint. */
+  table.sg { width: 100%; border-collapse: collapse;
+             font-size: 3.4mm; background: transparent; }
+  table.sg th, table.sg td { border: 0.3mm solid #000; padding: 1mm 2mm;
+                             vertical-align: middle; background: transparent; }
+  table.sg thead th { color: #d40000; font-weight: 800;
+                      text-transform: uppercase; letter-spacing: 0.2mm;
+                      font-size: 3.2mm; text-align: center;
+                      background: rgba(255,255,255,0.55); }
+  table.sg .subject-cell { background: rgba(253, 231, 234, 0.85);
+                           color: #000;
+                           font-weight: 700; text-transform: uppercase;
+                           font-family: Arial, "Helvetica Neue", sans-serif;
+                           font-size: 3.2mm; letter-spacing: 0.1mm;
+                           text-align: left; padding-left: 3mm; }
+  table.sg.academic td { height: 7mm; }
+  table.sg.academic td.num { text-align: center; }
+
+  /* CCA */
+  table.sg.cca thead th.area { width: 70%; }
+  table.sg.cca tbody td.area { text-align: center;
+                               font-family: Arial, "Helvetica Neue", sans-serif;
+                               font-weight: 700; font-size: 3.2mm;
+                               text-transform: uppercase; }
+  table.sg.cca tbody td { height: 5.4mm; }
+
+  /* FOOTER GRID — Working Days (left) + Height/Weight (right) */
+  .sg-footer-grid { display: grid; grid-template-columns: 1fr 4mm 1fr;
+                    gap: 0; margin-top: 5mm; }
+  table.sg.mini td { padding: 1.2mm 2.5mm; height: 6mm; }
+  table.sg.mini td.lbl { font-weight: 700; width: 55%;
+                         font-family: Arial, "Helvetica Neue", sans-serif;
+                         font-size: 3.2mm; }
+
+  /* Remarks + Result */
+  .sg-remarks { font-weight: 700; font-size: 3.4mm; margin-top: 5mm; }
+  .sg-result  { font-weight: 700; font-size: 3.4mm; margin-top: 3mm; }
+  .sg-result .fill { display: inline-block; min-width: 22mm;
+                     border-bottom: 0.3mm solid #000;
+                     padding: 0 2mm; font-weight: 700; }
+
+  /* SIGNATURES — pinned to the bottom of the printable area.
+     The page is a flex column, so margin-top: auto absorbs all
+     remaining vertical space and pushes this row flush against
+     the bottom border, matching the reference. min-margin keeps
+     a comfortable gap from Result even on tall content. */
+  .sg-signatures { display: grid; grid-template-columns: 1fr 1fr 1fr;
+                   font-weight: 800; font-family: Arial, "Helvetica Neue", sans-serif;
+                   font-size: 3.6mm; letter-spacing: 0.3mm;
+                   margin-top: auto; padding-top: 12mm; }
+  .sg-signatures .left   { text-align: left; }
+  .sg-signatures .center { text-align: center; }
+  .sg-signatures .right  { text-align: right; }
+
+  /* Pixel-perfect comparison overlay (dev only — set ?overlay=1) */
+  .overlay-ref { position: absolute; inset: 0; width: 210mm; height: 297mm;
+                 opacity: 0.45; z-index: 9999; pointer-events: none;
+                 background-image: var(--overlay-url, none);
+                 background-size: 210mm 297mm;
+                 background-repeat: no-repeat; }
+`;
+
+export const ST_GEORGE_TEMPLATE = `<!doctype html>
+<html><head><meta charset="utf-8"/><title>Term End Report</title>
+<style>
+  :root {
+    {{#if st_george_seal_url}}--watermark-url: url("{{st_george_seal_url}}");{{else}}{{#if branding.watermark_url}}--watermark-url: url("{{branding.watermark_url}}");{{/if}}{{/if}}
+    {{#if overlay_url}}--overlay-url: url("{{overlay_url}}");{{/if}}
+  }
+  ${ST_GEORGE_CSS}
+</style>
+</head><body>
+<div class="page" style="{{#if st_george_seal_url}}background-image: linear-gradient(rgba(255,255,255,0.88), rgba(255,255,255,0.88)), url('{{st_george_seal_url}}');{{/if}}">
+  <div class="watermark"></div>
+
+  <div class="sg-header">
+    <div class="sg-logo">
+      {{#if st_george_logo_url}}
+        <img src="{{st_george_logo_url}}" alt="St. George International School"/>
+        <div class="sg-logo-textwrap">
+          <div class="sg-logo-fallback">St.GEORGE</div>
+          <div class="sg-logo-sub">INTERNATIONAL SCHOOL</div>
+        </div>
+      {{else if branding.logo_url}}
+        <img src="{{branding.logo_url}}" alt="{{branding.school_name}}"/>
+      {{else}}
+        <div>
+          <div class="sg-logo-fallback">St.GEORGE</div>
+          <div class="sg-logo-sub">INTERNATIONAL SCHOOL</div>
+        </div>
+      {{/if}}
+    </div>
+    <div class="sg-affil">
+      <div class="affil-line">Pre KG to Grade-XII | CBSE with <span class="red">IIT/NEET</span></div>
+      <div class="affil-line">and <span class="blue">CIVIL SERVICES</span> Academy</div>
+      <div><strong>Affi. No: {{#if branding.affiliation_no}}{{branding.affiliation_no}}{{else}}3630296{{/if}} | Cell: {{#if branding.school_phone}}{{branding.school_phone}}{{else}}8977922604{{/if}}</strong></div>
+      <div>{{#if branding.school_address}}{{branding.school_address}}{{else}}Near Govt. Medical College, Jagtial Road, Karimnagar-505451{{/if}}</div>
+    </div>
+  </div>
+
+  <div class="sg-title">{{upper (or group.name 'TERM END REPORT')}}</div>
+  <div class="sg-year">{{group.academic_year_label}}</div>
+
+  <div class="sg-section">STUDENT PROFILE</div>
+  <div class="sg-profile">
+    <div class="lbl">Student Name</div><div class="colon">:</div><div class="val">{{student.full_name}}</div>
+    <div class="lbl">Grade &amp; Section</div><div class="colon">:</div><div class="val">{{student.grade}}{{#if student.section}} - {{student.section}}{{/if}}</div>
+    <div class="lbl">Admission Number</div><div class="colon">:</div><div class="val">{{student.student_code}}</div>
+    <div class="lbl">Date of Birth</div><div class="colon">:</div><div class="val">{{student.date_of_birth}}</div>
+    <div class="lbl">Father's Name</div><div class="colon">:</div><div class="val">{{student.father_name}}</div>
+    <div class="lbl">Contact No.</div><div class="colon">:</div><div class="val">{{student.contact_no}}</div>
+  </div>
+
+  <div class="sg-section">ACADEMIC PERFORMANCE</div>
+  {{#if is_annual}}
+  {{!-- ANNUAL — Term I + Term II + Total + Grade --}}
+  <table class="sg academic">
+    <thead>
+      <tr>
+        <th style="width:32%">SUBJECT</th>
+        {{#each sources}}
+        <th>TERM &ndash; {{roman sequence}}{{#if ../per_term_max}} ({{../per_term_max}}M){{/if}}</th>
+        {{/each}}
+        <th>TOTAL{{#if per_subject_max}} ({{per_subject_max}}M){{/if}}</th>
+        <th style="width:14%">GRADE</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each subjects}}
+      <tr>
+        <td class="subject-cell">{{subject_name}}</td>
+        {{#each components}}
+        <td class="num">{{#if marks}}{{marks}}{{else}}&nbsp;{{/if}}</td>
+        {{/each}}
+        <td class="num">{{#if total_marks}}{{toFixed total_marks 1}}{{else}}&nbsp;{{/if}}</td>
+        <td class="num">{{#if grade}}{{grade}}{{else}}&nbsp;{{/if}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else if is_term}}
+  {{!-- TERM (mid-term) — Periodic Assessment + Term + Total + Grade --}}
+  <table class="sg academic">
+    <thead>
+      <tr>
+        <th style="width:32%">SUBJECT</th>
+        <th>PERIODIC ASSESSMENT{{#if pa_max_per_subject}} ({{pa_max_per_subject}}M){{/if}}</th>
+        <th>TERM{{#if term_max_per_subject}} ({{term_max_per_subject}}M){{/if}}</th>
+        <th>TOTAL{{#if total_per_subject}} ({{total_per_subject}}M){{/if}}</th>
+        <th style="width:14%">GRADE</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each subjects}}
+      <tr>
+        <td class="subject-cell">{{subject_name}}</td>
+        <td class="num">{{#if pa_marks}}{{pa_marks}}{{else}}&nbsp;{{/if}}</td>
+        <td class="num">{{#if term_marks}}{{term_marks}}{{else}}&nbsp;{{/if}}</td>
+        <td class="num">{{#if total_marks}}{{toFixed total_marks 1}}{{else}}&nbsp;{{/if}}</td>
+        <td class="num">{{#if grade}}{{grade}}{{else}}&nbsp;{{/if}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  {{!-- SINGLE EXAM (Unit Test, ad-hoc) — one marks column --}}
+  <table class="sg academic">
+    <thead>
+      <tr>
+        <th style="width:40%">SUBJECT</th>
+        <th>MARKS OBTAINED</th>
+        <th>MAX</th>
+        <th>%</th>
+        <th style="width:14%">GRADE</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each subjects}}
+      <tr>
+        <td class="subject-cell">{{subject_name}}</td>
+        <td class="num">{{#if marks_obtained}}{{marks_obtained}}{{else}}&nbsp;{{/if}}</td>
+        <td class="num">{{max_marks}}</td>
+        <td class="num">{{#if percentage}}{{percentage}}%{{else}}&nbsp;{{/if}}</td>
+        <td class="num">{{#if grade}}{{grade}}{{else}}&nbsp;{{/if}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{#if show_extras}}
+  <div class="sg-section">CO-CURRICULAR ACTIVITIES (CCA)</div>
+  <table class="sg cca">
+    <thead><tr><th class="area">AREA</th><th>GRADE</th></tr></thead>
+    <tbody>
+      {{#each cca_areas}}
+      <tr><td class="area">{{this}}</td><td>{{#if (lookup ../cca_grades this)}}{{lookup ../cca_grades this}}{{else}}&nbsp;{{/if}}</td></tr>
+      {{/each}}
+    </tbody>
+  </table>
+
+  <div class="sg-footer-grid">
+    <table class="sg mini">
+      <tbody>
+        <tr><td class="lbl">No.of Working Days</td><td>{{#if attendance.working_days}}{{attendance.working_days}}{{else}}&nbsp;{{/if}}</td></tr>
+        <tr><td class="lbl">Days Present</td><td>{{#if attendance.days_present}}{{attendance.days_present}}{{else}}&nbsp;{{/if}}</td></tr>
+      </tbody>
+    </table>
+    <div></div>
+    <table class="sg mini">
+      <tbody>
+        <tr><td class="lbl">Height (in Cms)</td><td>{{#if health.height_cm}}{{health.height_cm}}{{else}}&nbsp;{{/if}}</td></tr>
+        <tr><td class="lbl">Weight (in Kgs)</td><td>{{#if health.weight_kg}}{{health.weight_kg}}{{else}}&nbsp;{{/if}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sg-remarks"><strong>Remarks :</strong> Outstanding / Excellent / Very Good / Needs Improvement</div>
+  <div class="sg-result"><strong>Result :</strong> CONGRATULATIONS !! Promoted to Grade: <span class="fill">{{#if promoted_to_grade}}{{promoted_to_grade}}{{else}}&nbsp;{{/if}}</span></div>
+  {{/if}}
+
+  <div class="sg-signatures">
+    <div class="left">PARENT</div>
+    <div class="center">CLASS TEACHER</div>
+    <div class="right">PRINCIPAL</div>
+  </div>
+
+  {{#if overlay_url}}<div class="overlay-ref"></div>{{/if}}
 </div>
 </body></html>`;

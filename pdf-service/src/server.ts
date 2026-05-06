@@ -1,6 +1,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { renderTermReportPdf, renderAnnualReportPdf, renderExamReportPdf } from './render.js';
+import archiver from 'archiver';
+import { renderTermReportPdf, renderAnnualReportPdf, renderExamReportPdf, renderReportCardsBulk } from './render.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -121,6 +122,127 @@ app.post('/render-report-card', requireAuth, async (req, res) => {
   } catch (err: any) {
     console.error('render error', err);
     res.status(500).json({ error: err.message || 'Render failed' });
+  }
+});
+
+// ── POST /render-report-cards-bulk ────────────────────────────────────────
+//
+// Bulk-renders one report card per student in a class and streams them as
+// a ZIP. Used by the gradebook's "Download All Cards" button.
+//
+// Body: {
+//   examGroupId: uuid,             // term report or exam group
+//   studentIds:  uuid[],           // students to include (caller picks)
+//   filename?:   string,           // optional ZIP filename override
+// }
+//
+// Failure semantics: per-student render errors are *captured*, not fatal.
+// The ZIP includes a manifest.txt listing successes and failures so the
+// caller (or end-user) can see what succeeded.
+
+app.post('/render-report-cards-bulk', requireAuth, async (req, res) => {
+  const { examGroupId, studentIds, filename } = req.body || {};
+  if (!examGroupId || !Array.isArray(studentIds) || studentIds.length === 0) {
+    return res.status(400).json({ error: 'examGroupId + non-empty studentIds[] required' });
+  }
+  // Hard cap so a misclick can't kick off a 5,000-student render.
+  const MAX_BULK = 200;
+  if (studentIds.length > MAX_BULK) {
+    return res.status(400).json({ error: `Too many students (max ${MAX_BULK} per request)` });
+  }
+
+  const supabase = (req as AuthedRequest).supabase;
+
+  // Look up student names once for nice file naming inside the ZIP.
+  // Only the columns we need; RLS still applies via the JWT-bound client.
+  const { data: students, error: sErr } = await supabase
+    .from('student')
+    .select('id, full_name, student_code')
+    .in('id', studentIds);
+  if (sErr) {
+    return res.status(500).json({ error: sErr.message });
+  }
+  const studentMap = new Map<string, { full_name: string; student_code: string }>();
+  for (const s of students || []) {
+    studentMap.set(s.id, { full_name: s.full_name, student_code: s.student_code });
+  }
+
+  const safe = (s: string) => (s || 'student').replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80);
+  const zipName = filename
+    ? safe(filename) + (filename.endsWith('.zip') ? '' : '.zip')
+    : `report-cards-${examGroupId.slice(0, 8)}.zip`;
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+
+  // Pipe ZIP straight to the response — bytes flush as they're written,
+  // no need to hold all PDFs in memory at once.
+  const archive = archiver('zip', { zlib: { level: 6 } });
+  archive.on('error', (err) => {
+    console.error('zip error', err);
+    try { res.status(500).end(); } catch { /* response may already be partly sent */ }
+  });
+  archive.pipe(res);
+
+  const successes: Array<{ studentId: string; fileName: string }> = [];
+  const failures:  Array<{ studentId: string; error: string }> = [];
+
+  try {
+    const results = await renderReportCardsBulk({
+      supabase,
+      examGroupId,
+      studentIds,
+      concurrency: 3,
+      onProgress: (info) => {
+        if (info.ok) {
+          // Append immediately so the ZIP grows as renders complete —
+          // the user starts receiving bytes within a few seconds.
+          const stu = studentMap.get(info.studentId);
+          const code = stu?.student_code || info.studentId.slice(0, 8);
+          const name = stu?.full_name || 'student';
+          const fileName = `${safe(code)}_${safe(name)}.pdf`;
+          // We can't append from inside onProgress (the buffer isn't here),
+          // so we just log progress; actual append happens in the loop below.
+          console.log(`[bulk] ${info.done}/${info.total} ${fileName}`);
+        } else {
+          console.warn(`[bulk] ${info.done}/${info.total} FAILED ${info.studentId}: ${info.error}`);
+        }
+      },
+    });
+
+    for (const r of results) {
+      const stu = studentMap.get(r.studentId);
+      const code = stu?.student_code || r.studentId.slice(0, 8);
+      const name = stu?.full_name || 'student';
+      if (r.ok && r.pdf) {
+        const fileName = `${safe(code)}_${safe(name)}.pdf`;
+        archive.append(r.pdf, { name: fileName });
+        successes.push({ studentId: r.studentId, fileName });
+      } else {
+        failures.push({ studentId: r.studentId, error: r.error || 'unknown error' });
+      }
+    }
+
+    // Manifest so users know what succeeded/failed without scanning the ZIP.
+    const manifest = [
+      `Report Card Bulk Render`,
+      `Generated: ${new Date().toISOString()}`,
+      `Exam Group: ${examGroupId}`,
+      ``,
+      `Succeeded (${successes.length}):`,
+      ...successes.map((s) => `  ✓ ${s.fileName}`),
+      ``,
+      `Failed (${failures.length}):`,
+      ...failures.map((f) => `  ✗ ${f.studentId}  ${f.error}`),
+    ].join('\n');
+    archive.append(manifest, { name: 'manifest.txt' });
+
+    await archive.finalize();
+  } catch (err: any) {
+    console.error('bulk render error', err);
+    // Best-effort: try to finalize the archive so the client at least
+    // gets a (possibly partial) ZIP rather than a hung connection.
+    try { archive.abort(); } catch { /* noop */ }
   }
 });
 

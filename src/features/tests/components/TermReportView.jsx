@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Pencil, FileText, Sparkles, Loader2, Upload, Check } from 'lucide-react';
+import { ArrowLeft, Pencil, FileText, Sparkles, Loader2, Upload, Check, ClipboardList, Download } from 'lucide-react';
 import { message } from 'antd';
+
+import { supabase } from '@/config/supabaseClient';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +23,7 @@ import {
   publishTermReport,
 } from '@/features/tests/services/gradebookService';
 import ReportCardPreview from '@/features/tests/components/ReportCardPreview';
+import CcaGradesDialog from '@/features/tests/components/CcaGradesDialog';
 
 /**
  * Detail page for a Term Report (kind='term_report').
@@ -59,6 +62,79 @@ export default function TermReportView({
   const [reportOpen, setReportOpen] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
+
+  // CCA grade entry — opens for one student at a time. The dialog handles
+  // its own loading/saving against report_card_cca_grades.
+  const [ccaDialog, setCcaDialog] = useState({ open: false, studentId: null, studentName: '' });
+  const openCca = (studentId, studentName) =>
+    setCcaDialog({ open: true, studentId, studentName });
+
+  // Bulk render: posts all student IDs in the active class to the pdf-service
+  // bulk endpoint, downloads the resulting ZIP. Capped at 200 per request
+  // server-side. Falls back with a clear error if the service URL isn't set.
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const triggerBulkDownload = async () => {
+    const serviceUrl = import.meta.env.VITE_PDF_SERVICE_URL;
+    if (!serviceUrl) {
+      message.error('PDF service URL not configured (VITE_PDF_SERVICE_URL)');
+      return;
+    }
+    if (!termReport?.id) {
+      message.error('No term report selected');
+      return;
+    }
+    // Pick visible student IDs from whichever pivot is populated.
+    const studentIds = isAnnual
+      ? (annualPivot?.students || []).map((s) => s.id)
+      : (rows || []).map((s) => s.student_id);
+    if (studentIds.length === 0) {
+      message.warning('No students to render');
+      return;
+    }
+    const activeClass = classes.find((c) => c.id === activeClassId);
+    const classLabel = activeClass
+      ? `Grade${activeClass.grade}${activeClass.section || ''}`
+      : 'class';
+    const safeReportName = (termReport.name || 'report').replace(/[^A-Za-z0-9._-]+/g, '_');
+
+    setBulkDownloading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error('Not signed in');
+      const res = await fetch(`${serviceUrl.replace(/\/+$/, '')}/render-report-cards-bulk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          examGroupId: termReport.id,
+          studentIds,
+          filename: `${safeReportName}_${classLabel}.zip`,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `PDF service returned ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeReportName}_${classLabel}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      message.success(`Downloaded ${studentIds.length} report card${studentIds.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      console.error('bulk download failed', err);
+      message.error(err.message || 'Bulk download failed');
+    } finally {
+      setBulkDownloading(false);
+    }
+  };
 
   // Default class when termReport changes
   useEffect(() => {
@@ -352,6 +428,18 @@ export default function TermReportView({
               {publishedAt ? 'Re-publish' : 'Publish'}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={triggerBulkDownload}
+            disabled={bulkDownloading}
+            title="Download a ZIP of report-card PDFs for every student in the active class"
+          >
+            {bulkDownloading
+              ? <Loader2 size={13} className="animate-spin" />
+              : <Download size={13} />}
+            Download All Cards
+          </Button>
           <Button variant="outline" size="sm" onClick={onEdit}>
             <Pencil size={13} /> Edit
           </Button>
@@ -497,13 +585,22 @@ export default function TermReportView({
                                 rowSpan={stu.subjects.length}
                                 className="align-middle px-2 py-2 border-b border-[color:var(--border)] text-center bg-[color:var(--bg-subtle)]/30"
                               >
-                                <Button
-                                  variant="outline" size="sm"
-                                  className="h-7 px-2 text-[11.5px]"
-                                  onClick={() => openReport({ student_id: stu.id })}
-                                >
-                                  <FileText size={12} /> Card
-                                </Button>
+                                <div className="flex flex-col gap-1 items-center">
+                                  <Button
+                                    variant="outline" size="sm"
+                                    className="h-7 px-2 text-[11.5px] w-full"
+                                    onClick={() => openReport({ student_id: stu.id })}
+                                  >
+                                    <FileText size={12} /> Card
+                                  </Button>
+                                  <Button
+                                    variant="ghost" size="sm"
+                                    className="h-6 px-2 text-[10.5px] w-full"
+                                    onClick={() => openCca(stu.id, stu.name)}
+                                  >
+                                    <ClipboardList size={11} /> CCA
+                                  </Button>
+                                </div>
                               </td>
                             ) : null}
                           </tr>
@@ -692,13 +789,22 @@ export default function TermReportView({
                             rowSpan={s.subjects.length}
                             className="align-middle px-2 py-2 border-b border-[color:var(--border)] text-center bg-[color:var(--bg-subtle)]/30"
                           >
-                            <Button
-                              variant="outline" size="sm"
-                              className="h-7 px-2 text-[11.5px]"
-                              onClick={() => openReport(s)}
-                            >
-                              <FileText size={12} /> Card
-                            </Button>
+                            <div className="flex flex-col gap-1 items-center">
+                              <Button
+                                variant="outline" size="sm"
+                                className="h-7 px-2 text-[11.5px] w-full"
+                                onClick={() => openReport(s)}
+                              >
+                                <FileText size={12} /> Card
+                              </Button>
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-6 px-2 text-[10.5px] w-full"
+                                onClick={() => openCca(s.student_id, s.student_name)}
+                              >
+                                <ClipboardList size={11} /> CCA
+                              </Button>
+                            </div>
                           </td>
                         ) : null}
                       </tr>
@@ -728,6 +834,15 @@ export default function TermReportView({
           </div>
         </DialogContent>
       </Dialog>
+
+      <CcaGradesDialog
+        open={ccaDialog.open}
+        onOpenChange={(o) => setCcaDialog((d) => ({ ...d, open: o }))}
+        termReportId={termReport?.id}
+        studentId={ccaDialog.studentId}
+        studentName={ccaDialog.studentName}
+        schoolCode={schoolCode}
+      />
     </div>
   );
 }

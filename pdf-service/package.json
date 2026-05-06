@@ -6,7 +6,8 @@
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "node -e \"import('node:fs').then(fs=>fs.cpSync('src/templates/assets','dist/templates/assets',{recursive:true,filter:(s)=>!s.endsWith('.ts')}))\"",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts"
   },
@@ -15,6 +16,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "@types/archiver": "^7.0.0",
+    "archiver": "^7.0.1",
     "express": "^4.21.0",
     "handlebars": "^4.7.8",
     "puppeteer": "^23.0.0"

@@ -1044,3 +1044,85 @@ export const generateClubbedReport = async ({
   if (error) return fail(error.message);
   return ok(data || []);
 };
+
+// ── Co-Curricular Activity (CCA) grades ──────────────────────────────────────
+//
+// Per-school configurable list of areas + per-(term_report, student) grade
+// for each area. Used by the St. George term-end report (and any other
+// per-school template that wants to show a CCA section).
+
+// Active CCA areas for a school, ordered by sequence.
+export const listCcaAreas = async (schoolCode) => {
+  if (!schoolCode) return fail('schoolCode required');
+  const { data, error } = await supabase
+    .from('report_card_cca_areas')
+    .select('id, area, sequence')
+    .eq('school_code', schoolCode)
+    .eq('is_active', true)
+    .order('sequence', { ascending: true });
+  if (error) return fail(error.message);
+  return ok(data || []);
+};
+
+// All grades a student already has for one term report. Returns a map
+// keyed by area name → grade letter so the dialog can pre-fill its inputs.
+export const getCcaGradesForStudent = async ({ termReportId, studentId }) => {
+  if (!termReportId || !studentId) return fail('termReportId + studentId required');
+  const { data, error } = await supabase
+    .from('report_card_cca_grades')
+    .select('area, grade')
+    .eq('term_report_id', termReportId)
+    .eq('student_id', studentId);
+  if (error) return fail(error.message);
+  const map = {};
+  for (const r of data || []) map[r.area] = r.grade || '';
+  return ok(map);
+};
+
+// Save a batch of (area, grade) entries for one (term_report, student).
+// Empty/blank grades delete the row (so reopening shows no value), non-empty
+// values upsert. Single round-trip via upsert when possible; deletes done
+// in parallel.
+export const saveCcaGradesForStudent = async ({
+  schoolCode, termReportId, studentId, grades,
+}) => {
+  if (!schoolCode || !termReportId || !studentId) {
+    return fail('schoolCode + termReportId + studentId required');
+  }
+  if (!grades || typeof grades !== 'object') return fail('grades object required');
+
+  const upserts = [];
+  const deleteAreas = [];
+  for (const [area, grade] of Object.entries(grades)) {
+    const trimmed = (grade || '').trim();
+    if (trimmed) {
+      upserts.push({
+        school_code: schoolCode,
+        term_report_id: termReportId,
+        student_id: studentId,
+        area,
+        grade: trimmed,
+        updated_at: new Date().toISOString(),
+      });
+    } else {
+      deleteAreas.push(area);
+    }
+  }
+
+  if (upserts.length > 0) {
+    const { error } = await supabase
+      .from('report_card_cca_grades')
+      .upsert(upserts, { onConflict: 'term_report_id,student_id,area' });
+    if (error) return fail(error.message);
+  }
+  if (deleteAreas.length > 0) {
+    const { error } = await supabase
+      .from('report_card_cca_grades')
+      .delete()
+      .eq('term_report_id', termReportId)
+      .eq('student_id', studentId)
+      .in('area', deleteAreas);
+    if (error) return fail(error.message);
+  }
+  return ok({ saved: upserts.length, cleared: deleteAreas.length });
+};

@@ -289,20 +289,25 @@ export default function TermReportEditor({
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Start Date">
+                <Field label="Term Start Date">
                   <Input
                     type="date"
                     value={form.start_date}
                     onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
                   />
                 </Field>
-                <Field label="End Date">
+                <Field label="Term End Date">
                   <Input
                     type="date"
                     value={form.end_date}
                     onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
                   />
                 </Field>
+              </div>
+              <div className="text-[11px] text-[color:var(--fg-muted)] -mt-2">
+                Used to compute Working Days / Days Present on the report card from the
+                attendance log (excluding school holidays). Leave blank to fall back to
+                the academic year range.
               </div>
 
               <Field label="Grade Profile">

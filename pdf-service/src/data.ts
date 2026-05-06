@@ -10,6 +10,11 @@ export interface BrandingShape {
   logo_url?: string;
   primary_color?: string;
   accent_color?: string;
+  // Optional, used by per-school custom templates. Schools without these
+  // columns simply render the generic template (the picker falls back).
+  affiliation_no?: string;
+  watermark_url?: string;
+  report_template_key?: string;
 }
 
 export interface StudentShape {
@@ -17,12 +22,20 @@ export interface StudentShape {
   student_code: string;
   grade?: number | null;
   section?: string | null;
+  // Optional fields used by per-school templates that show a richer profile
+  // block (e.g. St. George). When the underlying DB columns don't exist these
+  // stay undefined and the template renders a blank line.
+  date_of_birth?: string | null;
+  father_name?: string | null;
+  contact_no?: string | null;
 }
 
 export interface TermReportContext {
   group: { name: string; academic_year_label?: string };
   student: StudentShape;
   branding: BrandingShape;
+  // school_code: surfaced for the per-school template router (same as Annual).
+  school_code: string;
   primary_color: string;
   accent_color: string;
   subjects: Array<{
@@ -42,12 +55,22 @@ export interface TermReportContext {
   totals: { obtained: number; max: number; percentage: number | null };
   overall_grade?: string | null;
   result?: 'PASS' | 'FAIL' | null;
+  // Optional extras — populated by per-school templates (e.g. St. George
+  // shows CCA + working days + height/weight on its term reports too).
+  promoted_to_grade?: number | null;
+  cca_areas?: string[];
+  cca_grades?: Record<string, string>;
+  health?: { height_cm: number | null; weight_kg: number | null };
+  attendance?: { working_days: number | null; days_present: number | null };
 }
 
 export interface AnnualReportContext {
   group: { name: string; academic_year_label?: string };
   student: StudentShape;
   branding: BrandingShape;
+  // school_code is surfaced so the template router can pick a per-school
+  // template (e.g. 'st-george') without re-querying the DB.
+  school_code: string;
   primary_color: string;
   accent_color: string;
   sources: Array<{ id: string; name: string; sequence: number }>;
@@ -65,8 +88,16 @@ export interface AnnualReportContext {
   overall_grade?: string | null;
   result?: 'PASS' | 'FAIL' | null;
   promoted_to_grade?: number | null;
-  // CCA areas — static list, empty grade cells (matches St George template)
+  // CCA areas (per-school, ordered) plus the lookup map of per-student
+  // grades for this term report. Empty grade map = template renders
+  // blank cells, just like before.
   cca_areas: string[];
+  cca_grades: Record<string, string>;
+  // Per-student physical snapshot (latest values) and attendance roll-up for
+  // the term span. Populated by Phase 1 of the St. George wiring; templates
+  // that don't show these blocks safely ignore them.
+  health: { height_cm: number | null; weight_kg: number | null };
+  attendance: { working_days: number | null; days_present: number | null };
 }
 
 // Exam (single assessment) report — used for ad-hoc tests like "Unit Test"
@@ -76,6 +107,7 @@ export interface ExamReportContext {
   group: { name: string; academic_year_label?: string };
   student: StudentShape;
   branding: BrandingShape;
+  school_code: string;
   primary_color: string;
   accent_color: string;
   examination_label: string;
@@ -127,21 +159,158 @@ const fetchBranding = async (supabase: SupabaseClient, schoolCode: string): Prom
   return (data || {}) as BrandingShape;
 };
 
+// Format a yyyy-mm-dd ISO date to dd/mm/yyyy for Indian school report cards.
+const formatDOB = (iso: string | null | undefined): string | null => {
+  if (!iso) return null;
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+};
+
 const fetchStudent = async (supabase: SupabaseClient, studentId: string): Promise<StudentShape & { class_instance_id: string }> => {
   const { data, error } = await supabase
     .from('student')
-    .select('id, full_name, student_code, class_instance_id, class_instances:class_instance_id(grade, section)')
+    .select('id, full_name, student_code, date_of_birth, father_name, parent_phone_e164, parent_phone, phone, class_instance_id, class_instances:class_instance_id(grade, section)')
     .eq('id', studentId)
     .single();
   if (error) throw error;
   const cls = (data as any).class_instances || {};
+  // Contact No. preference: e164 parent phone → raw parent phone → student's own phone.
+  // Templates that don't show contact_no simply ignore it.
+  const contact_no = data.parent_phone_e164
+    || (data.parent_phone != null ? String(data.parent_phone) : null)
+    || (data.phone != null ? String(data.phone) : null);
   return {
     full_name: data.full_name,
     student_code: data.student_code,
+    date_of_birth: formatDOB(data.date_of_birth),
+    father_name: data.father_name ?? null,
+    contact_no,
     grade: cls.grade ?? null,
     section: cls.section ?? null,
     class_instance_id: data.class_instance_id,
   };
+};
+
+// Per-school CCA areas + a student's grades for one term report.
+// Returns the ordered list of areas the school evaluates plus a grade
+// lookup map keyed by area name. Falls back to the hardcoded CCA_AREAS
+// list if the school hasn't configured any (so legacy schools keep
+// working without seeding the new table).
+const fetchCca = async (
+  supabase: SupabaseClient,
+  args: { schoolCode: string; termReportId: string; studentId: string },
+): Promise<{ cca_areas: string[]; cca_grades: Record<string, string> }> => {
+  const [areasRes, gradesRes] = await Promise.all([
+    supabase
+      .from('report_card_cca_areas')
+      .select('area, sequence')
+      .eq('school_code', args.schoolCode)
+      .eq('is_active', true)
+      .order('sequence', { ascending: true }),
+    supabase
+      .from('report_card_cca_grades')
+      .select('area, grade')
+      .eq('term_report_id', args.termReportId)
+      .eq('student_id', args.studentId),
+  ]);
+
+  const areasFromDb = (areasRes.data || []).map((r: any) => r.area);
+  const cca_areas = areasFromDb.length > 0 ? areasFromDb : CCA_AREAS;
+
+  const cca_grades: Record<string, string> = {};
+  for (const r of gradesRes.data || []) {
+    if (r.grade) cca_grades[r.area] = r.grade;
+  }
+  return { cca_areas, cca_grades };
+};
+
+// Latest height/weight snapshot for a student. Single row per student in
+// student_health (no history table), so we just fetch the row.
+const fetchHealth = async (
+  supabase: SupabaseClient,
+  studentId: string,
+): Promise<{ height_cm: number | null; weight_kg: number | null }> => {
+  const { data } = await supabase
+    .from('student_health')
+    .select('height_cm, weight_kg')
+    .eq('student_id', studentId)
+    .maybeSingle();
+  return {
+    height_cm: data?.height_cm != null ? Number(data.height_cm) : null,
+    weight_kg: data?.weight_kg != null ? Number(data.weight_kg) : null,
+  };
+};
+
+// Compute working days + days present for a student in a date range.
+//   working_days = distinct dates in range with ≥1 attendance record for the
+//                  student's CLASS, minus dates falling on a holiday
+//   days_present = subset where this student was present for ≥1 period
+//
+// Attendance is stored per-period (timetable_slot_id), so we collapse to
+// distinct dates. Holidays come from school_calendar_events with event_type
+// matching 'holiday' case-insensitively. Returns nulls if range is missing.
+const fetchAttendanceSummary = async (
+  supabase: SupabaseClient,
+  args: {
+    schoolCode: string;
+    classInstanceId: string;
+    studentId: string;
+    startDate: string | null;
+    endDate: string | null;
+  },
+): Promise<{ working_days: number | null; days_present: number | null }> => {
+  if (!args.startDate || !args.endDate) {
+    return { working_days: null, days_present: null };
+  }
+
+  // Holidays in range, expanded to individual dates.
+  const { data: events } = await supabase
+    .from('school_calendar_events')
+    .select('start_date, end_date, event_type')
+    .eq('school_code', args.schoolCode)
+    .lte('start_date', args.endDate)
+    .gte('end_date', args.startDate);
+  const holidays = new Set<string>();
+  for (const ev of events || []) {
+    if (!ev.event_type || String(ev.event_type).toLowerCase() !== 'holiday') continue;
+    const s = new Date(ev.start_date);
+    const e = new Date(ev.end_date || ev.start_date);
+    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      holidays.add(d.toISOString().slice(0, 10));
+    }
+  }
+
+  // Distinct dates in range where the class has any attendance row.
+  const { data: classRows } = await supabase
+    .from('attendance')
+    .select('date')
+    .eq('school_code', args.schoolCode)
+    .eq('class_instance_id', args.classInstanceId)
+    .gte('date', args.startDate)
+    .lte('date', args.endDate);
+  const classDates = new Set<string>(
+    (classRows || []).map((r: any) => String(r.date).slice(0, 10)),
+  );
+  const workingDates = [...classDates].filter((d) => !holidays.has(d));
+
+  // Days the student was 'present' for ≥1 period.
+  const { data: studentRows } = await supabase
+    .from('attendance')
+    .select('date, status')
+    .eq('school_code', args.schoolCode)
+    .eq('student_id', args.studentId)
+    .gte('date', args.startDate)
+    .lte('date', args.endDate);
+  const presentDates = new Set<string>();
+  for (const r of studentRows || []) {
+    if (String(r.status).toLowerCase() === 'present') {
+      presentDates.add(String(r.date).slice(0, 10));
+    }
+  }
+  const daysPresent = workingDates.filter((d) => presentDates.has(d)).length;
+
+  return { working_days: workingDates.length, days_present: daysPresent };
 };
 
 const lookupGrade = (percentage: number | null, scale: any[] | null): string | null => {
@@ -163,7 +332,7 @@ export const fetchTermReportData = async ({
   // Term report row
   const { data: tr, error: trErr } = await supabase
     .from('exam_groups')
-    .select('id, name, academic_year_id, grading_scale_id, school_code')
+    .select('id, name, academic_year_id, grading_scale_id, school_code, start_date, end_date')
     .eq('id', termReportId)
     .single();
   if (trErr) throw trErr;
@@ -172,6 +341,25 @@ export const fetchTermReportData = async ({
     fetchAcademicYearLabel(supabase, tr.academic_year_id),
     fetchBranding(supabase, tr.school_code),
     fetchStudent(supabase, studentId),
+  ]);
+
+  // Attendance + health + CCA are looked up in parallel — only the St.
+  // George template displays them, but we always attach them so any
+  // per-school template can opt in without changing the fetcher signature.
+  const [health, attendance, cca] = await Promise.all([
+    fetchHealth(supabase, studentId),
+    fetchAttendanceSummary(supabase, {
+      schoolCode: tr.school_code,
+      classInstanceId: student.class_instance_id,
+      studentId,
+      startDate: tr.start_date,
+      endDate: tr.end_date,
+    }),
+    fetchCca(supabase, {
+      schoolCode: tr.school_code,
+      termReportId,
+      studentId,
+    }),
   ]);
 
   // Snapshot rows for this (term, student)
@@ -223,6 +411,7 @@ export const fetchTermReportData = async ({
     group: { name: tr.name, academic_year_label: ayLabel },
     student,
     branding,
+    school_code: tr.school_code,
     primary_color: branding.primary_color || '#6B3FA0',
     accent_color: branding.accent_color || '#F59E0B',
     subjects,
@@ -232,6 +421,11 @@ export const fetchTermReportData = async ({
     totals: { obtained, max, percentage },
     overall_grade,
     result,
+    promoted_to_grade: student.grade != null ? Number(student.grade) + 1 : null,
+    cca_areas: cca.cca_areas,
+    cca_grades: cca.cca_grades,
+    health,
+    attendance,
   };
 };
 
@@ -319,6 +513,7 @@ export const fetchExamReportData = async ({
     group: { name: eg.name, academic_year_label: ayLabel },
     student,
     branding,
+    school_code: eg.school_code,
     primary_color: branding.primary_color || '#6B3FA0',
     accent_color: branding.accent_color || '#F59E0B',
     examination_label: eg.name,
@@ -341,7 +536,7 @@ export const fetchAnnualReportData = async ({
   // Annual term_report row + its sources
   const { data: tr, error: trErr } = await supabase
     .from('exam_groups')
-    .select('id, name, academic_year_id, grading_scale_id, school_code, source_group_ids')
+    .select('id, name, academic_year_id, grading_scale_id, school_code, source_group_ids, start_date, end_date')
     .eq('id', termReportId)
     .single();
   if (trErr) throw trErr;
@@ -350,6 +545,54 @@ export const fetchAnnualReportData = async ({
     fetchAcademicYearLabel(supabase, tr.academic_year_id),
     fetchBranding(supabase, tr.school_code),
     fetchStudent(supabase, studentId),
+  ]);
+
+  // Term span used for the attendance roll-up — prefer the source term
+  // reports' actual date range (min start → max end), fall back to the
+  // annual report's own dates, and finally to the academic year span.
+  let termStart: string | null = null;
+  let termEnd: string | null = null;
+  if (Array.isArray(tr.source_group_ids) && tr.source_group_ids.length > 0) {
+    const { data: srcDates } = await supabase
+      .from('exam_groups')
+      .select('start_date, end_date')
+      .in('id', tr.source_group_ids);
+    const starts = (srcDates || []).map((s: any) => s.start_date).filter(Boolean).sort();
+    const ends = (srcDates || []).map((s: any) => s.end_date).filter(Boolean).sort();
+    if (starts.length) termStart = starts[0];
+    if (ends.length) termEnd = ends[ends.length - 1];
+  }
+  if (!termStart) termStart = tr.start_date || null;
+  if (!termEnd) termEnd = tr.end_date || null;
+  if ((!termStart || !termEnd) && tr.academic_year_id) {
+    const { data: ay } = await supabase
+      .from('academic_years')
+      .select('start_date, end_date')
+      .eq('id', tr.academic_year_id)
+      .maybeSingle();
+    if (ay) {
+      termStart = termStart || ay.start_date || null;
+      termEnd = termEnd || ay.end_date || null;
+    }
+  }
+
+  // Now that we have the date range and the student's class, kick off the
+  // health + attendance + CCA lookups in parallel — they're independent
+  // of the RPC.
+  const [health, attendance, cca] = await Promise.all([
+    fetchHealth(supabase, studentId),
+    fetchAttendanceSummary(supabase, {
+      schoolCode: tr.school_code,
+      classInstanceId: student.class_instance_id,
+      studentId,
+      startDate: termStart,
+      endDate: termEnd,
+    }),
+    fetchCca(supabase, {
+      schoolCode: tr.school_code,
+      termReportId,
+      studentId,
+    }),
   ]);
 
   // Single RPC call — already returns halved marks per (subject, source)
@@ -450,6 +693,7 @@ export const fetchAnnualReportData = async ({
     group: { name: tr.name, academic_year_label: ayLabel },
     student,
     branding,
+    school_code: tr.school_code,
     primary_color: branding.primary_color || '#6B3FA0',
     accent_color: branding.accent_color || '#F59E0B',
     sources,
@@ -460,6 +704,9 @@ export const fetchAnnualReportData = async ({
     overall_grade,
     result,
     promoted_to_grade,
-    cca_areas: CCA_AREAS,
+    cca_areas: cca.cca_areas,
+    cca_grades: cca.cca_grades,
+    health,
+    attendance,
   };
 };
