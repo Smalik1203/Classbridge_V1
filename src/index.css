@@ -970,6 +970,75 @@ input, textarea, select { font-family: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--fg-faint); }
 
+/* ── Sidebar nav scrollbar ──────────────────────────────────────────────────
+   Slim, idle-hidden scrollbar that fades in only when the user hovers,
+   focuses inside, or actively scrolls the sidebar nav. ease-in-out for the
+   fade so it feels less mechanical than the OS default. */
+[data-sidebar="content"] {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 220ms ease-in-out;
+}
+[data-sidebar="content"]:hover,
+[data-sidebar="content"]:focus-within {
+  scrollbar-color: color-mix(in oklch, var(--border-strong) 70%, transparent) transparent;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+[data-sidebar="content"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-sidebar="content"]::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+  transition: background-color 220ms ease-in-out;
+}
+[data-sidebar="content"]:hover::-webkit-scrollbar-thumb,
+[data-sidebar="content"]:focus-within::-webkit-scrollbar-thumb,
+[data-sidebar="content"]::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in oklch, var(--border-strong) 70%, transparent);
+}
+[data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+  background-color: var(--fg-faint);
+}
+
+/* ── Main page scroll area ──────────────────────────────────────────────────
+   Same idle-hidden behavior as the sidebar nav, applied to the primary
+   page scroller in AppLayout. */
+[data-slot="main-scroll"] {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 220ms ease-in-out;
+}
+[data-slot="main-scroll"]:hover,
+[data-slot="main-scroll"]:focus-within {
+  scrollbar-color: color-mix(in oklch, var(--border-strong) 70%, transparent) transparent;
+}
+
+[data-slot="main-scroll"]::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+[data-slot="main-scroll"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-slot="main-scroll"]::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+  transition: background-color 220ms ease-in-out;
+}
+[data-slot="main-scroll"]:hover::-webkit-scrollbar-thumb,
+[data-slot="main-scroll"]:focus-within::-webkit-scrollbar-thumb,
+[data-slot="main-scroll"]::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in oklch, var(--border-strong) 70%, transparent);
+}
+[data-slot="main-scroll"]::-webkit-scrollbar-thumb:hover {
+  background-color: var(--fg-faint);
+}
+
 *:focus { outline: none; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 

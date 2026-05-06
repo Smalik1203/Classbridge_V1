@@ -1,6 +1,6 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Search, Moon, Sun, Bell, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
@@ -18,6 +18,7 @@ import { lightTheme } from '@/shared/ui/theme';
 import { LoginPage, ForgotPasswordPage, ResetPasswordPage } from '@/features/auth';
 import { PrivateRoute } from '@/features/auth';
 import Sidebar from '@/shared/components/layout/Sidebar';
+import NotificationBell from '@/shared/components/layout/NotificationBell';
 import { UnauthorizedPage } from '@/features/auth';
 import { routeAccess } from './routeAccess';
 import { AcademicYearProvider } from '@/features/analytics/context/AcademicYearContext';
@@ -158,7 +159,7 @@ function Topbar() {
   const crumbs = getCrumbs(pathname);
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/50 bg-background px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-1 h-4" />
       <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
@@ -172,21 +173,7 @@ function Topbar() {
         ))}
       </div>
 
-      <div className="hidden md:flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm text-muted-foreground min-w-[260px]">
-        <Search size={14} />
-        <span className="flex-1">Search anything…</span>
-        <kbd className="pointer-events-none ml-auto inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
-          ⌘K
-        </kbd>
-      </div>
-
-      <button
-        className="relative inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label="Notifications"
-      >
-        <Bell size={15} />
-        <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[var(--brand)]" />
-      </button>
+      <NotificationBell />
     </header>
   );
 }
@@ -214,9 +201,9 @@ function AppLayout({ children }) {
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <Sidebar />
-      <SidebarInset className="bg-background">
+      <SidebarInset className="bg-background h-svh overflow-hidden">
         <Topbar />
-        <div className="flex-1 overflow-y-auto">
+        <div data-slot="main-scroll" className="min-h-0 flex-1 overflow-y-auto">
           <div className="cb-fade-in p-4 md:p-6">
             {children}
           </div>
@@ -316,7 +303,7 @@ function AppContent() {
                   <Route path="/finance/inconsistencies" element={<PrivateRoute allowedRoles={['superadmin']}><FinanceInconsistencies /></PrivateRoute>} />
 
                   <Route path="/chatbot"               element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><Chatbot /></PrivateRoute>} />
-                  <Route path="/ai-test-generator"     element={<Navigate to="/test-management?mode=ai" replace />} />
+                  <Route path="/ai-test-generator"     element={<Navigate to="/test-management" replace />} />
 
                   <Route path="/academics/announcements"     element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><Announcements /></PrivateRoute>} />
                   <Route path="/academics/communication-hub" element={<PrivateRoute allowedRoles={['superadmin','admin','student']}><CommunicationHub /></PrivateRoute>} />

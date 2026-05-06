@@ -13,8 +13,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export function PageHeader({ title, subtitle, actions, tabs, activeTab, onTabChange }) {
   return (
     <>
-      <div className="flex items-start justify-between gap-6 pb-6 mb-6 border-b border-[color:var(--border)]">
-        <div>
+      <div className="flex flex-col gap-3 pb-2 mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div className="min-w-0">
           <h1 className="text-[22px] font-semibold tracking-[-0.022em] leading-[1.2] text-[color:var(--fg)] m-0 mb-1">
             {title}
           </h1>
@@ -24,7 +24,11 @@ export function PageHeader({ title, subtitle, actions, tabs, activeTab, onTabCha
             </p>
           )}
         </div>
-        {actions && <div className="flex gap-2 shrink-0">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {actions}
+          </div>
+        )}
       </div>
       {tabs && (
         <Tabs

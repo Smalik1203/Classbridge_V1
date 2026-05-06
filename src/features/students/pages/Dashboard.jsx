@@ -66,10 +66,16 @@ function Ring({ value, size = 120, stroke = 10, color = 'var(--brand)' }) {
   );
 }
 
-// Inline-SVG sparkline.
-function Sparkline({ values, color = 'var(--brand)', height = 36, width = 140 }) {
+// Inline-SVG sparkline. When `responsive` is true, the SVG stretches to its
+// container's width (the `width` prop is then only used as the viewBox basis).
+function Sparkline({ values, color = 'var(--brand)', height = 36, width = 140, responsive = false }) {
   if (!values || values.length < 2) {
-    return <div style={{ height, width }} className="text-[color:var(--fg-faint)] text-[11px]">—</div>;
+    return (
+      <div
+        style={{ height, width: responsive ? '100%' : width }}
+        className="text-[color:var(--fg-faint)] text-[11px]"
+      >—</div>
+    );
   }
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
@@ -79,7 +85,13 @@ function Sparkline({ values, color = 'var(--brand)', height = 36, width = 140 })
   const path = `M ${pts.join(' L ')}`;
   const area = `${path} L ${width.toFixed(1)},${(height - 2).toFixed(1)} L 0,${(height - 2).toFixed(1)} Z`;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block' }}>
+    <svg
+      width={responsive ? '100%' : width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio={responsive ? 'none' : 'xMidYMid meet'}
+      style={{ display: 'block' }}
+    >
       <path d={area} fill={color} fillOpacity={0.10} />
       <path d={path} fill="none" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -372,7 +384,7 @@ export default function Dashboard() {
 
   // ─── render ────────────────────────────────────────────────────────────
   return (
-    <div className="px-8 pt-7 pb-16 max-w-[1480px] mx-auto w-full">
+    <div className="px-4 sm:px-6 md:px-8 pt-5 md:pt-7 pb-12 md:pb-16 max-w-[1480px] mx-auto w-full">
       <PageHeader
         title={`${greeting}, ${userName.split(' ')[0]}`}
         subtitle={`${schoolName ? schoolName + ' · ' : ''}${todayLong}${activeAy ? ' · AY ' + ayLabel : ''}`}
@@ -436,8 +448,8 @@ function AdminView({ data, navigate }) {
   return (
     <>
       {/* ── Hero strip: ring + 4 KPIs ─────────────────────────────────── */}
-      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-6 mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 items-center">
+      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-4 sm:p-6 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5 sm:gap-7 items-center">
           {/* Attendance ring */}
           <div className="flex flex-col items-center gap-2">
             <Ring value={attendanceToday.rate} color="var(--brand)" />
@@ -561,8 +573,8 @@ function StudentView({ self, navigate }) {
 
   return (
     <>
-      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-6 mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-7 items-center">
+      <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-4 sm:p-6 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5 sm:gap-7 items-center">
           <div className="flex flex-col items-center gap-2">
             <Ring value={self.attRate} color="var(--brand)" />
             <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--fg-subtle)]">
@@ -617,7 +629,7 @@ function StudentView({ self, navigate }) {
 // ───────────────────────────────────────────────────────────────────────────
 function SectionCard({ title, subtitle, action, children }) {
   return (
-    <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-5">
+    <div className="rounded-[var(--radius-lg)] bg-[color:var(--bg-elev)] border border-[color:var(--border)] p-4 sm:p-5">
       <div className="flex items-end justify-between gap-3 mb-3 flex-wrap">
         <div>
           <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[color:var(--fg)] m-0">
@@ -667,8 +679,8 @@ function HeroStat({ label, value, hint, hintIcon: HintIcon, hintColor, dotColor,
 function TrendBlock({ title, value, series, color }) {
   return (
     <div className="p-4 bg-[color:var(--bg-subtle)] rounded-md">
-      <div className="flex items-end justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[color:var(--fg-subtle)]">
             {title}
           </div>
@@ -676,7 +688,17 @@ function TrendBlock({ title, value, series, color }) {
             {value}
           </div>
         </div>
-        <Sparkline values={series} color={color} width={220} height={52} />
+        {/* On mobile the sparkline stretches; on sm+ it stays at the original
+            220px so the desktop layout is unchanged. */}
+        <div className="w-full sm:w-[220px] shrink-0">
+          <Sparkline
+            values={series}
+            color={color}
+            width={220}
+            height={52}
+            responsive
+          />
+        </div>
       </div>
     </div>
   );

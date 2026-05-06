@@ -480,7 +480,10 @@ export default function UnifiedTestManagement() {
 
       {/* AI Wizard */}
       <Dialog open={aiWizardOpen} onOpenChange={open => { if (!open) closeAiWizard(); }}>
-        <DialogContent className="max-w-[920px] p-0" onPointerDownOutside={e => e.preventDefault()}>
+        <DialogContent
+          className="w-[calc(100vw-2rem)] sm:max-w-[920px] max-h-[calc(100vh-4rem)] overflow-y-auto p-0"
+          onPointerDownOutside={e => e.preventDefault()}
+        >
           <DialogHeader className="px-6 pt-5 pb-0">
             <DialogTitle className="flex items-center gap-2">
               <Zap size={16} style={{ color: 'var(--brand)' }} /> AI Test Generator

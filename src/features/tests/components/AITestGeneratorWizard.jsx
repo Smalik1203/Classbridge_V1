@@ -313,41 +313,50 @@ export default function AITestGeneratorWizard({ onCancel, onSaved, defaultClassI
             ]}
             style={{ marginBottom: 16 }}
           />
-          {sourceMode === 'text' && (
-            <TextArea
-              rows={10}
-              value={textContent}
-              onChange={(e) => setTextContent(e.target.value)}
-              placeholder="Paste textbook content, notes, or syllabus material (≥ 20 chars)…"
-            />
-          )}
-          {sourceMode === 'pdf' && (
-            <Upload.Dragger
-              accept="application/pdf"
-              maxCount={1}
-              beforeUpload={() => false}
-              fileList={pdfFile ? [pdfFile] : []}
-              onChange={({ fileList }) => setPdfFile(fileList[0] || null)}
-              onRemove={() => setPdfFile(null)}
-            >
-              <p className="ant-upload-drag-icon"><FilePdfOutlined style={{ fontSize: 32 }} /></p>
-              <p>Drop PDF here, or click to choose.</p>
-            </Upload.Dragger>
-          )}
-          {sourceMode === 'images' && (
-            <Upload.Dragger
-              accept="image/png,image/jpeg,image/jpg"
-              multiple
-              maxCount={5}
-              beforeUpload={() => false}
-              listType="picture"
-              fileList={imageFiles}
-              onChange={({ fileList }) => setImageFiles(fileList.slice(0, 5))}
-            >
-              <p className="ant-upload-drag-icon"><FileImageOutlined style={{ fontSize: 32 }} /></p>
-              <p>Drop up to 5 images (≤ 3MB each).</p>
-            </Upload.Dragger>
-          )}
+          {/* Fixed-height source area so the dialog stays the same size whether
+              the user picks Paste text, PDF, or Images. Inner controls fill it. */}
+          <div
+            className="ai-wizard-source"
+            style={{ height: 260, width: '100%', display: 'block' }}
+          >
+            {sourceMode === 'text' && (
+              <TextArea
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+                placeholder="Paste textbook content, notes, or syllabus material (≥ 20 chars)…"
+                style={{ width: '100%', height: '100%', resize: 'none' }}
+              />
+            )}
+            {sourceMode === 'pdf' && (
+              <Upload.Dragger
+                accept="application/pdf"
+                maxCount={1}
+                beforeUpload={() => false}
+                fileList={pdfFile ? [pdfFile] : []}
+                onChange={({ fileList }) => setPdfFile(fileList[0] || null)}
+                onRemove={() => setPdfFile(null)}
+                style={{ width: '100%', height: '100%' }}
+              >
+                <p className="ant-upload-drag-icon"><FilePdfOutlined style={{ fontSize: 32 }} /></p>
+                <p>Drop PDF here, or click to choose.</p>
+              </Upload.Dragger>
+            )}
+            {sourceMode === 'images' && (
+              <Upload.Dragger
+                accept="image/png,image/jpeg,image/jpg"
+                multiple
+                maxCount={5}
+                beforeUpload={() => false}
+                listType="picture"
+                fileList={imageFiles}
+                onChange={({ fileList }) => setImageFiles(fileList.slice(0, 5))}
+                style={{ width: '100%', height: '100%', overflowY: 'auto' }}
+              >
+                <p className="ant-upload-drag-icon"><FileImageOutlined style={{ fontSize: 32 }} /></p>
+                <p>Drop up to 5 images (≤ 3MB each).</p>
+              </Upload.Dragger>
+            )}
+          </div>
           <div style={{ marginTop: 24, textAlign: 'right' }}>
             <Space>
               {onCancel && <Button onClick={onCancel}>Cancel</Button>}

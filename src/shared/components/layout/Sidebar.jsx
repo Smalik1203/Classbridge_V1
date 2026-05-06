@@ -2,7 +2,7 @@
 // primitives. Collapsible section groups, left-border active state, monochrome
 // icons, profile dropdown at the bottom, rail-mode collapse via SidebarRail.
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Sparkles, Zap, Megaphone, Calendar, Clock, MessageSquare,
@@ -12,6 +12,8 @@ import {
   UserPlus, MessageCircle, LayoutGrid, Building2, ChevronDown, ChevronRight,
   LogOut, Search,
 } from 'lucide-react';
+
+import cbLogo from '@/assets/cb-logo.png';
 
 import { useAuth } from '@/AuthProvider';
 import { supabase } from '@/config/supabaseClient';
@@ -28,7 +30,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -120,8 +121,34 @@ const NAV = [
   ]},
 ];
 
-// Sections that start expanded. Others are collapsed by default (denser look).
-const DEFAULT_EXPANDED_SECTIONS = new Set(['Main', 'Academic']);
+// Sections that start expanded on a user's *first* visit. After that, the
+// open/closed state is persisted to localStorage and never reset by reloads.
+const DEFAULT_EXPANDED_SECTIONS = ['Main'];
+const SECTION_STATE_STORAGE_KEY = 'cb:sidebar:sections-open:v1';
+
+function readPersistedSectionState() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(SECTION_STATE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+  return null;
+}
+
+function writePersistedSectionState(state) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SECTION_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // storage may be full / disabled — fail silently
+  }
+}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -130,6 +157,29 @@ export default function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+
+  // Persisted open/close state per section. On first visit (no stored value)
+  // we apply DEFAULT_EXPANDED_SECTIONS; subsequent reloads restore whatever
+  // the user last left it as.
+  const [openSections, setOpenSections] = useState(() => {
+    const persisted = readPersistedSectionState();
+    if (persisted) return persisted;
+    const initial = {};
+    for (const name of DEFAULT_EXPANDED_SECTIONS) initial[name] = true;
+    return initial;
+  });
+
+  useEffect(() => {
+    writePersistedSectionState(openSections);
+  }, [openSections]);
+
+  const setSectionOpen = useCallback((label, open) => {
+    if (!label) return;
+    setOpenSections((prev) => {
+      if (Boolean(prev[label]) === Boolean(open)) return prev;
+      return { ...prev, [label]: Boolean(open) };
+    });
+  }, []);
 
   const isCbAdmin = user?.user_metadata?.cb_admin_code || user?.app_metadata?.role === 'cb_admin';
   const userRole = user?.app_metadata?.role || (isCbAdmin ? 'cb_admin' : user?.user_metadata?.role) || 'user';
@@ -165,19 +215,72 @@ export default function AppSidebar() {
     }
   };
 
-  const isActive = (key) => {
-    if (key === '/') return location.pathname === '/';
-    // Match exact or as a path prefix.
-    return location.pathname === key || location.pathname.startsWith(`${key}/`);
-  };
+  // Lookup: nav key → its section label (after role filter so duplicate keys
+  // across roles resolve to the right one). Used to auto-expand whichever
+  // section contains the currently active route, so that navigating from
+  // the collapsed rail leaves that section open when the sidebar is restored.
+  const sectionForKey = useMemo(() => {
+    const m = {};
+    for (const sec of NAV) {
+      if (!sec.section) continue;
+      for (const item of sec.items) {
+        if (!item.roles.includes(userRole)) continue;
+        m[item.key] = sec.section;
+      }
+    }
+    return m;
+  }, [userRole]);
+
+  // Pick the single "best matching" nav key for the current pathname so that
+  // when on `/hr/staff` we don't also light up `/hr` (the HR Dashboard) just
+  // because it's a prefix. We mark only the longest matching nav entry.
+  const activeKey = useMemo(() => {
+    let best = null;
+    let bestLen = -1;
+    for (const sec of NAV) {
+      for (const item of sec.items) {
+        if (!item.roles.includes(userRole)) continue;
+        const k = item.key;
+        if (k === '/') {
+          if (location.pathname === '/' && k.length > bestLen) {
+            best = k;
+            bestLen = k.length;
+          }
+          continue;
+        }
+        const matches =
+          location.pathname === k || location.pathname.startsWith(`${k}/`);
+        if (matches && k.length > bestLen) {
+          best = k;
+          bestLen = k.length;
+        }
+      }
+    }
+    return best;
+  }, [userRole, location.pathname]);
+
+  const isActive = (key) => key === activeKey;
+
+  // Whenever the active route changes (including clicks made while the
+  // sidebar is collapsed/minimized), make sure the section it belongs to is
+  // expanded — that way when the user re-opens the sidebar the selected
+  // item is already in view, no extra click required.
+  useEffect(() => {
+    if (!activeKey) return;
+    const section = sectionForKey[activeKey];
+    if (!section) return;
+    setOpenSections((prev) => (prev[section] ? prev : { ...prev, [section]: true }));
+  }, [activeKey, sectionForKey]);
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar collapsible="icon" className="border-r border-r-sidebar-border/40">
       <SidebarHeader className="gap-2 p-2">
         <div className="flex items-center gap-2 px-1.5 py-1">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--brand)] text-[var(--brand-fg)]">
-            <BookOpen className="h-4 w-4" />
-          </div>
+          <img
+            src={cbLogo}
+            alt="ClassBridge"
+            className="h-7 w-7 shrink-0 rounded-md object-cover"
+          />
           <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="truncate text-sm font-semibold">ClassBridge</span>
             <span className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -192,14 +295,12 @@ export default function AppSidebar() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search nav…"
+            placeholder="Search..."
             className="h-8 pl-8 text-[13px]"
             aria-label="Search navigation"
           />
         </div>
       </SidebarHeader>
-
-      <SidebarSeparator />
 
       <SidebarContent>
         {sections.length === 0 && (
@@ -216,6 +317,8 @@ export default function AppSidebar() {
             isActive={isActive}
             onNavigate={navigate}
             forceOpen={search.trim().length > 0}
+            isOpen={sec.section === null ? true : Boolean(openSections[sec.section])}
+            onOpenChange={(open) => setSectionOpen(sec.section, open)}
           />
         ))}
       </SidebarContent>
@@ -274,15 +377,14 @@ export default function AppSidebar() {
 }
 
 // Section group with a collapsible header (Stripe-style).
-function NavSection({ label, items, isActive, onNavigate, forceOpen }) {
+// Controlled by the parent via `isOpen` / `onOpenChange` so state can be
+// persisted across reloads.
+function NavSection({ label, items, isActive, onNavigate, forceOpen, isOpen, onOpenChange }) {
   const { state } = useSidebar();
-  const [open, setOpen] = useState(() =>
-    label === null ? true : DEFAULT_EXPANDED_SECTIONS.has(label),
-  );
 
   // When user types in the search input, force every section open so matches
   // are visible without requiring extra clicks.
-  const isOpen = forceOpen || open;
+  const computedOpen = forceOpen || Boolean(isOpen);
 
   // No header for the unlabelled top section — render flat.
   if (label === null) {
@@ -315,7 +417,7 @@ function NavSection({ label, items, isActive, onNavigate, forceOpen }) {
   }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setOpen}>
+    <Collapsible open={computedOpen} onOpenChange={(open) => onOpenChange?.(open)}>
       <SidebarGroup className="py-0.5">
         <SidebarGroupLabel asChild>
           <CollapsibleTrigger className="group/label flex w-full items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground">
@@ -337,7 +439,7 @@ function NavSection({ label, items, isActive, onNavigate, forceOpen }) {
   );
 }
 
-// Single nav row. Uses left-border indicator (3px) for active state.
+// Single nav row. Active state uses a soft brand tint (no left border).
 function NavRow({ item, active, onNavigate }) {
   const Icon = item.icon;
   return (
@@ -348,8 +450,6 @@ function NavRow({ item, active, onNavigate }) {
         onClick={() => onNavigate(item.key)}
         className={[
           'relative h-8 text-[13px] font-medium',
-          // Left-border active indicator
-          'data-[active=true]:before:absolute data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px] data-[active=true]:before:rounded-full data-[active=true]:before:bg-[var(--brand)]',
           // Active bg is a soft tint, not the loud brand block
           'data-[active=true]:bg-[var(--brand-soft)] data-[active=true]:text-foreground',
           // Hover stays subtle
