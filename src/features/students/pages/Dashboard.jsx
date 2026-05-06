@@ -540,7 +540,7 @@ function AdminView({ data, navigate }) {
       </div>
 
       {/* ── Two-column: recent activity + quick actions ────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start gap-4">
         <SectionCard title="Recent activity" subtitle="Latest payments and enquiries">
           <RecentActivity
             payments={recentPayments}

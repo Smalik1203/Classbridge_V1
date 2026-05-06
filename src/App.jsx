@@ -1,6 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/en';
@@ -23,7 +22,6 @@ import { UnauthorizedPage } from '@/features/auth';
 import { routeAccess } from './routeAccess';
 import { AcademicYearProvider } from '@/features/analytics/context/AcademicYearContext';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Separator } from '@/components/ui/separator';
 
 dayjs.extend(weekday);
 dayjs.extend(localeData);
@@ -91,89 +89,17 @@ const FinanceAccounts         = lazy(() => import('@/features/finance/pages/Acco
 const FinanceReports          = lazy(() => import('@/features/finance/pages/Reports'));
 const FinanceInconsistencies  = lazy(() => import('@/features/finance/pages/Inconsistencies'));
 
-const CRUMBS = {
-  '/':                            ['Dashboard'],
-  '/dashboard':                   ['Dashboard'],
-  '/cb-admin-dashboard':          ['Platform', 'Overview'],
-  '/add-schools':                 ['Platform', 'Schools'],
-  '/users':                       ['Admin', 'Users'],
-  '/attendance':                  ['Academic', 'Attendance'],
-  '/student/attendance':          ['Academic', 'Attendance'],
-  '/timetable':                   ['Academic', 'Timetable'],
-  '/student/timetable':           ['Academic', 'Timetable'],
-  '/calendar':                    ['Main', 'Calendar'],
-  '/student/calendar':            ['Main', 'Calendar'],
-  '/syllabus':                    ['Learning', 'Syllabus'],
-  '/student/syllabus':            ['Learning', 'Syllabus'],
-  '/learning-resources':          ['Learning', 'Resources'],
-  '/student/resources':           ['Learning', 'Resources'],
-  '/test-management':             ['Academic', 'Assessments'],
-  '/gradebook':                   ['Academic', 'Gradebook'],
-  '/take-tests':                  ['Academic', 'Assessments'],
-  '/student/results':             ['Academic', 'My Results'],
-  '/analytics':                   ['Academic', 'Analytics'],
-  '/student/analytics':           ['Academic', 'My Analytics'],
-  '/task-management':             ['Academic', 'Tasks'],
-  '/fees':                        ['Finance', 'Fees'],
-  '/finance':                     ['Finance', 'Hub'],
-  '/finance/transactions':        ['Finance', 'Transactions'],
-  '/finance/accounts':            ['Finance', 'Accounts'],
-  '/finance/reports':             ['Finance', 'Reports'],
-  '/finance/inconsistencies':     ['Finance', 'Inconsistencies'],
-  '/hr':                          ['HR', 'Dashboard'],
-  '/hr/staff':                    ['HR', 'Staff'],
-  '/hr/payroll':                  ['HR', 'Payroll'],
-  '/hr/leaves':                   ['HR', 'Leaves'],
-  '/hr/attendance':               ['HR', 'Staff Attendance'],
-  '/hr/attendance/mark':          ['HR', 'Mark Attendance'],
-  '/hr/salary-components':        ['HR', 'Salary Components'],
-  '/hr/my':                       ['HR', 'My HR'],
-  '/hr/my/tax':                   ['HR', 'My HR', 'Tax Declaration'],
-  '/hr/tax':                      ['HR', 'Tax Declarations'],
-  '/hr/tax/form-16':              ['HR', 'Form 16'],
-  '/hr/tax/form-24q':             ['HR', 'Form 24Q'],
-  '/hr/tax/form-15gh':            ['HR', 'Form 15G / 15H'],
-  '/hr/tax/settings':             ['HR', 'Tax Settings'],
-  '/school-setup':                ['Admin', 'School Setup'],
-  '/add-specific-class':          ['Admin', 'Classes'],
-  '/add-subjects':                ['Admin', 'Subjects'],
-  '/manage/admissions':           ['Operations', 'Admissions'],
-  '/manage/inventory':            ['Operations', 'Inventory'],
-  '/chatbot':                     ['Main', 'Ask Sage'],
-  '/academics/announcements':     ['Main', 'Announcements'],
-  '/academics/communication-hub': ['Main', 'Feedback'],
-  '/academics/report-comments':   ['Admin', 'Report Comments'],
-};
-
-function getCrumbs(pathname) {
-  if (CRUMBS[pathname]) return ['ClassBridge', ...CRUMBS[pathname]];
-  const candidate = Object.keys(CRUMBS)
-    .filter(p => p !== '/' && pathname.startsWith(p + '/'))
-    .sort((a, b) => b.length - a.length)[0];
-  if (candidate) return ['ClassBridge', ...CRUMBS[candidate]];
-  return ['ClassBridge'];
-}
-
+// Minimal top strip — no chrome, no breadcrumbs. Just hosts the sidebar
+// toggle (left) and the notification bell (right) so they remain reachable
+// without an actual topbar surface above the page content.
 function Topbar() {
-  const { pathname } = useLocation();
-  const crumbs = getCrumbs(pathname);
-
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border/50 bg-background px-4">
-      <SidebarTrigger className="-ml-1" />
-      <Separator orientation="vertical" className="mr-1 h-4" />
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
-        {crumbs.map((c, i) => (
-          <span key={i} className="flex items-center gap-1.5">
-            {i > 0 && <ChevronRight size={13} className="shrink-0 text-muted-foreground/60" />}
-            <span className={i === crumbs.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}>
-              {c}
-            </span>
-          </span>
-        ))}
-      </div>
-
-      <NotificationBell />
+    <header
+      className="flex h-12 shrink-0 items-center justify-between bg-transparent px-3"
+      style={{ backgroundColor: 'transparent' }}
+    >
+      <SidebarTrigger className="-ml-2 mt-0.5 size-6 rounded-[9px] border border-[color:var(--border-strong)] bg-sidebar hover:bg-accent hover:text-accent-foreground" />
+      <NotificationBell className="mr-2 mt-0.5" />
     </header>
   );
 }
@@ -199,12 +125,15 @@ function AppLayout({ children }) {
   })();
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
+    <SidebarProvider
+      defaultOpen={defaultOpen}
+      style={{ '--sidebar-width': '16.75rem' }}
+    >
       <Sidebar />
-      <SidebarInset className="bg-background h-svh overflow-hidden">
+      <SidebarInset className="bg-background h-svh">
         <Topbar />
         <div data-slot="main-scroll" className="min-h-0 flex-1 overflow-y-auto">
-          <div className="cb-fade-in p-4 md:p-6">
+          <div className="cb-fade-in px-4 pb-4 pt-2 md:px-6 md:pb-6 md:pt-3">
             {children}
           </div>
         </div>

@@ -1039,6 +1039,42 @@ input, textarea, select { font-family: inherit; }
   background-color: var(--fg-faint);
 }
 
+/* ── Floating sidebar — detached panel shape only ─────────────────────────
+   Only the sidebar's *shape* is reshaped here — radius, padding, shadow
+   elevation. No nav colors, label colors, search input colors, or panel
+   background are altered; those stay on whatever shadcn / the existing
+   `--sidebar` tokens provide. The shadcn `floating` variant adds a 1px
+   border + small drop shadow we don't want, so we strip the border and
+   replace the shadow with a softer layered one. */
+
+[data-variant="floating"] [data-slot="sidebar-container"] {
+  padding: 10px;
+}
+
+[data-variant="floating"] [data-sidebar="sidebar"] {
+  border-radius: 16px;
+  /* Outline around the panel — slightly darker than the default border
+     token so the floating panel reads as a clearly contained card. */
+  border: 1px solid var(--border-strong);
+  box-shadow:
+    0 1px 2px 0 oklch(0.20 0.008 80 / 0.05),
+    0 10px 24px -12px oklch(0.20 0.008 80 / 0.10);
+  transition: box-shadow 220ms ease, border-color 220ms ease;
+}
+
+[data-theme="dark"] [data-variant="floating"] [data-sidebar="sidebar"] {
+  box-shadow:
+    0 1px 2px 0 oklch(0 0 0 / 0.4),
+    0 14px 32px -14px oklch(0 0 0 / 0.5);
+}
+
+/* Compact nav rows — soft hover transition, generous radius. (No color
+   changes — only the radius and transition timing.) */
+[data-variant="floating"] [data-sidebar="menu-button"] {
+  transition: background-color 140ms ease, color 140ms ease;
+  border-radius: 10px;
+}
+
 *:focus { outline: none; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 

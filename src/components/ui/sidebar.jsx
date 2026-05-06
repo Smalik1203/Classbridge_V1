@@ -240,7 +240,7 @@ function SidebarTrigger({
         toggleSidebar()
       }}
       {...props}>
-      <PanelLeftIcon />
+      <PanelLeftIcon size={15} strokeWidth={1.6} />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

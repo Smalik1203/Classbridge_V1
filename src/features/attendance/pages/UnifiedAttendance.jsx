@@ -11,6 +11,7 @@ import {
   getAttendanceColor
 } from '@/features/attendance/utils/attendanceColors';
 import EmptyState from '@/shared/ui/EmptyState';
+import PageHeader from '@/shared/ui/PageHeader';
 import { useHolidayCheck } from '@/features/calendar/components/HolidayChecker';
 
 const { Title, Text } = Typography;
@@ -549,9 +550,9 @@ const UnifiedAttendance = () => {
 
   return (
     <div style={{ 
-      padding: 16, 
-      background: isDarkMode ? theme.token.colorBgLayout : '#fafafa', 
-      minHeight: '100vh' 
+      padding: 0,
+      background: 'transparent', 
+      minHeight: '100%' 
     }}>
       <style>
         {`
@@ -579,6 +580,10 @@ const UnifiedAttendance = () => {
         `}
       </style>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+        <PageHeader
+          title="Attendance"
+          subtitle="Mark and review daily class attendance"
+        />
 
         {alert && (
           <Alert
@@ -647,11 +652,6 @@ const UnifiedAttendance = () => {
                     <div style={{ marginBottom: 6 }}>
                       <Text strong style={{ color: theme.token.colorTextSecondary, fontSize: 13, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         Class
-                        {role === 'superadmin' && !selectedClassId && (
-                          <Text type="secondary" style={{ fontSize: 11, fontWeight: 'normal', marginLeft: 8 }}>
-                            • Select class first
-                          </Text>
-                        )}
                       </Text>
                     </div>
                     {classesLoading ? (
@@ -659,8 +659,8 @@ const UnifiedAttendance = () => {
                     ) : (
                       <Select
                         placeholder="Select Class"
-                        value={selectedClassId}
-                        onChange={setSelectedClassId}
+                        value={selectedClassId || undefined}
+                        onChange={(val) => setSelectedClassId(val ?? '')}
                         style={{ width: '100%' }}
                         size="middle"
                         allowClear
@@ -693,7 +693,10 @@ const UnifiedAttendance = () => {
                     <DatePicker
                       value={date}
                       onChange={setDate}
-                      style={{ width: '100%' }}
+                      style={{
+                        width: '100%',
+                        background: theme.token.colorBgContainer,
+                      }}
                       size="middle"
                       format="DD/MM/YYYY"
                       placeholder={selectedClassId ? "Select date" : "Select class first"}

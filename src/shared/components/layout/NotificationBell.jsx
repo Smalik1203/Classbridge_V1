@@ -67,6 +67,7 @@ export default function NotificationBell({ className }) {
           }
           className={cn(
             'relative inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)]',
+            'data-[state=open]:bg-muted data-[state=open]:text-foreground',
             className,
           )}
         >
@@ -83,9 +84,9 @@ export default function NotificationBell({ className }) {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[340px] p-0"
+        className="w-[340px] p-0 border-[color:var(--border-strong)]"
       >
-        <div className="flex items-center justify-between border-b px-3 py-2.5">
+        <div className="flex items-center justify-between border-b border-b-[color:var(--border-strong)] px-3 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Notifications</span>
             {hasUnread && (

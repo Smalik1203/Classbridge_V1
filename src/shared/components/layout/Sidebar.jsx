@@ -29,7 +29,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -153,6 +152,7 @@ function writePersistedSectionState(state) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function AppSidebar() {
+  const { toggleSidebar } = useSidebar();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -273,13 +273,16 @@ export default function AppSidebar() {
   }, [activeKey, sectionForKey]);
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-r-sidebar-border/40">
+    <Sidebar collapsible="icon" variant="floating" className="border-0">
       <SidebarHeader className="gap-2 p-2">
-        <div className="flex items-center gap-2 px-1.5 py-1">
+        <div className="flex items-center gap-2 px-1.5 py-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
           <img
             src={cbLogo}
             alt="ClassBridge"
-            className="h-7 w-7 shrink-0 rounded-md object-cover"
+            /* `max-w-none` overrides Tailwind preflight's `max-width: 100%`
+               which would otherwise shrink the image when the parent is
+               narrower than 28px (i.e. when the sidebar is collapsed). */
+            className="block h-7 w-7 max-w-none shrink-0 rounded-md object-cover"
           />
           <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
             <span className="truncate text-sm font-semibold">ClassBridge</span>
@@ -299,6 +302,18 @@ export default function AppSidebar() {
             className="h-8 pl-8 text-[13px]"
             aria-label="Search navigation"
           />
+        </div>
+
+        {/* Keep a visible search affordance in icon-collapsed mode */}
+        <div className="hidden group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label="Open sidebar search"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[var(--bg-hover)] hover:text-foreground"
+          >
+            <Search className="h-4 w-4" />
+          </button>
         </div>
       </SidebarHeader>
 
@@ -345,8 +360,9 @@ export default function AppSidebar() {
           <DropdownMenuContent
             side="right"
             align="end"
-            sideOffset={6}
-            className="w-56 rounded-lg"
+            sideOffset={14}
+            alignOffset={-8}
+            className="w-56 rounded-[16px] border-[color:var(--border-strong)]"
           >
             <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
               Signed in as
@@ -371,7 +387,6 @@ export default function AppSidebar() {
         </DropdownMenu>
       </SidebarFooter>
 
-      <SidebarRail />
     </Sidebar>
   );
 }

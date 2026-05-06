@@ -24,6 +24,7 @@ import MessageBubble from '../components/MessageBubble';
 import StreamingBubble from '../components/StreamingBubble';
 import TypingIndicator from '../components/TypingIndicator';
 import ChatInput from '../components/ChatInput';
+import PageHeader from '@/shared/ui/PageHeader';
 
 const COLUMN_MAX = 760;
 
@@ -106,20 +107,27 @@ export default function Chatbot() {
   const border = isDarkMode ? '#1f2937' : '#e2e8f0';
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 'calc(100vh - 160px)',
-        width: '100%',
-        maxWidth: 1100,
-        margin: '0 auto',
-        background: pageBg,
-        borderRadius: 12,
-        overflow: 'hidden',
-        border: `1px solid ${border}`,
-      }}
-    >
+    <>
+      <div style={{ maxWidth: 1100, margin: '0 auto', width: '100%', marginTop: -6 }}>
+        <PageHeader
+          title="Ask Sage"
+          subtitle="Your school AI assistant — ask about attendance, fees, performance, and more"
+        />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: 'calc(100vh - 240px)',
+          width: '100%',
+          maxWidth: 1100,
+          margin: '0 auto',
+          background: pageBg,
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: `1px solid ${border}`,
+        }}
+      >
       <div
         style={{
           height: 48,
@@ -225,5 +233,6 @@ export default function Chatbot() {
         </div>
       </div>
     </div>
+    </>
   );
 }
