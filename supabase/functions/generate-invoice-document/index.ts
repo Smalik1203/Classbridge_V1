@@ -89,10 +89,18 @@ interface RenderInput {
   classInfo: any;
   academicYear: any;
   serverComputed: { total: number; paid: number; balance: number; status: string };
+  copies: 1 | 2;
 }
 
 const renderHTML = (data: RenderInput): string => {
-  const { invoiceNumber, invoice, items, payments, student, school, classInfo, academicYear, serverComputed } = data;
+  const { invoiceNumber, invoice, items, payments, student, school, classInfo, academicYear, serverComputed, copies } = data;
+  // Receipts are always A5-sized (148mm × 210mm) — small enough to save paper,
+  // big enough to read. For 2 copies, we use A5 landscape (210mm × 148mm)
+  // with two A6 portraits side-by-side — a pixel-perfect fit (2 × 105mm = 210mm).
+  // For 1 copy, A5 portrait.
+  const twoUp = copies === 2;
+  // Compact (A6) sizing inside the twoUp sheet, roomier (A5) sizing when single.
+  const compact = twoUp;
 
   const academicYearStr = academicYear
     ? `${academicYear.year_start}–${academicYear.year_end}`
@@ -116,18 +124,21 @@ const renderHTML = (data: RenderInput): string => {
 
   const isPaid = serverComputed.status === "PAID";
   const isPartial = serverComputed.status === "PARTIAL";
-  const statusLabel = isPaid ? "PAID" : isPartial ? "PARTIAL" : "DUE";
-  const statusColor = isPaid ? "#16a34a" : isPartial ? "#d97706" : "#dc2626";
-  const statusBg = isPaid ? "#dcfce7" : isPartial ? "#fef3c7" : "#fee2e2";
+  const statusLabel = isPaid ? "PAID" : isPartial ? "PART PAID" : "UNPAID";
+  // Rubber-stamp colors — punchy, ink-on-paper feel.
+  const stampColor = isPaid ? "#15803d" : isPartial ? "#b45309" : "#b91c1c";
 
-  const itemsRows = items.map((item) => {
+  // Line items — proper column widths, no wrap on amount, wrap-anywhere on
+  // description so verbose fee heads like "Transport (Route 5, Hostel)" fit
+  // cleanly even at A6 width.
+  const itemsRows = items.length ? items.map((item) => {
     const safeLabel = escapeHtml(item.label);
     const amount = parseFloat(String(item.amount));
     return `<tr>
-      <td class="cell-label">${safeLabel}</td>
+      <td class="cell-desc">${safeLabel}</td>
       <td class="cell-amount">${formatINR(amount)}</td>
     </tr>`;
-  }).join("");
+  }).join("") : `<tr><td class="cell-desc" colspan="2" style="color:#94a3b8;font-style:italic;">No itemised breakdown</td></tr>`;
 
   const paymentsRows = payments.length
     ? payments.map((p) => {
@@ -136,224 +147,546 @@ const renderHTML = (data: RenderInput): string => {
         const date = formatDate(p.payment_date);
         const ref = escapeHtml(p.receipt_number) || "—";
         return `<tr>
-          <td>${date}</td>
-          <td><span class="pill">${escapeHtml(method)}</span></td>
-          <td class="ref">${ref}</td>
+          <td class="cell-date">${date}</td>
+          <td class="cell-method">${escapeHtml(method)}</td>
+          <td class="cell-ref">${ref}</td>
           <td class="cell-amount">${formatINR(amount)}</td>
         </tr>`;
       }).join("")
     : "";
+
+  // Latest payment for the prominent "received" line in compact mode.
+  const latestPayment = payments[0] || null;
+  const paymentMode = latestPayment
+    ? String(latestPayment.payment_method || "—").replace(/_/g, " ").toUpperCase()
+    : "—";
+  const paymentRef = latestPayment ? (escapeHtml(latestPayment.receipt_number) || "—") : "—";
+  const paymentDate = latestPayment ? formatDate(latestPayment.payment_date) : safeIssueDate;
+
+  // Layout tokens — A5 portrait (single-copy) at 148mm × 210mm, or A6 portrait
+  // columns (two-up) at 105mm × 148mm. Sizes in mm so they translate exactly
+  // from screen to print, matching the St. George report-card aesthetic.
+  const PAGE_W = compact ? "105mm" : "148mm";
+  const PAGE_H = compact ? "148mm" : "210mm";
+  const PAGE_PAD = compact ? "3mm 4mm 3mm" : "4mm 6mm 5mm";
+  const BORDER = compact ? "0.8mm" : "1mm";
+  // Type — Times serif for body (formal/legal document feel), Arial for
+  // headers and labels (legible at small sizes).
+  const FS_BODY = compact ? "2.6mm" : "3.4mm";
+  const FS_HEAD_TITLE = compact ? "3.6mm" : "5mm";
+  const FS_HEAD_SUB = compact ? "2.2mm" : "2.8mm";
+  const FS_SECTION = compact ? "2.6mm" : "3.6mm";
+  const FS_TABLE = compact ? "2.4mm" : "3.2mm";
+  const FS_TABLE_HEAD = compact ? "2.2mm" : "2.8mm";
+  const FS_TOTAL = compact ? "3.8mm" : "5.2mm";
+  const FS_SIG = compact ? "2.4mm" : "3.2mm";
+  const SECTION_GAP = compact ? "2.5mm" : "4mm";
+  const ROW_H = compact ? "5mm" : "6.5mm";
+  const RED = "#c1121f";
+  const NAVY = "#0a2540";
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Invoice ${escapeHtml(invoiceNumber)}</title>
+<title>Receipt ${escapeHtml(invoiceNumber)}</title>
 <style>
-  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --ink: #0f172a;
-    --ink-soft: #475569;
-    --ink-dim: #94a3b8;
-    --border: #e2e8f0;
-    --border-soft: #f1f5f9;
-    --accent: #2563eb;
-    --accent-soft: #eff6ff;
-    --status: ${statusColor};
-    --status-bg: ${statusBg};
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+    font-family: "Times New Roman", Times, serif;
+    color: #000;
+    background: #e2e8f0;
   }
-  html, body { background: #f8fafc; color: var(--ink); -webkit-font-smoothing: antialiased; }
-  body { font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.55; }
+  @page { size: ${twoUp ? "A5 landscape" : "A5"}; margin: 0; }
+
   .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
-  .doc {
-    width: 210mm;
-    min-height: 297mm;
-    margin: 24px auto;
+  .sans { font-family: Arial, "Helvetica Neue", sans-serif; }
+
+  /* ── PAGE ── single A5 page or one half of the two-up sheet ────────── */
+  .page {
+    position: relative;
+    width: ${PAGE_W};
+    height: ${PAGE_H};
+    padding: ${PAGE_PAD};
+    border: ${BORDER} solid #000;
     background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+    margin: 12px auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: ${FS_BODY};
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
+  }
+  .page + .page { margin-top: 16px; }
+
+  /* ── COPY TAG ── tiny ribbon top-right, inside the border ──────────── */
+  .copy-tag {
+    position: absolute;
+    top: 0; right: 0;
+    background: ${RED};
+    color: #fff;
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    font-size: ${compact ? "2.2mm" : "2.8mm"};
+    letter-spacing: 0.4mm;
+    padding: ${compact ? "1mm 2.5mm" : "1.5mm 3.5mm"};
+    z-index: 3;
+    text-transform: uppercase;
+  }
+
+  /* ── HEADER ── logo left, school info right ─────────────────────── */
+  .head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: ${compact ? "3mm" : "5mm"};
+    padding-bottom: ${compact ? "2mm" : "3mm"};
+    border-bottom: 0.3mm solid #000;
+  }
+  .logo {
+    width: ${compact ? "14mm" : "20mm"};
+    height: ${compact ? "14mm" : "20mm"};
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 0.3mm solid #000;
+    background: #fff;
+    font-family: Arial, sans-serif;
+    font-weight: 900;
+    font-size: ${compact ? "6mm" : "9mm"};
+    color: ${RED};
+    line-height: 1;
+    overflow: hidden;
+  }
+  .logo img { width: 100%; height: 100%; object-fit: contain; }
+  .head-info { min-width: 0; }
+  .school-name {
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    font-size: ${FS_HEAD_TITLE};
+    color: ${NAVY};
+    line-height: 1.1;
+    letter-spacing: 0.1mm;
+    text-transform: uppercase;
+  }
+  .school-meta {
+    font-family: Arial, sans-serif;
+    font-size: ${FS_HEAD_SUB};
+    color: #000;
+    line-height: 1.35;
+    margin-top: 0.8mm;
+  }
+  .school-meta + .school-meta { margin-top: 0.3mm; }
+
+  /* ── DOCUMENT TITLE ── red, centered, formal ───────────────────── */
+  .title {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    font-size: ${compact ? "3.4mm" : "4.6mm"};
+    color: ${RED};
+    text-transform: uppercase;
+    letter-spacing: 0.4mm;
+    margin: ${compact ? "1.5mm 0 0.5mm" : "2.5mm 0 1mm"};
+  }
+  .title-sub {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    font-size: ${compact ? "2.4mm" : "3mm"};
+    margin-bottom: ${SECTION_GAP};
+  }
+  .title-sub .recno {
+    font-family: "Courier New", monospace;
+    font-weight: 700;
+    letter-spacing: 0.1mm;
+  }
+
+  /* ── SECTION HEADINGS ─────────────────────────────────────────── */
+  .section-h {
+    font-family: Arial, sans-serif;
+    color: ${RED};
+    font-weight: 800;
+    font-size: ${FS_SECTION};
+    text-transform: uppercase;
+    letter-spacing: 0.2mm;
+    margin: ${SECTION_GAP} 0 ${compact ? "1mm" : "1.5mm"};
+  }
+  .section-h:first-of-type { margin-top: 0; }
+
+  /* ── PROFILE GRID ── label : value rows ───────────────────────── */
+  .profile {
+    display: grid;
+    grid-template-columns: ${compact ? "22mm 2mm 1fr 18mm 2mm auto" : "30mm 3mm 1fr 26mm 3mm auto"};
+    row-gap: ${compact ? "1.2mm" : "1.8mm"};
+    column-gap: 0;
+    font-size: ${FS_BODY};
+    align-items: baseline;
+  }
+  .profile .lbl {
+    font-family: Arial, sans-serif;
+    font-weight: 600;
+    color: #000;
+    font-size: ${compact ? "2.3mm" : "2.9mm"};
+  }
+  .profile .colon { text-align: center; }
+  .profile .val {
+    font-weight: 700;
+    color: #000;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  /* ── TABLES ── bordered, formal, ruled ────────────────────────── */
+  table.bill {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: ${FS_TABLE};
+    table-layout: fixed;
+  }
+  table.bill th,
+  table.bill td {
+    border: 0.3mm solid #000;
+    padding: ${compact ? "1mm 1.5mm" : "1.5mm 2.5mm"};
+    vertical-align: middle;
+  }
+  table.bill thead th {
+    color: ${RED};
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.15mm;
+    font-size: ${FS_TABLE_HEAD};
+    text-align: left;
+    background: #fef2f2;
+  }
+  table.bill thead th.right { text-align: right; }
+  table.bill thead th.center { text-align: center; }
+  table.bill td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  table.bill td.center { text-align: center; }
+  table.bill tbody td { height: ${ROW_H}; }
+  table.bill td.desc {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.3;
+  }
+  table.bill tr.subtotal td {
+    background: #fafafa;
+    font-weight: 700;
+    font-family: Arial, sans-serif;
+    font-size: ${FS_TABLE_HEAD};
+    height: ${compact ? "4.5mm" : "5.5mm"};
+  }
+  table.bill tr.grand td {
+    background: ${NAVY};
+    color: #fff;
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    font-size: ${FS_TOTAL};
+    height: ${compact ? "6.5mm" : "8mm"};
+    letter-spacing: 0.1mm;
+    text-transform: uppercase;
+  }
+  table.bill tr.grand td.num {
+    font-size: ${FS_TOTAL};
+    font-weight: 900;
+    letter-spacing: 0;
+  }
+  /* Column widths for the main fee table */
+  col.c-sno { width: ${compact ? "7mm" : "10mm"}; }
+  col.c-amount { width: ${compact ? "26mm" : "36mm"}; }
+
+  /* Payment-history table (single-copy only) */
+  table.pay {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: ${FS_TABLE};
+    margin-top: ${compact ? "1.5mm" : "2mm"};
+    table-layout: fixed;
+  }
+  table.pay th, table.pay td {
+    border: 0.3mm solid #000;
+    padding: ${compact ? "1mm 1.5mm" : "1.5mm 2mm"};
+  }
+  table.pay thead th {
+    background: #fef2f2;
+    color: ${RED};
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.15mm;
+    font-size: ${FS_TABLE_HEAD};
+    text-align: left;
+  }
+  table.pay thead th.right { text-align: right; }
+  table.pay col.c-date { width: ${compact ? "20mm" : "26mm"}; }
+  table.pay col.c-method { width: ${compact ? "18mm" : "24mm"}; }
+  table.pay col.c-payamt { width: ${compact ? "22mm" : "30mm"}; }
+  table.pay td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.pay td.ref {
+    font-family: "Courier New", monospace;
+    font-size: ${compact ? "2mm" : "2.6mm"};
+    overflow-wrap: anywhere;
+  }
+
+  /* ── AMOUNT IN WORDS ─────────────────────────────────────────── */
+  .words {
+    margin-top: ${SECTION_GAP};
+    padding: ${compact ? "1.5mm 2mm" : "2mm 3mm"};
+    border: 0.3mm solid #000;
+    background: #fafafa;
+    font-size: ${FS_TABLE};
+    line-height: 1.35;
+  }
+  .words .w-lbl {
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    color: ${RED};
+    text-transform: uppercase;
+    letter-spacing: 0.15mm;
+    font-size: ${FS_TABLE_HEAD};
+    margin-right: 2mm;
+  }
+
+  /* ── NOTES ── yellow ruled block ─────────────────────────────── */
+  .notes {
+    margin-top: ${compact ? "1.5mm" : "2mm"};
+    padding: ${compact ? "1.5mm 2mm" : "2mm 3mm"};
+    border: 0.3mm solid #000;
+    background: #fffbeb;
+    font-size: ${FS_TABLE};
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  .notes strong {
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    margin-right: 1.5mm;
+  }
+
+  /* ── SIGNATURES ── pinned to bottom via margin-top:auto ───────── */
+  .signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-top: auto;
+    padding-top: ${compact ? "6mm" : "10mm"};
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    font-size: ${FS_SIG};
+    letter-spacing: 0.2mm;
+  }
+  .signatures .left {
+    text-align: center;
+    border-top: 0.3mm solid #000;
+    padding: 1mm 2mm 0;
+    margin-right: ${compact ? "6mm" : "12mm"};
+  }
+  .signatures .right {
+    text-align: center;
+    border-top: 0.3mm solid #000;
+    padding: 1mm 2mm 0;
+    margin-left: ${compact ? "6mm" : "12mm"};
+  }
+
+  /* ── STATUS RIBBON ── thin red/green strip beside the title ──── */
+  .status-pill {
+    display: inline-block;
+    font-family: Arial, sans-serif;
+    font-weight: 800;
+    font-size: ${compact ? "2.4mm" : "3mm"};
+    color: ${stampColor};
+    border: 0.4mm solid ${stampColor};
+    padding: 0.4mm 2mm;
+    text-transform: uppercase;
+    letter-spacing: 0.2mm;
+    margin-left: 2mm;
+    vertical-align: middle;
+  }
+
+  /* ── TWO-UP SHEET ── pixel-perfect A5 landscape ──────────────── */
+  .sheet-twoup {
+    display: flex;
+    flex-direction: row;
+    width: 210mm;
+    height: 148mm;
+    margin: 12px auto;
+    background: #fff;
     overflow: hidden;
     position: relative;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
   }
-  .head {
-    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 60%, #3b82f6 100%);
-    color: white;
-    padding: 32px 40px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 24px;
+  .sheet-twoup .page {
+    margin: 0;
+    box-shadow: none;
+    flex: 0 0 105mm;
+    width: 105mm;
+    height: 148mm;
+    border-width: ${compact ? "0.6mm" : "1mm"};
   }
-  .school-block { display: flex; gap: 16px; align-items: center; }
-  .school-logo {
-    width: 56px; height: 56px; border-radius: 12px;
-    background: rgba(255,255,255,0.18);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px; font-weight: 700;
-    backdrop-filter: blur(8px);
-    overflow: hidden;
+  .sheet-twoup .page + .page {
+    border-left-style: dashed;
+    border-left-width: 0.6mm;
   }
-  .school-logo img { max-width: 100%; max-height: 100%; }
-  .school-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
-  .school-meta { font-size: 11.5px; opacity: 0.85; margin-top: 2px; }
-  .doc-meta { text-align: right; }
-  .doc-type { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.8; }
-  .doc-number { font-size: 14px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .status-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: var(--status-bg); color: var(--status);
-    padding: 6px 12px; border-radius: 999px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
-    margin-top: 12px;
-  }
-  .body { padding: 36px 40px; }
-  .hero {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 24px; padding-bottom: 28px; border-bottom: 1px solid var(--border);
-  }
-  .hero-row { display: flex; flex-direction: column; gap: 4px; }
-  .hero-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-dim); font-weight: 600; }
-  .hero-value { font-size: 14px; color: var(--ink); font-weight: 500; }
-  .summary {
-    margin: 28px 0;
-    padding: 24px 28px;
-    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    display: flex; justify-content: space-between; align-items: center; gap: 24px;
-  }
-  .summary-left { display: flex; flex-direction: column; gap: 4px; }
-  .summary-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-dim); font-weight: 600; }
-  .summary-amount { font-size: 32px; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .summary-words { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; font-style: italic; }
-  .summary-right { text-align: right; display: flex; flex-direction: column; gap: 6px; }
-  .summary-side { font-size: 12px; color: var(--ink-soft); }
-  .summary-side strong { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-  .section { margin-top: 28px; }
-  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-dim); font-weight: 700; margin-bottom: 12px; }
-  table { width: 100%; border-collapse: collapse; }
-  thead th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim); font-weight: 600; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-  thead th.right { text-align: right; }
-  tbody td { padding: 12px; border-bottom: 1px solid var(--border-soft); font-size: 13px; }
-  tbody tr:last-child td { border-bottom: none; }
-  .cell-label { color: var(--ink); }
-  .cell-amount { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 500; }
-  .pill { display: inline-block; background: var(--accent-soft); color: var(--accent); padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-  .ref { font-family: 'JetBrains Mono', 'Menlo', ui-monospace, monospace; font-size: 11.5px; color: var(--ink-soft); }
-  .totals {
-    margin-top: 8px;
-    margin-left: auto;
-    width: 320px;
-  }
-  .totals-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-  .totals-row.grand { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 6px; font-size: 16px; font-weight: 700; color: var(--ink); }
-
-  .notes { margin-top: 24px; padding: 14px 16px; background: var(--accent-soft); border-radius: 10px; font-size: 12px; color: var(--ink-soft); }
-  .notes strong { color: var(--ink); font-weight: 600; }
-
-  .footer { margin-top: 36px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
-  .footer-note { font-size: 10.5px; color: var(--ink-dim); max-width: 60%; line-height: 1.5; }
-  .signature { text-align: right; min-width: 180px; }
-  .signature-line { font-size: 11px; color: var(--ink-dim); border-top: 1px solid var(--ink); padding-top: 6px; margin-top: 36px; }
-
-  .gen-stamp { font-size: 10px; color: var(--ink-dim); text-align: center; padding: 14px; background: #f8fafc; }
-
+  /* ── PRINT ─────────────────────────────────────────────────── */
   @media print {
-    html, body { background: #fff; }
-    .doc { margin: 0; box-shadow: none; border-radius: 0; width: 100%; min-height: auto; }
+    html, body { background: #fff; margin: 0; padding: 0; }
     body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    ${twoUp ? `
+    .sheet-twoup {
+      margin: 0;
+      box-shadow: none;
+      width: 210mm;
+      height: 148mm;
+      page-break-after: auto;
+    }
+    .sheet-twoup .page {
+      width: 105mm;
+      height: 148mm;
+      page-break-after: auto;
+    }
+    ` : `
+    .page {
+      margin: 0;
+      box-shadow: none;
+      width: 148mm;
+      height: 210mm;
+      page-break-after: auto;
+    }
+    `}
   }
 </style>
 </head>
 <body>
-<div class="doc">
+${twoUp ? `<div class="sheet-twoup">` : ""}
+${Array.from({ length: copies }, (_, i) => {
+  const copyLabel = copies === 2 ? (i === 0 ? "OFFICE COPY" : "PARENT COPY") : "";
+  // Total row reflects what the receipt is "for": if paid, show the paid amount
+  // prominently; if outstanding, show the balance due. Subtotal + paid stay
+  // visible above so the math is transparent.
+  const grandLabel = isPaid ? "Total Paid" : isPartial ? "Balance Due" : "Total Due";
+  const grandValue = isPaid ? serverComputed.paid : isPartial ? serverComputed.balance : serverComputed.total;
+  // Items numbered with serial — schools insist on this.
+  const itemsRowsNumbered = items.length ? items.map((item, idx) => {
+    const safeLabel = escapeHtml(item.label);
+    const amount = parseFloat(String(item.amount));
+    return `<tr>
+      <td class="center">${idx + 1}</td>
+      <td class="desc">${safeLabel}</td>
+      <td class="num">${formatINR(amount)}</td>
+    </tr>`;
+  }).join("") : `<tr><td class="center">1</td><td class="desc" colspan="2" style="font-style:italic;color:#666;">School fees</td></tr>`;
+
+  return `<div class="page">
+  ${copyLabel ? `<div class="copy-tag">${copyLabel}</div>` : ""}
+
+  <!-- ── HEADER ── -->
   <div class="head">
-    <div class="school-block">
-      <div class="school-logo">${safeSchoolLogo ? `<img src="${safeSchoolLogo}" alt="logo"/>` : safeSchoolName.charAt(0)}</div>
-      <div>
-        <div class="school-name">${safeSchoolName}</div>
-        <div class="school-meta">${safeSchoolAddress || ""}</div>
-        <div class="school-meta">${[safeSchoolPhone, safeSchoolEmail].filter(Boolean).join(" · ")}</div>
-      </div>
-    </div>
-    <div class="doc-meta">
-      <div class="doc-type">${isPaid ? "Receipt" : "Invoice"}</div>
-      <div class="doc-number num">${escapeHtml(invoiceNumber)}</div>
-      <div class="status-chip">${statusLabel}</div>
+    <div class="logo">${safeSchoolLogo ? `<img src="${safeSchoolLogo}" alt=""/>` : safeSchoolName.charAt(0).toUpperCase()}</div>
+    <div class="head-info">
+      <div class="school-name">${safeSchoolName}</div>
+      ${safeSchoolAddress ? `<div class="school-meta">${safeSchoolAddress}</div>` : ""}
+      ${(safeSchoolPhone || safeSchoolEmail) ? `<div class="school-meta">${[safeSchoolPhone ? `<strong>Tel:</strong> ${safeSchoolPhone}` : "", safeSchoolEmail ? `<strong>Email:</strong> ${safeSchoolEmail}` : ""].filter(Boolean).join(" &nbsp;|&nbsp; ")}</div>` : ""}
     </div>
   </div>
 
-  <div class="body">
-    <div class="hero">
-      <div class="hero-row">
-        <span class="hero-label">Billed to</span>
-        <span class="hero-value">${safeStudentName}</span>
-        <span class="hero-meta" style="font-size:12px;color:var(--ink-soft);">
-          ${[safeStudentCode, classStr, safeStudentPhone].filter(Boolean).join(" · ")}
-        </span>
-      </div>
-      <div class="hero-row" style="text-align:right;">
-        <span class="hero-label">Period &amp; Dates</span>
-        <span class="hero-value">${safeBillingPeriod}</span>
-        <span style="font-size:12px;color:var(--ink-soft);">
-          Issued ${safeIssueDate} · Due ${safeDueDate} · AY ${escapeHtml(academicYearStr)}
-        </span>
-      </div>
-    </div>
+  <!-- ── TITLE ── -->
+  <div class="title">${isPaid ? "Fee Receipt" : "Fee Invoice"}<span class="status-pill">${statusLabel}</span></div>
+  <div class="title-sub">Receipt No.: <span class="recno">${escapeHtml(invoiceNumber)}</span> &nbsp;|&nbsp; Date: ${latestPayment ? paymentDate : safeIssueDate}</div>
 
-    <div class="summary">
-      <div class="summary-left">
-        <span class="summary-label">Total Paid</span>
-        <span class="summary-amount num">${formatINR(serverComputed.paid)}</span>
-        <span class="summary-words">${numberToWords(serverComputed.paid)} only</span>
-      </div>
-      <div class="summary-right">
-        <span class="summary-side">Total billed: <strong>${formatINR(serverComputed.total)}</strong></span>
-        <span class="summary-side">Balance due: <strong>${formatINR(serverComputed.balance)}</strong></span>
-      </div>
-    </div>
+  <!-- ── STUDENT PROFILE ── -->
+  <div class="section-h">Student Particulars</div>
+  <div class="profile">
+    <div class="lbl">Name</div><div class="colon">:</div><div class="val">${safeStudentName}</div>
+    <div class="lbl">Admn No.</div><div class="colon">:</div><div class="val">${safeStudentCode || "—"}</div>
 
-    <div class="section">
-      <div class="section-title">Fee Items</div>
-      <table>
-        <thead>
-          <tr><th>Description</th><th class="right">Amount</th></tr>
-        </thead>
-        <tbody>${itemsRows}</tbody>
-      </table>
-      <div class="totals">
-        <div class="totals-row"><span>Subtotal</span><span>${formatINR(serverComputed.total)}</span></div>
-        <div class="totals-row"><span>Paid</span><span>− ${formatINR(serverComputed.paid)}</span></div>
-        <div class="totals-row grand"><span>${isPaid ? "Total" : "Balance Due"}</span><span>${formatINR(isPaid ? serverComputed.total : serverComputed.balance)}</span></div>
-      </div>
-    </div>
+    <div class="lbl">Class</div><div class="colon">:</div><div class="val">${classStr}</div>
+    <div class="lbl">A.Y.</div><div class="colon">:</div><div class="val">${escapeHtml(academicYearStr)}</div>
 
-    ${payments.length ? `
-    <div class="section">
-      <div class="section-title">Payment History</div>
-      <table>
-        <thead>
-          <tr><th>Date</th><th>Method</th><th>Reference</th><th class="right">Amount</th></tr>
-        </thead>
-        <tbody>${paymentsRows}</tbody>
-      </table>
-    </div>` : ""}
-
-    ${safeNotes ? `<div class="notes"><strong>Notes:</strong> ${safeNotes}</div>` : ""}
-
-    <div class="footer">
-      <div class="footer-note">
-        ${escapeHtml(school?.footer_disclaimer) || "This is a computer-generated document. For any queries, please contact the school administration."}
-      </div>
-      <div class="signature">
-        <div class="signature-line">Authorized Signature</div>
-      </div>
-    </div>
+    <div class="lbl">Period</div><div class="colon">:</div><div class="val">${safeBillingPeriod}</div>
+    <div class="lbl">Due Date</div><div class="colon">:</div><div class="val">${safeDueDate}</div>
   </div>
-  <div class="gen-stamp">Generated ${new Date().toLocaleString("en-IN")}</div>
-</div>
+
+  <!-- ── FEE PARTICULARS ── -->
+  <div class="section-h">Fee Particulars</div>
+  <table class="bill">
+    <colgroup>
+      <col class="c-sno"/>
+      <col/>
+      <col class="c-amount"/>
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="center">S.No</th>
+        <th>Particulars</th>
+        <th class="right">Amount (₹)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemsRowsNumbered}
+      <tr class="subtotal">
+        <td class="center"></td>
+        <td>Subtotal</td>
+        <td class="num">${formatINR(serverComputed.total)}</td>
+      </tr>
+      ${serverComputed.paid > 0 ? `
+      <tr class="subtotal">
+        <td class="center"></td>
+        <td>Less: Paid Earlier${latestPayment ? ` (via ${paymentMode})` : ""}</td>
+        <td class="num">− ${formatINR(serverComputed.paid)}</td>
+      </tr>
+      ` : ""}
+      <tr class="grand">
+        <td class="center"></td>
+        <td>${grandLabel}</td>
+        <td class="num">${formatINR(grandValue)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  ${!compact && payments.length > 1 ? `
+  <div class="section-h">Payment History</div>
+  <table class="pay">
+    <colgroup>
+      <col class="c-date"/>
+      <col class="c-method"/>
+      <col/>
+      <col class="c-payamt"/>
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Mode</th>
+        <th>Reference</th>
+        <th class="right">Amount (₹)</th>
+      </tr>
+    </thead>
+    <tbody>${paymentsRows}</tbody>
+  </table>
+  ` : ""}
+
+  <!-- ── AMOUNT IN WORDS ── -->
+  <div class="words">
+    <span class="w-lbl">In Words:</span>${numberToWords(grandValue)} only
+  </div>
+
+  ${safeNotes ? `<div class="notes"><strong>Note:</strong>${safeNotes}</div>` : ""}
+
+  <!-- ── SIGNATURES ── pinned to bottom -->
+  <div class="signatures">
+    <div class="left">Parent / Guardian</div>
+    <div class="right">Authorised Signatory</div>
+  </div>
+</div>`;
+}).join("")}
+${twoUp ? `</div>` : ""}
 </body>
 </html>`;
 };
@@ -389,6 +722,8 @@ Deno.serve(async (req: Request) => {
     try { body = await req.json(); } catch { return errorResponse(400, "Invalid request body"); }
     const { invoice_id } = body || {};
     if (!invoice_id) return errorResponse(400, "Missing invoice_id");
+
+    const copies: 1 | 2 = body?.copies === 2 ? 2 : 1;
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(invoice_id)) return errorResponse(400, "Invalid invoice_id format");
@@ -453,6 +788,7 @@ Deno.serve(async (req: Request) => {
       classInfo,
       academicYear,
       serverComputed: { total, paid, balance, status },
+      copies,
     });
 
     return new Response(

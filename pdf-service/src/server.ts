@@ -1,7 +1,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import archiver from 'archiver';
-import { renderTermReportPdf, renderAnnualReportPdf, renderExamReportPdf, renderReportCardsBulk } from './render.js';
+import { renderTermReportPdf, renderAnnualReportPdf, renderExamReportPdf, renderReportCardsBulk, renderFeeReceiptPdf } from './render.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -243,6 +243,44 @@ app.post('/render-report-cards-bulk', requireAuth, async (req, res) => {
     // Best-effort: try to finalize the archive so the client at least
     // gets a (possibly partial) ZIP rather than a hung connection.
     try { archive.abort(); } catch { /* noop */ }
+  }
+});
+
+// ── POST /render-fee-receipt ──────────────────────────────────────────────
+//
+// Renders a fee receipt as a real PDF. The HTML template lives in the
+// `generate-invoice-document` Supabase edge function (which also server-computes
+// totals + enforces school-level access). This endpoint forwards the user's JWT
+// to that edge function, gets the HTML, and runs it through Puppeteer at the
+// right page size:
+//   - copies=1 → A5 portrait (148 × 210mm)
+//   - copies=2 → A5 landscape (210 × 148mm) with two A6 invoices side-by-side
+//
+// Body: { invoiceId: uuid, copies?: 1 | 2 }
+// Returns: application/pdf binary
+
+app.post('/render-fee-receipt', requireAuth, async (req, res) => {
+  const { invoiceId, copies: copiesIn } = req.body || {};
+  if (!invoiceId) return res.status(400).json({ error: 'invoiceId required' });
+  const copies: 1 | 2 = copiesIn === 2 ? 2 : 1;
+
+  // The JWT was already validated by requireAuth — we just need to forward it.
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  try {
+    const { pdf, invoiceNumber } = await renderFeeReceiptPdf({
+      authToken: token,
+      invoiceId,
+      copies,
+    });
+    const safe = invoiceNumber.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}.pdf"`);
+    res.send(pdf);
+  } catch (err: any) {
+    console.error('fee receipt render error', err);
+    res.status(500).json({ error: err?.message || 'Render failed' });
   }
 });
 

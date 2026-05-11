@@ -198,6 +198,89 @@ export const renderExamReportPdf = async (args: RenderExamArgs): Promise<Buffer>
   return htmlToPdf(html);
 };
 
+// ── Fee receipt render ─────────────────────────────────────────────────────
+//
+// The fee-receipt HTML is owned by the Supabase edge function
+// `generate-invoice-document` — that's where totals are server-computed and
+// access control happens. We just take that HTML and convert it to PDF with
+// the right page size (A5 portrait for single copy, A5 landscape for two-up).
+//
+// Keeping the HTML in the edge function avoids duplicating the renderer logic
+// and means in-browser preview + downloaded PDF stay byte-identical.
+
+export interface RenderFeeReceiptArgs {
+  /** The user's JWT — forwarded to the edge function so RLS still applies. */
+  authToken: string;
+  invoiceId: string;
+  /** 1 = A5 portrait single, 2 = A5 landscape two-up. */
+  copies: 1 | 2;
+}
+
+export interface RenderedFeeReceipt {
+  pdf: Buffer;
+  invoiceNumber: string;
+}
+
+export const renderFeeReceiptPdf = async (
+  args: RenderFeeReceiptArgs,
+): Promise<RenderedFeeReceipt> => {
+  const supabaseUrl = process.env.SUPABASE_URL!;
+  const fnUrl = `${supabaseUrl}/functions/v1/generate-invoice-document`;
+
+  const resp = await fetch(fnUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${args.authToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ invoice_id: args.invoiceId, copies: args.copies }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`Edge function failed (${resp.status}): ${text.slice(0, 500)}`);
+  }
+  const body = await resp.json() as { success?: boolean; html_content?: string; invoice_number?: string; error?: string };
+  if (!body.success || !body.html_content) {
+    throw new Error(body.error || 'Edge function returned no HTML');
+  }
+
+  // A5 page size — landscape for two-up, portrait for single copy.
+  const isLandscape = args.copies === 2;
+  // A5 dimensions in mm: 148 × 210. Puppeteer accepts mm strings.
+  const widthMm = isLandscape ? 210 : 148;
+  const heightMm = isLandscape ? 148 : 210;
+
+  const browser = await getBrowser();
+  const page = await browser.newPage();
+  // Viewport in px (1mm ≈ 3.78px at 96dpi) so element measurements roughly
+  // match the print page — doesn't need to be exact since we use
+  // `preferCSSPageSize` below.
+  await page.setViewport({
+    width: Math.round(widthMm * 3.78),
+    height: Math.round(heightMm * 3.78),
+    deviceScaleFactor: 1,
+  });
+  try {
+    await page.setContent(body.html_content, { waitUntil: 'networkidle0', timeout: 30000 });
+    const pdf = await page.pdf({
+      // The HTML has `@page { size: A5 [landscape] }` so we let CSS own size
+      // and just hand Puppeteer the matching width/height as a fallback.
+      width: `${widthMm}mm`,
+      height: `${heightMm}mm`,
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+    });
+    return {
+      pdf: Buffer.from(pdf),
+      invoiceNumber: body.invoice_number || args.invoiceId.slice(0, 8),
+    };
+  } finally {
+    await page.close();
+  }
+};
+
 // ── Bulk render ────────────────────────────────────────────────────────────
 //
 // Renders one report card per student in a class, then streams them as a ZIP.

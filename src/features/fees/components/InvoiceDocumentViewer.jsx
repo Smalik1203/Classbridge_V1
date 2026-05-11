@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Button, Spin, Alert, message } from 'antd';
+import { Modal, Button, Spin, Alert, Select, message } from 'antd';
 import { PrinterOutlined, ReloadOutlined, DownloadOutlined, CloseOutlined } from '@ant-design/icons';
-import { generateInvoiceDocument } from '../services/feesService';
+import { generateInvoiceDocument, downloadInvoicePdf } from '../services/feesService';
 
 /**
  * Premium invoice/receipt viewer.
@@ -11,14 +11,18 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
   const [loading, setLoading] = useState(false);
   const [doc, setDoc] = useState(null);
   const [error, setError] = useState(null);
+  const [copies, setCopies] = useState(1);
+  const [downloading, setDownloading] = useState(false);
   const iframeRef = useRef(null);
 
-  const load = async (forceRegenerate = false) => {
+  const load = async (forceRegenerate = false, opts = {}) => {
     if (!invoiceId) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await generateInvoiceDocument(invoiceId, forceRegenerate);
+      const data = await generateInvoiceDocument(invoiceId, forceRegenerate, {
+        copies: opts.copies ?? copies,
+      });
       setDoc(data);
     } catch (err) {
       setError(err?.message || 'Failed to generate document');
@@ -30,7 +34,13 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
   useEffect(() => {
     if (open && invoiceId) load(false);
     if (!open) setDoc(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, invoiceId]);
+
+  const handleCopiesChange = (value) => {
+    setCopies(value);
+    load(true, { copies: value });
+  };
 
   const handlePrint = () => {
     try {
@@ -41,15 +51,24 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
     }
   };
 
-  const handleDownload = () => {
-    if (!doc?.html_content) return;
-    const blob = new Blob([doc.html_content], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${doc.invoice_number || invoiceId}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!invoiceId) return;
+    setDownloading(true);
+    try {
+      const blob = await downloadInvoicePdf(invoiceId, { copies });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${doc?.invoice_number || invoiceId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      message.error(err?.message || 'Could not download PDF');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -90,12 +109,23 @@ export default function InvoiceDocumentViewer({ open, invoiceId, onClose }) {
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Select
+            size="small"
+            value={copies}
+            onChange={handleCopiesChange}
+            disabled={loading}
+            style={{ width: 130 }}
+            options={[
+              { value: 1, label: 'Single copy' },
+              { value: 2, label: 'Two copies' },
+            ]}
+          />
           <Button size="small" icon={<ReloadOutlined />} onClick={() => load(true)} loading={loading}>
             Regenerate
           </Button>
-          <Button size="small" icon={<DownloadOutlined />} onClick={handleDownload} disabled={!doc}>
-            Download
+          <Button size="small" icon={<DownloadOutlined />} onClick={handleDownload} disabled={!doc || downloading} loading={downloading}>
+            Download PDF
           </Button>
           <Button size="small" type="primary" icon={<PrinterOutlined />} onClick={handlePrint} disabled={!doc}>
             Print / PDF

@@ -635,17 +635,51 @@ export async function deleteInvoice(invoiceId) {
 
 // ─── Documents & notifications ───────────────────────────────────────────────
 
-export async function generateInvoiceDocument(invoiceId, forceRegenerate = false) {
+export async function generateInvoiceDocument(invoiceId, forceRegenerate = false, options = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
+  const { copies = 1 } = options;
+
   const { data, error } = await supabase.functions.invoke('generate-invoice-document', {
-    body: { invoice_id: invoiceId, force_regenerate: forceRegenerate },
+    body: {
+      invoice_id: invoiceId,
+      force_regenerate: forceRegenerate,
+      copies: copies === 2 ? 2 : 1,
+    },
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
   if (error) throw error;
   if (!data?.success) throw new Error(data?.error || 'Failed to generate invoice document');
   return data;
+}
+
+// Server-rendered PDF via the pdf-service (Puppeteer). The HTML is generated
+// by the `generate-invoice-document` Supabase edge function; the pdf-service
+// just wraps it in a real A5 PDF so users get a single-click .pdf download
+// instead of the raw .html the browser used to save.
+export async function downloadInvoicePdf(invoiceId, options = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const { copies = 1 } = options;
+  const serviceUrl = import.meta.env.VITE_PDF_SERVICE_URL;
+  if (!serviceUrl) throw new Error('VITE_PDF_SERVICE_URL is not configured');
+
+  const res = await fetch(`${serviceUrl.replace(/\/+$/, '')}/render-fee-receipt`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ invoiceId, copies: copies === 2 ? 2 : 1 }),
+  });
+  if (!res.ok) {
+    let msg = `PDF service returned ${res.status}`;
+    try { const j = await res.json(); msg = j?.error || msg; } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  return res.blob();
 }
 
 export async function sendPaymentReminder(invoiceId) {
