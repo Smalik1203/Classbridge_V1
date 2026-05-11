@@ -41,12 +41,37 @@ interface AuthedRequest extends Request {
   user: { id: string; email?: string };
 }
 
+// Service-to-service bypass token. When set, requests bearing this exact
+// string in Authorization: Bearer <...> skip the user-JWT verification and
+// use the service-role key to talk to Supabase. Used by the
+// process-report-card-jobs worker (and other server-side callers) which
+// don't have a user JWT but still need to render PDFs that read across
+// schools. If unset, server-to-server calls are rejected.
+const PDF_SERVICE_BYPASS_TOKEN = process.env.PDF_SERVICE_BYPASS_TOKEN || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
 const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return res.status(401).json({ error: 'Missing Authorization header' });
 
-  // Per-request Supabase client bound to this JWT
+  // Service-to-service: token matches the configured bypass shared secret.
+  // We build a service-role Supabase client (bypasses RLS) so the renderer
+  // can read any school's data. Requires SUPABASE_SERVICE_ROLE_KEY env var.
+  if (PDF_SERVICE_BYPASS_TOKEN && token === PDF_SERVICE_BYPASS_TOKEN) {
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(500).json({ error: 'Service-role key not configured on pdf-service' });
+    }
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    (req as AuthedRequest).supabase = supabase;
+    (req as AuthedRequest).user = { id: 'service-account', email: undefined };
+    return next();
+  }
+
+  // Normal end-user path: validate the JWT against Supabase.
+  // Per-request Supabase client bound to this JWT (so RLS uses the user's identity).
   const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
