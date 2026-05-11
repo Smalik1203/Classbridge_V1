@@ -5,11 +5,12 @@
 
 import { theme } from 'antd';
 
-// Enhanced Brand Colors - Modern indigo-purple palette
-const BRAND_PRIMARY = '#6366F1'; // Indigo-500 - Modern and vibrant
-const BRAND_ACCENT = '#3B82F6'; // Purple-500 - Beautiful accent
+// Brand Colors — single blue family across the whole product (hue ~225,
+// Tailwind blue-500/-600). Do NOT shift toward purple (#6366F1, #818CF8, etc).
+const BRAND_PRIMARY = '#3B82F6'; // Blue-500 - canonical brand blue
+const BRAND_ACCENT = '#2563EB'; // Blue-600 - deeper companion
 const BRAND_SECONDARY = '#10b981'; // Emerald-500 - Success actions
-const LOGO_BG = '#1E40AF'; // Indigo-800 - Deeper brand
+const LOGO_BG = '#1E40AF'; // Blue-800 - Deeper brand
 
 // Enhanced Neutral Color Scale - Optimized for readability and hierarchy
 const NEUTRALS = {
@@ -63,18 +64,20 @@ const STATUS_COLORS = {
   },
 };
 
-// Enhanced Data Visualization Palette - Professional color scheme
+// Data Visualization Palette — brand-blue primary, distinct hues for everything
+// else. No purple/violet (#6366F1/#818CF8/#4F46E5) — keep the lineup distinguishable
+// from the brand blue.
 const DATA_VIZ_PALETTE = [
-  '#6366F1', // Indigo-500 - Primary
+  '#3B82F6', // Blue-500 - Primary
   '#10b981', // Emerald-500 - Success
   '#f59e0b', // Amber-500 - Warning
   '#ef4444', // Red-500 - Error
-  '#3B82F6', // Purple-500 - Accent
+  '#0EA5E9', // Sky-500 - Accent
   '#14b8a6', // Teal-500 - Teal
   '#f97316', // Orange-500 - Orange
   '#ec4899', // Pink-500 - Pink
-  '#4F46E5', // Indigo-600 - Secondary
-  '#818CF8', // Indigo-400 - Light variant
+  '#1E40AF', // Blue-800 - Deep secondary
+  '#60A5FA', // Blue-400 - Light variant
 ];
 
 // Enhanced spacing system for better visual hierarchy
@@ -118,12 +121,12 @@ export const lightTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#4F46E5',
+    colorPrimaryHover: '#2563EB',
     colorPrimaryActive: '#1E40AF',
-    colorPrimaryBg: 'hsl(244, 100%, 98%)',
-    colorPrimaryBgHover: 'hsl(244, 100%, 96%)',
-    colorPrimaryBorder: 'hsl(244, 90%, 92%)',
-    colorPrimaryBorderHover: 'hsl(244, 90%, 88%)',
+    colorPrimaryBg: 'hsl(217, 91%, 97%)',
+    colorPrimaryBgHover: 'hsl(217, 91%, 94%)',
+    colorPrimaryBorder: 'hsl(217, 91%, 88%)',
+    colorPrimaryBorderHover: 'hsl(217, 91%, 82%)',
 
     // Enhanced Base Colors - Cleaner, more professional
     colorBgBase: NEUTRALS.N25,
@@ -528,12 +531,12 @@ export const darkTheme = {
   token: {
     // Enhanced Brand Colors
     colorPrimary: BRAND_PRIMARY,
-    colorPrimaryHover: '#3B82F6',
-    colorPrimaryActive: '#818CF8',
-    colorPrimaryBg: 'hsl(244, 95%, 8%)',
-    colorPrimaryBgHover: 'hsl(244, 95%, 10%)',
-    colorPrimaryBorder: 'hsl(244, 95%, 18%)',
-    colorPrimaryBorderHover: 'hsl(244, 95%, 24%)',
+    colorPrimaryHover: '#60A5FA',
+    colorPrimaryActive: '#2563EB',
+    colorPrimaryBg: 'hsl(217, 91%, 10%)',
+    colorPrimaryBgHover: 'hsl(217, 91%, 14%)',
+    colorPrimaryBorder: 'hsl(217, 91%, 22%)',
+    colorPrimaryBorderHover: 'hsl(217, 91%, 28%)',
 
     // Enhanced Base Colors - True black theme with high contrast
     colorBgBase: '#000000',        // Pure black base

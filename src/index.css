@@ -9,29 +9,30 @@
 @custom-variant dark (&:is([data-theme="dark"] *));
 
 :root {
-  /* Surfaces — page bg has just a *whisper* of warmth so the app doesn't
-     feel sterile, but everything else (cards, chrome, table headers) stays
-     near-neutral so nothing competes. Cream + white is one beat; piling
-     more cream on the chrome made it muddy. */
-  --bg:           oklch(0.987 0.005 80);   /* page bg — barely-warm canvas */
+  /* Surfaces — page bg has just a *whisper* of cool blue so the canvas
+     stays in the same family as the brand (hue 240), but everything else
+     (cards, chrome, table headers) stays near-neutral so nothing competes.
+     Cool-tinted near-white + white is one beat. */
+  --bg:           oklch(0.987 0.005 240);  /* page bg — barely-cool canvas */
   --bg-elev:      oklch(1 0 0);            /* cards / sheets / chrome — white */
-  --bg-subtle:    oklch(0.975 0.004 80);   /* table headers, calendar gutters */
-  --bg-muted:     oklch(0.955 0.004 80);   /* hover bg, secondary surfaces */
-  --bg-hover:     oklch(0.965 0.004 80);   /* sidebar nav hover */
+  --bg-subtle:    oklch(0.975 0.005 240);  /* table headers, calendar gutters */
+  --bg-muted:     oklch(0.955 0.006 240);  /* hover bg, secondary surfaces */
+  --bg-hover:     oklch(0.965 0.006 240);  /* sidebar nav hover */
 
-  --fg:           oklch(0.20 0.010 80);
-  --fg-muted:     oklch(0.45 0.010 80);
-  --fg-subtle:    oklch(0.60 0.010 80);
-  --fg-faint:     oklch(0.76 0.008 80);
+  --fg:           oklch(0.20 0.010 240);
+  --fg-muted:     oklch(0.45 0.010 240);
+  --fg-subtle:    oklch(0.60 0.010 240);
+  --fg-faint:     oklch(0.76 0.008 240);
 
-  --border:        oklch(0.91 0.005 80);
-  --border-strong: oklch(0.85 0.005 80);
+  --border:        oklch(0.91 0.006 240);
+  --border-strong: oklch(0.85 0.008 240);
 
-  /* Blue/indigo brand. Do NOT shift toward purple (>260). */
-  --accent-h: 250;
-  /* Brand color (purple). Keep separate from shadcn's `--accent` (which is a
+  /* Blue brand. Stay in the true-blue range (240–250). Do NOT shift toward
+     purple (>260). One consistent blue across the whole product. */
+  --accent-h: 240;
+  /* Brand color (blue). Keep separate from shadcn's `--accent` (which is a
      subtle hover bg, not a brand color). */
-  --brand:         oklch(0.52 0.16 var(--accent-h));
+  --brand:         oklch(0.55 0.18 var(--accent-h));
   --brand-hover:   oklch(0.46 0.18 var(--accent-h));
   --brand-soft:    oklch(0.96 0.025 var(--accent-h));
   --brand-fg:      oklch(0.99 0 0);

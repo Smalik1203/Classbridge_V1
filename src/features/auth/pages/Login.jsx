@@ -71,11 +71,11 @@ const Login = () => {
             width: '64px',
             height: '64px',
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)',
+            background: 'linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)',
+            boxShadow: '0 8px 32px rgba(59, 130, 246, 0.3)',
             zIndex: 2
           }}>
             <BookOutlined style={{ fontSize: '28px', color: 'white' }} />
@@ -180,9 +180,9 @@ const Login = () => {
               <div style={{ textAlign: 'right', marginBottom: '24px' }}>
                 <Link
                   to="/forgot-password"
-                  style={{ 
-                    color: '#6366F1', 
-                  fontSize: '13px',
+                  style={{
+                    color: '#2563EB',
+                    fontSize: '13px',
                     fontWeight: '500',
                     textDecoration: 'none'
                   }}
@@ -218,18 +218,18 @@ const Login = () => {
                     borderRadius: '12px',
                     fontSize: '16px',
                     fontWeight: '600',
-                    background: 'linear-gradient(135deg, #6366F1 0%, #3B82F6 100%)',
+                    background: 'linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%)',
                     border: 'none',
-                    boxShadow: '0 4px 14px 0 rgba(99, 102, 241, 0.3)',
+                    boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.3)',
                     transition: 'all 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
                     e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 6px 20px 0 rgba(99, 102, 241, 0.4)';
+                    e.target.style.boxShadow = '0 6px 20px 0 rgba(59, 130, 246, 0.4)';
                   }}
                   onMouseLeave={(e) => {
                     e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 14px 0 rgba(99, 102, 241, 0.3)';
+                    e.target.style.boxShadow = '0 4px 14px 0 rgba(59, 130, 246, 0.3)';
                   }}
                 >
                   {loading ? 'Signing In...' : 'Sign In'}
@@ -241,7 +241,7 @@ const Login = () => {
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <Text style={{ color: '#64748b', fontSize: '14px' }}>
                 Don't have an account?{' '}
-                <Text style={{ color: '#6366F1', fontWeight: '500', cursor: 'pointer' }}>
+                <Text style={{ color: '#2563EB', fontWeight: '500', cursor: 'pointer' }}>
                   Contact administrator
                 </Text>
               </Text>
