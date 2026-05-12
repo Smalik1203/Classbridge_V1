@@ -639,13 +639,14 @@ export async function generateInvoiceDocument(invoiceId, forceRegenerate = false
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const { copies = 1 } = options;
+  const { copies = 1, paperSize = 'a4' } = options;
 
   const { data, error } = await supabase.functions.invoke('generate-invoice-document', {
     body: {
       invoice_id: invoiceId,
       force_regenerate: forceRegenerate,
       copies: copies === 2 ? 2 : 1,
+      paper_size: paperSize === 'a5' ? 'a5' : 'a4',
     },
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
@@ -662,7 +663,7 @@ export async function downloadInvoicePdf(invoiceId, options = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
-  const { copies = 1 } = options;
+  const { copies = 1, paperSize = 'a4' } = options;
   const serviceUrl = import.meta.env.VITE_PDF_SERVICE_URL;
   if (!serviceUrl) throw new Error('VITE_PDF_SERVICE_URL is not configured');
 
@@ -672,7 +673,11 @@ export async function downloadInvoicePdf(invoiceId, options = {}) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ invoiceId, copies: copies === 2 ? 2 : 1 }),
+    body: JSON.stringify({
+      invoiceId,
+      copies: copies === 2 ? 2 : 1,
+      paperSize: paperSize === 'a5' ? 'a5' : 'a4',
+    }),
   });
   if (!res.ok) {
     let msg = `PDF service returned ${res.status}`;
@@ -680,6 +685,139 @@ export async function downloadInvoicePdf(invoiceId, options = {}) {
     throw new Error(msg);
   }
   return res.blob();
+}
+
+// Send a fee receipt as a WhatsApp message with the PDF attached.
+//
+// Flow: render single-copy A5 PDF → upload to the `invoices` Storage bucket
+// → generate a 7-day signed URL → call the shared `send-whatsapp` edge
+// function with the `fee_receipt_v1` template (3 vars + document header).
+//
+// Always renders the single-copy variant regardless of the viewer's copies
+// dropdown — a two-up "cut here" sheet is meaningless as a WhatsApp doc.
+export async function sendInvoiceViaWhatsApp(invoiceId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  // 1. Fetch the data we need to compose the message: invoice + student
+  //    (for parent phone + name) + school (for school_code, school_name).
+  const { data: invoice, error: invErr } = await supabase
+    .from('fee_invoices')
+    .select(`
+      id, school_code, total_amount, paid_amount,
+      student:student_id (id, full_name, parent_phone_e164)
+    `)
+    .eq('id', invoiceId)
+    .single();
+  if (invErr || !invoice) throw new Error(invErr?.message || 'Invoice not found');
+
+  const parentPhone = invoice.student?.parent_phone_e164;
+  if (!parentPhone) throw new Error('No parent phone number on file for this student');
+
+  const studentName = invoice.student?.full_name || 'your child';
+
+  const { data: school, error: schoolErr } = await supabase
+    .from('schools')
+    .select('school_name')
+    .eq('school_code', invoice.school_code)
+    .single();
+  if (schoolErr) throw new Error(schoolErr.message);
+  const schoolName = school?.school_name || 'School';
+
+  // 2. Render the PDF — always single-copy A5 portrait for WhatsApp.
+  // Parents on phones don't care about print paper choices, and a two-up
+  // landscape sheet with a "cut here" line is meaningless as a digital
+  // attachment. Force the paper-saving compact format regardless of what
+  // the cashier had selected in the viewer dropdown.
+  const pdfBlob = await downloadInvoicePdf(invoiceId, { copies: 1, paperSize: 'a5' });
+
+  // 3. Upload to Storage. Path is namespaced by school_code so RLS can scope.
+  //    We let storage overwrite — re-sending the receipt should refresh the PDF.
+  const storagePath = `${invoice.school_code}/${invoice.id}.pdf`;
+  const { error: uploadErr } = await supabase.storage
+    .from('invoices')
+    .upload(storagePath, pdfBlob, {
+      contentType: 'application/pdf',
+      upsert: true,
+    });
+  if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
+
+  // 4. Sign the URL for 7 days. Meta fetches once and caches, so even a
+  //    short window is fine — 7 days just lets the cashier re-send if Meta's
+  //    fetch happens to fail and the row gets retried.
+  const SEVEN_DAYS = 7 * 24 * 60 * 60;
+  const { data: signed, error: signErr } = await supabase.storage
+    .from('invoices')
+    .createSignedUrl(storagePath, SEVEN_DAYS);
+  if (signErr || !signed?.signedUrl) {
+    throw new Error(`Signed URL failed: ${signErr?.message || 'unknown'}`);
+  }
+
+  // 5. Format the amount the way the template body expects:
+  //    "*₹{{1}}*" surrounds it with bold markdown, so we just send the
+  //    formatted number with commas + 2 decimals (e.g. "25,000.00").
+  const amount = Number(invoice.paid_amount ?? invoice.total_amount ?? 0);
+  const amountStr = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+
+  // 6. Build a parent-friendly filename for the WhatsApp attachment.
+  //    Format: "Receipt-{Student-Name}-{Mon-YYYY}.pdf"
+  //    e.g. "Receipt-Trisha-Sen-May-2026.pdf"
+  //    Why this shape:
+  //      - Starts with "Receipt" so the parent immediately knows what it is
+  //      - Student name helps families with multiple kids identify the right one
+  //      - Month + year give a quick filing reference for income tax / records
+  //      - Spaces become hyphens (filesystem-safe across phone OSes)
+  //      - Non-alphanumerics get stripped (e.g. "Trisha O'Brien" → "Trisha-OBrien")
+  //      - Capped at 80 chars before the .pdf so the WhatsApp UI doesn't ellipsize it
+  const safeName = String(studentName)
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')          // strip diacritics
+    .replace(/[^A-Za-z0-9\s-]/g, '')          // drop apostrophes, dots, etc.
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .join('-')
+    .slice(0, 50) || 'Student';
+  const monthYear = new Date().toLocaleString('en-IN', { month: 'short', year: 'numeric' }).replace(/\s+/g, '-');
+  const filename = `Receipt-${safeName}-${monthYear}.pdf`;
+
+  // 7. Dispatch via the shared edge function (same one used by the mobile
+  //    app's messaging modals). Logging, opt-out, demo-allowlist and the
+  //    Meta API call are all handled there.
+  const { data, error } = await supabase.functions.invoke('send-whatsapp', {
+    body: {
+      event: 'whatsapp_fee_payment_received',
+      template_name: 'fee_receipt_v1',
+      language_code: 'en',
+      to: parentPhone,
+      variables: [amountStr, studentName, schoolName],
+      school_code: invoice.school_code,
+      ref_type: 'fee_invoice',
+      ref_id: invoice.id,
+      header_url: signed.signedUrl,
+      header_filename: filename,
+    },
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (error) {
+    let msg = error.message;
+    try {
+      const body = await error.context?.json?.();
+      if (body?.error) msg = body.error;
+    } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  if (data?.skipped) {
+    // Demo-allowlist, killswitch, opt-out — surface the reason to the caller.
+    return { sent: false, skipped: true, reason: data.reason || 'blocked', to: parentPhone };
+  }
+  if (!data?.success) {
+    throw new Error(data?.error || 'WhatsApp send failed');
+  }
+  return { sent: true, wamid: data.wamid, to: parentPhone };
 }
 
 export async function sendPaymentReminder(invoiceId) {

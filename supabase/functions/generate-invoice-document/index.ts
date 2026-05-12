@@ -24,12 +24,17 @@ const errorResponse = (status: number, error: string, details?: string) => {
   );
 };
 
-const formatINR = (amount: number): string =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+// Use "Rs." instead of the ₹ glyph — Chromium's bundled fonts in the
+// pdf-service container don't include U+20B9 in all weights, so the bold
+// subtotal/grand-total rows render as ▢ boxes. "Rs." is the standard Indian
+// accounting abbreviation and renders in every font.
+const formatINR = (amount: number): string => {
+  const formatted = new Intl.NumberFormat("en-IN", {
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
+  return `Rs. ${formatted}`;
+};
 
 const formatDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return "—";
@@ -90,17 +95,27 @@ interface RenderInput {
   academicYear: any;
   serverComputed: { total: number; paid: number; balance: number; status: string };
   copies: 1 | 2;
+  // 'a4': school's default tray (A4 portrait). Content pins to top half, the
+  //       bottom half tears off. Works on every Indian school printer without
+  //       any tray reconfiguration.
+  // 'a5': advanced setup. Either A5 paper loaded in the tray, or A4 pre-torn
+  //       in half. Content fills the page edge-to-edge — no waste.
+  paperSize: "a4" | "a5";
 }
 
 const renderHTML = (data: RenderInput): string => {
-  const { invoiceNumber, invoice, items, payments, student, school, classInfo, academicYear, serverComputed, copies } = data;
-  // Receipts are always A5-sized (148mm × 210mm) — small enough to save paper,
-  // big enough to read. For 2 copies, we use A5 landscape (210mm × 148mm)
-  // with two A6 portraits side-by-side — a pixel-perfect fit (2 × 105mm = 210mm).
-  // For 1 copy, A5 portrait.
+  const { invoiceNumber, invoice, items, payments, student, school, classInfo, academicYear, serverComputed, copies, paperSize } = data;
+  // Two-up = two receipts side-by-side (Office + Parent), produced as a single
+  // 210×148mm sheet. Same sheet design regardless of paper size; we just put
+  // it on either A5 landscape (edge-to-edge) or A4 portrait (top half).
   const twoUp = copies === 2;
-  // Compact (A6) sizing inside the twoUp sheet, roomier (A5) sizing when single.
+  // Compact (A6) sizing for the columns inside a two-up sheet; A5 sizing for
+  // a single-copy receipt. Decided by `copies`, not paper size.
   const compact = twoUp;
+  // True when the receipt is rendered on the top half of an A4 sheet that the
+  // cashier will tear in half. Affects the @page rule and the wrapper layout
+  // (we add a horizontal tear guide line + bottom-half whitespace).
+  const onA4 = paperSize === "a4";
 
   const academicYearStr = academicYear
     ? `${academicYear.year_start}–${academicYear.year_end}`
@@ -163,11 +178,12 @@ const renderHTML = (data: RenderInput): string => {
   const paymentRef = latestPayment ? (escapeHtml(latestPayment.receipt_number) || "—") : "—";
   const paymentDate = latestPayment ? formatDate(latestPayment.payment_date) : safeIssueDate;
 
-  // Layout tokens — A5 portrait (single-copy) at 148mm × 210mm, or A6 portrait
-  // columns (two-up) at 105mm × 148mm. Sizes in mm so they translate exactly
-  // from screen to print, matching the St. George report-card aesthetic.
-  const PAGE_W = compact ? "105mm" : "148mm";
-  const PAGE_H = compact ? "148mm" : "210mm";
+  // Layout tokens — page dimensions by combo:
+  //   compact (two-up):           105 × 148mm (A6 portrait column)
+  //   single on A5 portrait:      148 × 210mm (full A5 page)
+  //   single on A4 (top half):    210 × 148mm (A5 landscape, fills top half)
+  const PAGE_W = compact ? "105mm" : onA4 ? "210mm" : "148mm";
+  const PAGE_H = compact ? "148mm" : onA4 ? "148mm" : "210mm";
   const PAGE_PAD = compact ? "3mm 4mm 3mm" : "4mm 6mm 5mm";
   const BORDER = compact ? "0.8mm" : "1mm";
   // Type — Times serif for body (formal/legal document feel), Arial for
@@ -201,7 +217,15 @@ const renderHTML = (data: RenderInput): string => {
     color: #000;
     background: #e2e8f0;
   }
-  @page { size: ${twoUp ? "A5 landscape" : "A5"}; margin: 0; }
+  /* Page size matrix:
+       A4 + 1 copy   → A4 portrait, content pinned to top half, tear bottom
+       A4 + 2 copies → A4 portrait, sheet-twoup pinned to top half, tear bottom
+       A5 + 1 copy   → A5 portrait, full page
+       A5 + 2 copies → A5 landscape, full page (2 A6 portraits side-by-side) */
+  @page {
+    size: ${onA4 ? "A4 portrait" : twoUp ? "A5 landscape" : "A5 portrait"};
+    margin: 0;
+  }
 
   .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
   .sans { font-family: Arial, "Helvetica Neue", sans-serif; }
@@ -535,11 +559,83 @@ const renderHTML = (data: RenderInput): string => {
     border-left-width: 0.6mm;
   }
 
+  /* ── A4 TEAR WRAPPER ─────────────────────────────────────────
+     When printing on A4, the receipt content (single A5 OR two-up sheet)
+     pins to the top half of the A4 sheet. A dashed line + tiny scissor
+     icon at 148mm mark where the cashier should tear. The bottom half
+     stays blank. */
+  .a4-tear {
+    position: relative;
+    width: 210mm;
+    height: 297mm;
+    margin: 12px auto;
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.10);
+    overflow: hidden;
+  }
+  /* Inside the A4 wrapper, the inner content (sheet or single page) sits
+     pinned to the top-left, NO outer margin (the on-screen .page margin is
+     suppressed via the descendant selector below). */
+  .a4-tear .sheet-twoup,
+  .a4-tear > .page {
+    margin: 0;
+    box-shadow: none;
+  }
+  /* For single-copy A4, the .page itself is already 210×148mm (A5 landscape)
+     because PAGE_W/PAGE_H are switched when onA4 && !twoUp. No extra wrapper
+     needed — the .page just pins to the top of the A4 sheet. */
+  /* Cut/tear guide — horizontal dashed line + scissor icon at 148mm.
+     Visible both on-screen (so the cashier can see what they'll get) and
+     in print. */
+  .a4-tear::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    top: 148mm;
+    border-top: 0.4mm dashed #9ca3af;
+    pointer-events: none;
+  }
+  .a4-tear::after {
+    content: "✂  cut here  ✂";
+    position: absolute;
+    left: 50%;
+    top: calc(148mm - 2.8mm);
+    transform: translateX(-50%);
+    font-family: Arial, sans-serif;
+    font-size: 2.5mm;
+    color: #6b7280;
+    background: #fff;
+    padding: 0 3mm;
+    letter-spacing: 0.3mm;
+  }
+
   /* ── PRINT ─────────────────────────────────────────────────── */
   @media print {
     html, body { background: #fff; margin: 0; padding: 0; }
     body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-    ${twoUp ? `
+    ${onA4 ? `
+    /* A4 with content on top half — the A4 page is 210×297mm, our content
+       occupies the top 148mm and tears off at the dashed guide. */
+    .a4-tear {
+      margin: 0;
+      box-shadow: none;
+      width: 210mm;
+      height: 297mm;
+      page-break-after: auto;
+    }
+    .a4-tear .sheet-twoup,
+    .a4-tear > .page {
+      width: ${twoUp ? "210mm" : "210mm"};
+      height: 148mm;
+      box-shadow: none;
+      page-break-after: auto;
+    }
+    .a4-tear .sheet-twoup .page {
+      box-shadow: none;
+      page-break-after: auto;
+    }
+    ` : twoUp ? `
+    /* A5 landscape (210×148mm) — two A6 portraits edge-to-edge, no waste. */
     .sheet-twoup {
       margin: 0;
       box-shadow: none;
@@ -553,6 +649,7 @@ const renderHTML = (data: RenderInput): string => {
       page-break-after: auto;
     }
     ` : `
+    /* A5 portrait single copy — content fills the whole 148×210 page. */
     .page {
       margin: 0;
       box-shadow: none;
@@ -565,6 +662,7 @@ const renderHTML = (data: RenderInput): string => {
 </style>
 </head>
 <body>
+${onA4 ? `<div class="a4-tear">` : ""}
 ${twoUp ? `<div class="sheet-twoup">` : ""}
 ${Array.from({ length: copies }, (_, i) => {
   const copyLabel = copies === 2 ? (i === 0 ? "OFFICE COPY" : "PARENT COPY") : "";
@@ -626,7 +724,7 @@ ${Array.from({ length: copies }, (_, i) => {
       <tr>
         <th class="center">S.No</th>
         <th>Particulars</th>
-        <th class="right">Amount (₹)</th>
+        <th class="right">Amount (Rs.)</th>
       </tr>
     </thead>
     <tbody>
@@ -665,7 +763,7 @@ ${Array.from({ length: copies }, (_, i) => {
         <th>Date</th>
         <th>Mode</th>
         <th>Reference</th>
-        <th class="right">Amount (₹)</th>
+        <th class="right">Amount (Rs.)</th>
       </tr>
     </thead>
     <tbody>${paymentsRows}</tbody>
@@ -687,6 +785,7 @@ ${Array.from({ length: copies }, (_, i) => {
 </div>`;
 }).join("")}
 ${twoUp ? `</div>` : ""}
+${onA4 ? `</div>` : ""}
 </body>
 </html>`;
 };
@@ -724,6 +823,10 @@ Deno.serve(async (req: Request) => {
     if (!invoice_id) return errorResponse(400, "Missing invoice_id");
 
     const copies: 1 | 2 = body?.copies === 2 ? 2 : 1;
+    // Paper size: 'a4' (default — works on every school printer, content
+    // pinned to top half of A4 with a tear guide) or 'a5' (edge-to-edge,
+    // for schools whose printers are configured for A5 paper).
+    const paperSize: "a4" | "a5" = body?.paper_size === "a5" ? "a5" : "a4";
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(invoice_id)) return errorResponse(400, "Invalid invoice_id format");
@@ -789,6 +892,7 @@ Deno.serve(async (req: Request) => {
       academicYear,
       serverComputed: { total, paid, balance, status },
       copies,
+      paperSize,
     });
 
     return new Response(

@@ -281,13 +281,18 @@ app.post('/render-report-cards-bulk', requireAuth, async (req, res) => {
 //   - copies=1 → A5 portrait (148 × 210mm)
 //   - copies=2 → A5 landscape (210 × 148mm) with two A6 invoices side-by-side
 //
-// Body: { invoiceId: uuid, copies?: 1 | 2 }
+// Body: { invoiceId: uuid, copies?: 1 | 2, paperSize?: 'a4' | 'a5' }
 // Returns: application/pdf binary
+//
+// Paper size defaults to A4 (works on every Indian school printer without
+// tray reconfig — content pins to top half of A4 with a tear guide).
+// A5 is edge-to-edge for schools with A5 paper or pre-torn half-A4 sheets.
 
 app.post('/render-fee-receipt', requireAuth, async (req, res) => {
-  const { invoiceId, copies: copiesIn } = req.body || {};
+  const { invoiceId, copies: copiesIn, paperSize: paperIn } = req.body || {};
   if (!invoiceId) return res.status(400).json({ error: 'invoiceId required' });
   const copies: 1 | 2 = copiesIn === 2 ? 2 : 1;
+  const paperSize: 'a4' | 'a5' = paperIn === 'a5' ? 'a5' : 'a4';
 
   // The JWT was already validated by requireAuth — we just need to forward it.
   const authHeader = req.headers.authorization || '';
@@ -298,6 +303,7 @@ app.post('/render-fee-receipt', requireAuth, async (req, res) => {
       authToken: token,
       invoiceId,
       copies,
+      paperSize,
     });
     const safe = invoiceNumber.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80);
     res.setHeader('Content-Type', 'application/pdf');

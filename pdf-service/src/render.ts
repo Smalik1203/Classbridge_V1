@@ -212,8 +212,16 @@ export interface RenderFeeReceiptArgs {
   /** The user's JWT — forwarded to the edge function so RLS still applies. */
   authToken: string;
   invoiceId: string;
-  /** 1 = A5 portrait single, 2 = A5 landscape two-up. */
+  /** 1 = single copy, 2 = two copies (Office + Parent side-by-side). */
   copies: 1 | 2;
+  /**
+   * 'a4' (default): content pinned to top half of A4 portrait, tear bottom.
+   *                 Works on every school printer with standard A4 paper.
+   * 'a5':           edge-to-edge. Portrait for 1 copy (148×210), landscape
+   *                 for 2 copies (210×148). For schools with A5 paper or
+   *                 pre-torn half-A4 sheets.
+   */
+  paperSize: 'a4' | 'a5';
 }
 
 export interface RenderedFeeReceipt {
@@ -233,7 +241,11 @@ export const renderFeeReceiptPdf = async (
       'Authorization': `Bearer ${args.authToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ invoice_id: args.invoiceId, copies: args.copies }),
+    body: JSON.stringify({
+      invoice_id: args.invoiceId,
+      copies: args.copies,
+      paper_size: args.paperSize,
+    }),
   });
 
   if (!resp.ok) {
@@ -245,11 +257,19 @@ export const renderFeeReceiptPdf = async (
     throw new Error(body.error || 'Edge function returned no HTML');
   }
 
-  // A5 page size — landscape for two-up, portrait for single copy.
-  const isLandscape = args.copies === 2;
-  // A5 dimensions in mm: 148 × 210. Puppeteer accepts mm strings.
-  const widthMm = isLandscape ? 210 : 148;
-  const heightMm = isLandscape ? 148 : 210;
+  // Page size matrix matches the @page rule the edge function generated:
+  //   A4 (any copies) → A4 portrait 210×297 (content top half, tear guide)
+  //   A5 + 1 copy     → A5 portrait 148×210 (edge-to-edge)
+  //   A5 + 2 copies   → A5 landscape 210×148 (edge-to-edge, two A6 columns)
+  let widthMm: number;
+  let heightMm: number;
+  if (args.paperSize === 'a4') {
+    widthMm = 210; heightMm = 297;
+  } else if (args.copies === 2) {
+    widthMm = 210; heightMm = 148;
+  } else {
+    widthMm = 148; heightMm = 210;
+  }
 
   const browser = await getBrowser();
   const page = await browser.newPage();
