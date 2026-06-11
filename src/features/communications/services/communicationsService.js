@@ -1,4 +1,5 @@
 import { supabase } from '@/config/supabaseClient';
+import { storagePathForBucket } from '@/shared/utils/storagePaths.js';
 
 /**
  * Communications service — direct port of mobile services for
@@ -67,8 +68,34 @@ export const announcementsService = {
   },
 
   async remove(id) {
+    // Remove the attached image from storage first so deleting an announcement
+    // doesn't orphan its file in the Lms bucket. image_url is normally a raw
+    // path (announcements/...), but may be a full URL for legacy/mobile rows.
+    const { data: row } = await supabase
+      .from('announcements')
+      .select('image_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    const imgPath = announcementsService._lmsPathFromImageUrl(row?.image_url);
+    if (imgPath) {
+      const { error: storageErr } = await supabase.storage.from('Lms').remove([imgPath]);
+      if (storageErr && !(storageErr.message || '').toLowerCase().includes('not found')) {
+        throw storageErr;
+      }
+    }
+
     const { error } = await supabase.from('announcements').delete().eq('id', id);
     if (error) throw error;
+  },
+
+  /** Map a stored image_url (raw path or full Lms URL) to a bucket-relative path. */
+  _lmsPathFromImageUrl(imageUrl) {
+    if (!imageUrl) return null;
+    if (/^https?:\/\//i.test(imageUrl)) {
+      return storagePathForBucket(imageUrl, 'Lms');
+    }
+    return imageUrl; // already a bucket-relative path
   },
 
   async togglePin(id, pinned) {
@@ -82,10 +109,10 @@ export const announcementsService = {
     return data;
   },
 
-  async sendReminder(announcementId) {
+  async sendReminder(announcementId, { channels = ['push'] } = {}) {
     const { data, error } = await supabase.functions.invoke(
       'resend-announcement-notification',
-      { body: { announcement_id: announcementId } }
+      { body: { announcement_id: announcementId, channels } }
     );
     if (error) throw error;
     return data;

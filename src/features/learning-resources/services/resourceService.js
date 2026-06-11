@@ -1,12 +1,17 @@
 // src/services/resourceService.js
 import { supabase } from '@/config/supabaseClient';
 import { getSchoolCode } from '@/shared/utils/metadata.js';
-import { 
-  getCurrentUserWithValidation, 
+import { storagePathForBucket } from '@/shared/utils/storagePaths.js';
+import {
+  getCurrentUserWithValidation,
   createSecureFilters,
   enforceTenantIsolation,
-  TenantSecurityError 
+  TenantSecurityError
 } from '@/shared/utils/tenantSecurity.js';
+
+// Bucket that holds uploaded learning-resource files. Must match the bucket
+// used by the upload UI (LearningResources.jsx).
+const STORAGE_BUCKET = import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || 'Lms';
 
 // Helper function for secure filters
 const secureFilters = (filters) => createSecureFilters(filters);
@@ -179,10 +184,36 @@ export const updateLearningResource = async (id, updates) => {
 };
 
 /**
- * Delete a learning resource
+ * Delete a learning resource — removes the uploaded file from storage AND the
+ * DB row. Previously this only deleted the row, orphaning the underlying file
+ * in the `Lms` bucket (every "deleted" upload kept eating storage quota).
+ *
+ * External resources (YouTube links, typed URLs) have no storage object, so
+ * the storage delete is skipped for them.
  */
 export const deleteLearningResource = async (id) => {
   try {
+    // Look up the file URL first so we know what to remove from storage.
+    const { data: row, error: fetchErr } = await supabase
+      .from('learning_resources')
+      .select('content_url')
+      .eq('id', id)
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    // Delete the underlying file if content_url points at our own bucket.
+    const path = storagePathForBucket(row?.content_url, STORAGE_BUCKET);
+    if (path) {
+      const { error: storageErr } = await supabase
+        .storage.from(STORAGE_BUCKET)
+        .remove([path]);
+      // Don't abort the row delete if the file is already gone, but surface
+      // real failures (permissions, network) so they aren't silently swallowed.
+      if (storageErr && !(storageErr.message || '').toLowerCase().includes('not found')) {
+        throw storageErr;
+      }
+    }
+
     const { error } = await supabase
       .from('learning_resources')
       .delete()
