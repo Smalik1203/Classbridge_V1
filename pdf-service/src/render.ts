@@ -1,4 +1,4 @@
-import puppeteer, { type Browser } from 'puppeteer';
+import puppeteer, { type Browser, type Page } from 'puppeteer';
 import Handlebars from 'handlebars';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchTermReportData, fetchAnnualReportData, fetchExamReportData } from './data.js';
@@ -10,22 +10,49 @@ import { ST_GEORGE_LOGO_DATA_URL, ST_GEORGE_SEAL_DATA_URL } from './templates/as
 // Starting a Chromium process costs ~500-800ms. We launch once and reuse
 // across requests. The container restarts cleanly on errors via Railway's
 // restart policy if Puppeteer ever wedges.
+//
+// IMPORTANT: a cached resolved promise can point at a browser whose Chromium
+// process has since died — Railway sleeps idle containers, and the child
+// process can also crash/OOM independently. Reusing that dead handle yields
+// "Protocol error: Connection closed. Most likely the page has been closed."
+// on the next newPage(). So we (a) clear the cache when the browser emits
+// 'disconnected', and (b) re-check `connected` before handing it out.
 let browserPromise: Promise<Browser> | null = null;
-const getBrowser = (): Promise<Browser> => {
+
+const launchBrowser = (): Promise<Browser> => {
+  const p = puppeteer.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',  // /dev/shm is tiny in containers
+      '--disable-gpu',
+      '--no-zygote',
+    ],
+  });
+  // If the launch itself fails, drop the cache so the next call retries.
+  p.catch(() => { if (browserPromise === p) browserPromise = null; });
+  // Once we have a live browser, clear the cache the moment it disconnects
+  // (sleep/wake, crash, OOM) so the next request relaunches instead of
+  // reusing a dead handle.
+  p.then((browser) => {
+    browser.once('disconnected', () => { if (browserPromise === p) browserPromise = null; });
+  }).catch(() => { /* handled above */ });
+  return p;
+};
+
+const getBrowser = async (): Promise<Browser> => {
   if (!browserPromise) {
-    browserPromise = puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',  // /dev/shm is tiny in containers
-        '--disable-gpu',
-        '--no-zygote',
-      ],
-    });
-    browserPromise.catch(() => { browserPromise = null; });
+    browserPromise = launchBrowser();
   }
-  return browserPromise;
+  let browser = await browserPromise;
+  // Guard against a resolved-but-dead handle that hasn't fired 'disconnected'
+  // yet (or fired between await and use).
+  if (!browser.connected) {
+    browserPromise = launchBrowser();
+    browser = await browserPromise;
+  }
+  return browser;
 };
 
 // ── Handlebars helpers ──────────────────────────────────────────────────────
@@ -122,45 +149,73 @@ const pickTemplate = (kind: ReportKind, data: any): SchoolTemplateEntry => {
 const A4_HEIGHT_PX = 1123;
 const MIN_SCALE = 0.65;
 
-const htmlToPdf = async (html: string): Promise<Buffer> => {
-  const browser = await getBrowser();
-  const page = await browser.newPage();
-  // Set viewport to A4 width so element measurements match the print width
-  await page.setViewport({ width: 794, height: A4_HEIGHT_PX, deviceScaleFactor: 1 });
-  try {
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+// Detect the "browser/page went away" class of errors so we can retry once
+// with a freshly launched browser instead of failing the whole render.
+const isConnectionClosed = (err: unknown): boolean => {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes('connection closed') ||
+    msg.includes('page has been closed') ||
+    msg.includes('target closed') ||
+    msg.includes('session closed') ||
+    msg.includes('protocol error')
+  );
+};
 
-    // Measure content + compute scale ratio if it overflows
-    const naturalHeight = await page.evaluate(() => {
-      const el = document.querySelector<HTMLElement>('.page');
-      return el ? el.scrollHeight : document.body.scrollHeight;
-    });
-
-    if (naturalHeight > A4_HEIGHT_PX) {
-      const scale = Math.max(MIN_SCALE, A4_HEIGHT_PX / naturalHeight);
-      await page.evaluate((s) => {
-        const el = document.querySelector<HTMLElement>('.page');
-        if (el) {
-          el.style.transformOrigin = 'top left';
-          el.style.transform = `scale(${s})`;
-          // Compensate width so scaled content still fills the page edge-to-edge
-          el.style.width = `${100 / s}%`;
-        }
-      }, scale);
+// Open a fresh page, run `fn`, always close the page. If the browser/page
+// died (sleep/wake, crash), drop the cached browser and retry once.
+const withPage = async <T>(fn: (page: Page) => Promise<T>): Promise<T> => {
+  const run = async (): Promise<T> => {
+    const browser = await getBrowser();
+    const page = await browser.newPage();
+    try {
+      return await fn(page);
+    } finally {
+      await page.close().catch(() => { /* page may already be gone */ });
     }
-
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: '0', right: '0', bottom: '0', left: '0' }, // page CSS owns margins
-      pageRanges: '1', // hard guarantee: never emit a 2nd page
-    });
-    return Buffer.from(pdf);
-  } finally {
-    await page.close();
+  };
+  try {
+    return await run();
+  } catch (err) {
+    if (!isConnectionClosed(err)) throw err;
+    browserPromise = null; // force a fresh launch on retry
+    return await run();
   }
 };
+
+const htmlToPdf = (html: string): Promise<Buffer> => withPage(async (page) => {
+  // Set viewport to A4 width so element measurements match the print width
+  await page.setViewport({ width: 794, height: A4_HEIGHT_PX, deviceScaleFactor: 1 });
+  await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+
+  // Measure content + compute scale ratio if it overflows
+  const naturalHeight = await page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>('.page');
+    return el ? el.scrollHeight : document.body.scrollHeight;
+  });
+
+  if (naturalHeight > A4_HEIGHT_PX) {
+    const scale = Math.max(MIN_SCALE, A4_HEIGHT_PX / naturalHeight);
+    await page.evaluate((s) => {
+      const el = document.querySelector<HTMLElement>('.page');
+      if (el) {
+        el.style.transformOrigin = 'top left';
+        el.style.transform = `scale(${s})`;
+        // Compensate width so scaled content still fills the page edge-to-edge
+        el.style.width = `${100 / s}%`;
+      }
+    }, scale);
+  }
+
+  const pdf = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    preferCSSPageSize: true,
+    margin: { top: '0', right: '0', bottom: '0', left: '0' }, // page CSS owns margins
+    pageRanges: '1', // hard guarantee: never emit a 2nd page
+  });
+  return Buffer.from(pdf);
+});
 
 export interface RenderArgs {
   supabase: SupabaseClient;
@@ -271,19 +326,18 @@ export const renderFeeReceiptPdf = async (
     widthMm = 148; heightMm = 210;
   }
 
-  const browser = await getBrowser();
-  const page = await browser.newPage();
-  // Viewport in px (1mm ≈ 3.78px at 96dpi) so element measurements roughly
-  // match the print page — doesn't need to be exact since we use
-  // `preferCSSPageSize` below.
-  await page.setViewport({
-    width: Math.round(widthMm * 3.78),
-    height: Math.round(heightMm * 3.78),
-    deviceScaleFactor: 1,
-  });
-  try {
-    await page.setContent(body.html_content, { waitUntil: 'networkidle0', timeout: 30000 });
-    const pdf = await page.pdf({
+  const html = body.html_content;
+  const pdf = await withPage(async (page) => {
+    // Viewport in px (1mm ≈ 3.78px at 96dpi) so element measurements roughly
+    // match the print page — doesn't need to be exact since we use
+    // `preferCSSPageSize` below.
+    await page.setViewport({
+      width: Math.round(widthMm * 3.78),
+      height: Math.round(heightMm * 3.78),
+      deviceScaleFactor: 1,
+    });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    const out = await page.pdf({
       // The HTML has `@page { size: A5 [landscape] }` so we let CSS own size
       // and just hand Puppeteer the matching width/height as a fallback.
       width: `${widthMm}mm`,
@@ -292,13 +346,12 @@ export const renderFeeReceiptPdf = async (
       preferCSSPageSize: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
     });
-    return {
-      pdf: Buffer.from(pdf),
-      invoiceNumber: body.invoice_number || args.invoiceId.slice(0, 8),
-    };
-  } finally {
-    await page.close();
-  }
+    return Buffer.from(out);
+  });
+  return {
+    pdf,
+    invoiceNumber: body.invoice_number || args.invoiceId.slice(0, 8),
+  };
 };
 
 // ── Bulk render ────────────────────────────────────────────────────────────
